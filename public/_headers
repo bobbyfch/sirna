@@ -1,0 +1,15 @@
+# These headers apply to static assets served by Cloudflare Workers.
+# CSP disesuaikan untuk Sirna: satu-satunya origin eksternal yang dipakai
+# index.html adalah Tailwind Play CDN (cdn.tailwindcss.com) dan cdnjs untuk
+# JSZip (cdnjs.cloudflare.com). Inline script/style memang dipakai halaman
+# ini (6 script inline, 10 blok <style>, 48 atribut style), jadi
+# 'unsafe-inline' diperlukan untuk script-src dan style-src. blob: di
+# img-src/media-src untuk pratinjau file via URL.createObjectURL, data:
+# untuk favicon SVG inline.
+#
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

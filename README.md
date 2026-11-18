@@ -25,23 +25,36 @@ lainnya. File tidak pernah diunggah — semua proses berjalan di perangkatmu.
 
 ## Menjalankan
 
-Buka `index.html` langsung di browser, atau sajikan sebagai situs statis:
+Buka `public/index.html` langsung di browser, atau sajikan sebagai situs statis:
 
 ```bash
-npx serve .
+npm run dev
 # atau
-python3 -m http.server
+python3 -m http.server public
 ```
 
 ## Deploy
 
-Situs statis. Deploy yang disarankan: **Cloudflare Pages** dari branch `main`,
-domain `sirna.limaraya.com`. Tidak ada build step.
+Deploy mengikuti template `bobbyfch/cloudflare-starter`: **Cloudflare Workers
+(Static Assets) + Workers Builds** — satu-satunya jalur deploy, bukan
+Cloudflare Pages dan bukan GitHub Actions deploy.
+
+- Repo GitHub: `bobbyfch/sirna`, branch produksi `main`
+- Cloudflare Workers Builds: build command `npm run verify`, deploy command
+  `npm run deploy:ci`, Node 24, preview builds off
+- Domain: `sirna.limaraya.com` (custom domain di `wrangler.jsonc`, Worker
+  name `sirna`)
+- Build lokal: `npm run verify` (check → test → build `public/` ke `dist/` →
+  guard aset → test dist). Deploy manual (bukan rutin): `npm run deploy:ci`.
+- Rollback: revert commit di `main`, push, periksa build baru.
 
 ## Catatan teknis
 
-- Satu file `index.html` (Tailwind via CDN, JSZip dimuat on-demand saat membuat ZIP)
-- Aset gambar (logo generator di `assets/logos/`, maskot di `assets/`) disimpan
-  terpisah karena bersifat biner
-- Service worker `sw.js` harus berada di root domain agar scope PWA mencakup
-  seluruh situs
+- Satu file `public/index.html` (Tailwind via CDN, JSZip dimuat on-demand saat membuat ZIP)
+- Aset gambar (logo generator di `public/assets/logos/`, maskot di `public/assets/`)
+  disimpan terpisah karena bersifat biner
+- Service worker `public/sw.js` didaftarkan di root domain agar scope PWA
+  mencakup seluruh situs (salinan asli di `public/assets/sw.js` dipertahankan
+  untuk artefak Muse). Manifest PWA di `public/assets/manifest.webmanifest`.
+- CSP di `public/_headers` mengizinkan tepat dua origin eksternal yang dipakai
+  halaman: Tailwind Play CDN dan cdnjs (JSZip)

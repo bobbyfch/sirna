@@ -1,0 +1,3 @@
+# Sirna — situs publik, boleh diindeks
+User-agent: *
+Allow: /
