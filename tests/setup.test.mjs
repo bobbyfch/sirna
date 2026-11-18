@@ -16,7 +16,7 @@ test('One-command setup updates name, domain and lock together', async t => {
   const temp=await mkdtemp(join(tmpdir(),'starter-test-'));
   t.after(()=>rm(temp,{recursive:true,force:true}));
   for(const path of ['package.json','package-lock.json','wrangler.jsonc']) await cp(join(source,path),join(temp,path));
-  await cp(join(source,'public/index.html'),join(temp,'public/index.html'),{recursive:true,force:true});
+  await cp(join(source,'index.html'),join(temp,'index.html'));
   await cp(join(source,'scripts/setup.mjs'),join(temp,'scripts/setup.mjs'),{recursive:true,force:true});
   // Each generated website runs its own tests after setup. Recreate an untouched
   // starter fixture rather than assuming the current repository is unconfigured.
@@ -24,7 +24,7 @@ test('One-command setup updates name, domain and lock together', async t => {
   const workerFile=join(temp,'wrangler.jsonc');
   const packageFile=join(temp,'package.json');
   const lockFile=join(temp,'package-lock.json');
-  const htmlFile=join(temp,'public/index.html');
+  const htmlFile=join(temp,'index.html');
   const worker=JSON.parse(await readFile(workerFile,'utf8'));
   worker.name='starter-not-configured'; worker.workers_dev=true; delete worker.routes;
   const pkg=JSON.parse(await readFile(packageFile,'utf8')); pkg.name=templateName;
@@ -42,7 +42,7 @@ test('One-command setup updates name, domain and lock together', async t => {
   assert.equal(w.routes[0].pattern,'nice.example.com'); assert.equal(w.workers_dev,false);
   const profile = JSON.parse(await readFile(join(temp,'project.config.json'),'utf8'));
   assert.equal(profile.name,'nice-project'); assert.equal(profile.security_profile,'app');
-  assert.match(await readFile(join(temp,'public/index.html'),'utf8'),/<title>Nice Project<\/title>/);
+  assert.match(await readFile(join(temp,'index.html'),'utf8'),/<title>Nice Project<\/title>/);
   assert.throws(()=>execFileSync(process.execPath,[join(temp,'scripts/setup.mjs'),'different-project'],{stdio:'pipe'}));
   assert.throws(()=>execFileSync(process.execPath,[join(temp,'scripts/setup.mjs'),'nice-project','nice.example.com','--profile','cdn'],{stdio:'pipe'}));
 });

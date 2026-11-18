@@ -38,7 +38,7 @@ await writeFile(paths['package.json'], JSON.stringify(pkg,null,2)+'\n');
 await writeFile(paths['package-lock.json'], JSON.stringify(lock,null,2)+'\n');
 await writeFile(paths['wrangler.jsonc'], JSON.stringify(wrangler,null,2)+'\n');
 await writeFile(profilePath, JSON.stringify({schema_version:1,name,security_profile:profile},null,2)+'\n');
-const htmlPath = new URL('../public/index.html', import.meta.url);
+const htmlPath = new URL('../index.html', import.meta.url); // Vite: entry di root, bukan public/
 const html = await readFile(htmlPath,'utf8');
 const title = name.split('-').map(x=>x[0].toUpperCase()+x.slice(1)).join(' ');
 await writeFile(htmlPath,html.replaceAll('__SITE_NAME__',title));

@@ -15,6 +15,8 @@ test('Security headers and non-indexed template', async () => {
   const headers=await read('public/_headers');
   assert.match(headers,/Content-Security-Policy:/);
   assert.match(headers,/X-Content-Type-Options: nosniff/);
+  // Migrasi Vite: Tailwind + JSZip dibundel — CSP tidak boleh lagi nyebut CDN.
+  assert.doesNotMatch(headers,/cdn\.tailwindcss\.com|cdnjs\.cloudflare\.com/);
   const config=JSON.parse(await read('wrangler.jsonc'));
   if (config.name === 'starter-not-configured') {
     assert.match(await read('public/robots.txt'),/Disallow: \//);

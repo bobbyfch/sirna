@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>
+/* Tema: pilihan manual dari tombol terang/gelap menang dari setelan sistem;
+   kalo belum pernah milih, ikut terang/gelap HP / komputer. Dijalanin sedini mungkin biar nggak kedip. */
+(function(){var dark=false;try{var t=localStorage.getItem("sirna-theme")||localStorage.getItem("bebas-theme")||localStorage.getItem("labeloff-theme");if(t==="dark")dark=true;else if(t!=="light")dark=window.matchMedia("(prefers-color-scheme: dark)").matches;}catch(e){try{dark=window.matchMedia("(prefers-color-scheme: dark)").matches;}catch(_){}}if(dark)document.documentElement.classList.add("dark");})();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2364B5FF'/%3E%3Cstop offset='1' stop-color='%23007AFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='24' height='24' rx='6' fill='url(%23g)'/%3E%3Cpath d='M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z' fill='white'/%3E%3Ccircle cx='7.5' cy='7.5' r='1.7' fill='%230050B8'/%3E%3Cpath d='M4.2 19.8 19.8 4.2' stroke='%230050B8' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="description" content="Sirna — hapus label & metadata AI dari foto dan video. 100% lokal di browser: file tidak pernah diunggah ke server.">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F5F5F7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sirna — Hapus Label AI dari Foto & Video">
+<meta property="og:description" content="Hapus label & metadata AI dari foto dan video, 100% lokal di browser. Tanpa unggah, tanpa server.">
+<meta property="og:locale" content="id_ID">
+<link rel="manifest" href="/assets/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sirna">
+<title>Sirna — Hapus Label AI dari Foto &amp; Video</title>
+<!-- JSZip dibundel Vite (npm jszip) dan dimuat malas (dynamic import) dari
+     handler ZIP — lihat loadJSZip() di src/app.ts. -->
+
+
+
+
+
+
+
+
+
+
+</head>
+<body class="bg-[#F5F5F7] text-[#1D1D1F] dark:bg-black dark:text-[#F5F5F7] antialiased pb-28">
+<!-- Icon pack (Lucide-style, stroke) — dipanggil via <svg class="ic"><use href="#i-…"/></svg> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+<symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+<symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+<symbol id="i-database" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+<symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+<symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.7a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-2a2 2 0 0 0 1.3-1.3Z"/><path d="M19 3v2"/><path d="M20 4h-2"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".8" fill="currentColor"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+<symbol id="i-eraser" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
+<symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+<symbol id="i-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></symbol>
+<symbol id="i-archive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+</defs>
+</svg>
+
+<!-- Header + topbar tools (PC: megamenu · HP: daftar simpel 1 kolom, semua tool kelihatan sekali buka) -->
+<header class="sticky top-0 z-40 bg-[#FBFBFD]/80 dark:bg-black/60 backdrop-blur-xl border-b" style="border-color:var(--line)">
+  <div class="relative max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <span class="logo-mark w-8 h-8 rounded-[9px] grid place-items-center shrink-0" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" class="w-[19px] h-[19px]"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" fill="#fff"/><circle cx="7.5" cy="7.5" r="1.7" fill="#0050B8"/><path d="M4.2 19.8 19.8 4.2" stroke="#0050B8" stroke-width="2.4" stroke-linecap="round"/></svg></span>
+      <span class="font-semibold text-[17px] tracking-tight truncate">Sirna</span>
+      <span class="hidden lg:block text-[12.5px] font-medium truncate" style="color:var(--muted)">sirna.limaraya.com</span>
+    </div>
+    <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+      <span class="hidden md:flex items-center gap-1.5 text-xs font-medium" style="color:var(--muted)"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg>100% lokal</span>
+      <button type="button" id="themeBtn" aria-label="Ganti ke mode gelap" aria-pressed="false" title="Mode terang / gelap" class="w-10 h-10 shrink-0 grid place-items-center rounded-full border bg-white dark:bg-[#1C1C1E]" style="border-color:var(--line)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="icon-moon w-5 h-5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="icon-sun w-5 h-5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a href="#dropZone" id="topAddBtn" class="btn-ic min-h-[40px] px-4 rounded-full grad-bg text-white font-semibold text-sm shrink-0"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-plus"/></svg>File</a>
+      </div>
+
+  </div>
+</header>
+
+<main class="max-w-3xl mx-auto px-4">
+
+  <!-- Judul ringkas — TANPA maskot di keadaan awal: hero ramping biar
+       dropzone langsung kelihatan. Naya cuma muncul pas proses, sebagai
+       panggung melayang kecil di dekat dock progres (markup-nya ada di
+       bawah, sesudah #procDock). -->
+  <section class="relative pt-8 sm:pt-12 pb-6" id="heroSection">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <h1 class="rise rise-1 relative font-bold tracking-tight leading-[1.06] text-[34px] sm:text-[50px]">Hapus label AI<br class="hidden sm:block"> <span class="grad-text">dari foto &amp; video</span></h1>
+    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Taruh file. Beres.</p>
+    <div class="hero-steps rise rise-2" aria-label="Alur: deteksi, bersihkan, simpan">
+      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg></span>Deteksi</div>
+      <span class="hero-step-conn" aria-hidden="true"></span>
+      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-eraser"/></svg></span>Bersihkan</div>
+      <span class="hero-step-conn" aria-hidden="true"></span>
+      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span>Simpan</div>
+    </div>
+  </section>
+
+  <!-- ═══ SATU WORKSPACE — semua tahap & olah lanjut nyambung di file yang sama ═══ -->
+  <div class="tool-panel" id="panel-cleaner">
+  <!-- 1 · Drop -->
+  <div id="dropZone" role="button" tabindex="0" aria-label="Upload foto atau video"
+    class="card rise rise-4 border-2 border-dashed p-7 sm:p-9 text-center cursor-pointer select-none" style="border-color:#C9CCC9">
+    <div class="dz-inner-3d">
+    <div class="w-14 h-14 mx-auto rounded-full grad-bg text-white grid place-items-center"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-upload"/></svg></div>
+    <h2 class="mt-4 font-semibold text-[21px] tracking-tight" id="dzTitle">Drop file di sini</h2>
+    <p class="mt-1 text-[15px]" style="color:var(--muted)" id="dzHint">Foto &amp; video · banyak sekaligus</p>
+    <div class="dz-icons" aria-hidden="true">
+      <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-image"/></svg></span>
+      <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-film"/></svg></span>
+      <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-layers"/></svg></span>
+    </div>
+    </div>
+    <div class="mt-6 flex flex-wrap justify-center gap-2">
+      <span id="pickLabel" class="btn-ic min-h-[48px] px-6 rounded-full grad-bg text-white font-semibold text-sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-image"/></svg><span id="pickLabelText">Pilih File</span></span>
+      <!-- Cuma muncul di HP (mode galeri): picker video TERPISAH dari galeri foto.
+           accept campuran "image/*,video/*" diterjemahkan Android jadi intent file
+           umum (tipe bintang semua) sehingga HyperOS/MIUI & banyak OEM lain ngebukanya di file
+           manager, BUKAN galeri. Accept satu kategori ("video/*" saja / "image/*"
+           saja) yang dirutekan Android ke pemilih media/galeri. -->
+      <button type="button" id="videoPickBtn" class="btn-ic min-h-[44px] px-5 rounded-full font-semibold text-sm border" style="border-color:var(--line);display:none"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-film"/></svg>Video</button>
+      <!-- Tombol folder mulai display:none — JS (deteksi caps) cuma nampilin di perangkat
+           yang beneran bisa milih folder. Di HP tombolnya nggak pernah muncul sama sekali,
+           jadi nggak ada lagi teks "belum didukung" yang ujungnya tetep buka picker file. -->
+      <button type="button" id="folderBtn" class="btn-ic min-h-[44px] px-5 rounded-full font-semibold text-sm border" style="border-color:var(--line);display:none"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-folder"/></svg>Folder</button>
+    </div>
+  </div>
+  <!-- PENTING: input file WAJIB di luar #dropZone. Dulu input ada di dalam dropzone,
+       jadi klik programatik folderInput.click() ikut naik (bubbling) ke handler klik
+       dropzone dan fileInput.click() ikut kepanggil — dua picker tabrakan, picker folder
+       ke-cancel / ketimpa di Windows & desktop lain, dan di HP tombolnya mati total. -->
+  <!-- Input ini detail implementasi: user berinteraksi lewat dropzone & tombol Pilih Folder yang
+       kelihatan, jadi input dikeluarkan dari accessibility tree (aria-hidden + tabindex -1)
+       biar nggak kebaca sebagai kontrol tak-terlihat. Klik programatiknya tetap jalan normal. -->
+  <input type="file" id="fileInput" class="sr-file-input" accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/quicktime,video/webm" multiple aria-hidden="true" tabindex="-1">
+  <input type="file" id="folderInput" class="sr-file-input" webkitdirectory directory multiple aria-hidden="true" tabindex="-1">
+  <!-- Input video khusus HP: accept SATU kategori "video/*" (lihat catatan di tombol Pilih Video) -->
+  <input type="file" id="videoInput" class="sr-file-input" accept="video/*" multiple aria-hidden="true" tabindex="-1">
+
+  <!-- Pengaturan — satu kartu ringkas, selalu kelihatan -->
+  <div class="card mt-4 p-4 sm:p-5" id="settingsCard">
+    <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-sparkles"/></svg></span>Pengaturan</div>
+    <div class="flex flex-col gap-4 mt-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-image"/></svg></span>Format</div>
+          <div class="seg mt-2" role="group" aria-label="Format output">
+            <button type="button" data-format="same" aria-pressed="true">Asli</button>
+            <button type="button" data-format="image/jpeg" aria-pressed="false">JPG</button>
+            <button type="button" data-format="image/png" aria-pressed="false">PNG</button>
+            <button type="button" data-format="image/webp" aria-pressed="false">WebP</button>
+          </div>
+        </div>
+        <div>
+          <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eraser"/></svg></span>Mode</div>
+          <div class="seg mt-2" role="group" aria-label="Mode cleaning">
+            <button type="button" data-mode="std" aria-pressed="true">Standar</button>
+            <button type="button" data-mode="deep" aria-pressed="false">Deep</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 items-start">
+        <div>
+          <div class="flex justify-between items-center">
+            <label for="qualityRange" class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-gauge"/></svg></span>Kualitas</label>
+            <span class="font-bold text-accent text-sm"><span id="qVal">92</span>%</span>
+          </div>
+          <input type="range" id="qualityRange" min="70" max="100" value="92" class="mt-2.5">
+        </div>
+        <div>
+          <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-tag"/></svg></span>Nama file</div>
+          <div class="seg mt-2" role="group" aria-label="Nama file hasil">
+            <button type="button" data-dl="copy" aria-pressed="true">-clean</button>
+            <button type="button" data-dl="same" aria-pressed="false">Sama</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · Hasil -->
+  <section id="queueSection" class="hidden mt-8">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <h2 class="font-bold text-[22px] tracking-tight">File kamu <span id="statsText" class="text-sm font-medium ml-1" style="color:var(--muted)"></span></h2>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" id="restartBtn" class="icon-btn" style="color:var(--muted)" title="Mulai ulang" aria-label="Mulai ulang — buang semua file"><svg class="ic" aria-hidden="true"><use href="#i-rotate"/></svg></button>
+        <button type="button" id="addMoreBtn" class="icon-btn" title="Tambah file" aria-label="Tambah file" style="background:var(--accent);color:#fff"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
+      </div>
+    </div>
+    <div id="list" class="mt-3 flex flex-col gap-2.5"></div>
+  </section>
+  </div><!-- /panel-cleaner -->
+
+  <!-- Logo generator yang didukung — MARQUEE jalan pelan (dekorasi, pause pas di-hover) -->
+  <div class="relative mt-10" id="brandWrap">
+    <div class="brand-marquee">
+      <div class="brand-track" id="brandTrack" aria-label="Aplikasi AI yang didukung: ChatGPT, OpenAI, Midjourney, Gemini, Stable Diffusion, Adobe Firefly, Meta AI, Leonardo, Ideogram, FLUX, Sora, Veo, Runway, Kling, Luma"></div>
+    </div>
+  </div>
+
+  <!-- FAQ — 3 pertanyaan aja, satu paragraf pendek per jawaban -->
+  <section class="mt-16 mb-4" id="faqSection">
+    <h2 class="font-bold text-[26px] tracking-tight btn-ic" style="justify-content:flex-start"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-help"/></svg></span>Sering ditanya</h2>
+    <div class="mt-2 border-t" style="border-color:var(--line)">
+      <details class="border-b" style="border-color:var(--line)">
+        <summary class="cursor-pointer font-semibold text-[15px] py-4 min-h-[44px] flex items-center justify-between gap-3 list-none"><span class="faq-q"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-scan"/></svg></span>Kenapa sosmed bisa tau fotoku dari AI?</span> <span class="faq-arrow font-bold text-accent text-lg leading-none">+</span></summary>
+        <p class="text-sm leading-relaxed pb-5 max-w-2xl" style="color:var(--muted)">Karena di dalam file ada catatan "dibuat AI" — dari metadata dan label C2PA. Sirna menghapus catatan itu, jadi pas kamu upload ulang, sosmed nggak lagi nganggep fotomu konten AI.</p>
+      </details>
+      <details class="border-b" style="border-color:var(--line)">
+        <summary class="cursor-pointer font-semibold text-[15px] py-4 min-h-[44px] flex items-center justify-between gap-3 list-none"><span class="faq-q"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg></span>File asliku aman?</span> <span class="faq-arrow font-bold text-accent text-lg leading-none">+</span></summary>
+        <p class="text-sm leading-relaxed pb-5 max-w-2xl" style="color:var(--muted)">Aman. Hasilnya file baru, asli tidak diubah. Semua diproses di perangkatmu.</p>
+      </details>
+      <details class="border-b" style="border-color:var(--line)">
+        <summary class="cursor-pointer font-semibold text-[15px] py-4 min-h-[44px] flex items-center justify-between gap-3 list-none"><span class="faq-q"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-download"/></svg></span>Hasilnya nggak bisa disimpan?</span> <span class="faq-arrow font-bold text-accent text-lg leading-none">+</span></summary>
+        <p class="text-sm leading-relaxed pb-5 max-w-2xl" style="color:var(--muted)"><b>Simpan</b> → <b>Simpan ke File / Foto</b>. Atau tekan lama hasil besarnya → Simpan.</p>
+      </details>
+    </div>
+  </section>
+
+  <footer class="py-6 flex justify-between items-center gap-3 flex-wrap text-xs" style="color:var(--muted)">
+    <span>Sirna · sirna.limaraya.com</span>
+    <button type="button" id="installBtn" class="hidden items-center gap-1.5 min-h-[36px] px-3.5 rounded-full border font-semibold text-xs" style="border-color:var(--line);color:var(--accent)"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-download"/></svg>Pasang Sirna di HP</button>
+    <span>© 2026 Bobby Fajar Christian · Bagian dari semesta limaraya.com</span>
+  </footer>
+</main>
+
+<!-- Batch bar — satu baris, satu aksi utama -->
+<div id="batchBar" class="hidden bg-white/95 dark:bg-[#141517]/95 backdrop-blur border-t" style="border-color:var(--line);padding-bottom:env(safe-area-inset-bottom)">
+  <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
+    <span id="batchStats" class="text-sm font-semibold mr-auto truncate"></span>
+    <button type="button" id="zipBtn" class="btn-ic min-h-[44px] px-5 rounded-full grad-bg text-white font-semibold text-sm disabled:opacity-40 shrink-0" disabled><svg class="ic ic-sm" aria-hidden="true"><use href="#i-archive"/></svg><span>ZIP</span></button>
+    <button type="button" id="clearBtn" class="icon-btn shrink-0" style="color:var(--muted)" title="Hapus semua" aria-label="Hapus semua"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button>
+  </div>
+</div>
+
+<!-- Dock progres batch: melayang di bawah selama proses jalan, biar status
+     tetap kelihatan di HP walau user lagi scroll di kartu mana pun.
+     Tombol "Lihat" lompat ke kartu yang lagi diproses. -->
+<div id="procDock" class="hidden" role="status" aria-live="polite">
+  <div class="pd-row">
+    <span class="spinner pd-spin" aria-hidden="true"></span>
+    <span class="pd-text" id="procDockText">Membersihkan…</span>
+    <button type="button" id="procDockBtn">Lihat</button>
+  </div>
+  <div class="pd-track"><div id="procDockBar"></div></div>
+</div>
+
+<!-- Maskot Tanaya — PANGGUNG PROSES: melayang kecil di pojok kiri bawah,
+     cuma muncul (kelas .show dari JS) selama ada file yang lagi dibersihin:
+     pose gosok, balon kata ngikutin status, ngerayain
+     pas batch beres lalu hilang lagi. Di luar momen proses elemen ini
+     visibility:hidden + pointer-events:none — nol ruang di layout awal. -->
+<div class="mascot-stage" id="mascotStage">
+  <div class="mascot-bubble" id="mascotBubble" role="status" aria-live="polite">Lagi dibersihin…</div>
+  <div class="mascot-scene">
+    <div class="mascot-3d" id="mascot3d" title="Ketuk aku!">
+      <div class="mascot-float">
+        <div class="mascot-pose pose-idle">
+          <img class="mascot-img" src="/assets/mascot-tanaya-body.webp" alt="Maskot Sirna, Naya dari Limaraya versi 3D lucu: hoodie biru, rok putih, melambai sambil memegang label yang sudah dilepas" width="440" height="660" decoding="async">
+          <img class="mascot-hand" src="/assets/mascot-tanaya-hand.webp" alt="" aria-hidden="true" width="440" height="660" decoding="async">
+        </div>
+        <img class="mascot-pose pose-work" src="/assets/mascot-tanaya-work.webp" alt="" aria-hidden="true" width="440" height="660" loading="lazy" decoding="async">
+        <img class="mascot-pose pose-celebrate" src="/assets/mascot-tanaya-celebrate.webp" alt="" aria-hidden="true" width="440" height="660" loading="lazy" decoding="async">
+        <span class="sparkle s1" aria-hidden="true"></span>
+        <span class="sparkle s2" aria-hidden="true"></span>
+        <span class="sparkle s3" aria-hidden="true"></span>
+      </div>
+    </div>
+  </div>
+  <div class="mascot-shadow" aria-hidden="true"></div>
+</div>
+
+<!-- Preview besar -->
+<div id="previewModal" class="hidden bg-black/90 p-4">
+  <div class="max-w-3xl mx-auto">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <p class="text-white font-bold text-sm truncate" id="previewName"></p>
+      <button type="button" id="previewClose" class="icon-btn shrink-0" style="background:#fff;color:#171717" title="Tutup" aria-label="Tutup"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <div id="previewBody" class="grid place-items-center"></div>
+    <p class="text-white/80 text-sm leading-relaxed mt-3 btn-ic" style="justify-content:flex-start"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-download"/></svg><b class="text-white">Tekan lama → Simpan</b></p>
+  </div>
+</div>
+
+<div id="toast" class="hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold text-sm px-4 py-2.5 rounded-full shadow-lg max-w-[92vw] text-center" style="bottom:calc(84px + env(safe-area-inset-bottom))"></div>
+
+
+
+
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

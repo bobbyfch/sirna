@@ -1,0 +1,828 @@
+/* Sirna — stylesheet hasil migrasi Vite + Tailwind v4.
+   Blok-blok <style> lama digabung di sini (urutan dipertahankan), di dalam
+   @layer components supaya utilitas Tailwind tetap menang saat seri — sama
+   seperti dulu ketika Play CDN menyuntikkan <style>-nya di akhir <head>. */
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --color-accent: #0071E3;
+  --color-accentdark: #005BB5;
+}
+
+@layer components {
+  :root{ --line:#E5E7EB; --muted:#6B7280; color-scheme:light; }
+  html.dark{ --line:#26282B; --muted:#9CA3AF; color-scheme:dark; }
+  html{scroll-behavior:smooth}
+  body{font-family:"Plus Jakarta Sans",system-ui,sans-serif}
+  .hidden{display:none !important}
+  /* input file jangan display:none / hidden — sebagian browser HP & WebView nolak buka picker dari elemen display:none. Cukup disembunyikan secara visual. */
+  .sr-file-input{position:absolute !important;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .card{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 1px 2px rgba(10,20,32,.03)}
+  .dark .card{background:#141517;box-shadow:none}
+  .seg{display:flex;background:#F3F4F6;border-radius:10px;padding:3px;gap:2px}
+  .dark .seg{background:#1E2023}
+  .seg button{flex:1;min-height:36px;padding:0 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+  .seg button[aria-pressed="true"]{background:#fff;color:#111827;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .dark .seg button[aria-pressed="true"]{background:#2C2F33;color:#F9FAFB;box-shadow:none}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;background:#E5E7EB;outline:none}
+  .dark input[type=range]{background:#2C2F33}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#0071E3;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#0071E3;border:3px solid #fff;cursor:pointer}
+  #dropZone{transition:border-color .2s ease, background .2s ease, box-shadow .25s ease, transform .25s ease;position:relative}
+  #dropZone.drop-drag{border-color:#007AFF;background:rgba(0,113,227,.06);box-shadow:0 0 0 5px rgba(10,132,255,.14),0 18px 40px -18px rgba(0,113,227,.45);transform:scale(1.01)}
+  details summary::-webkit-details-marker{display:none}
+  details[open ] .faq-arrow{transform:rotate(45deg)}
+  .faq-arrow{transition:transform .15s ease}
+  #batchBar{position:fixed;bottom:0;left:0;right:0;z-index:40}
+  #previewModal{position:fixed;inset:0;z-index:50;overflow:auto}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);z-index:60;transition:opacity .25s ease, translate .25s ease}
+  img,video{max-width:100%}
+  /* ——— Anti melebar ke samping (HP): halaman nggak boleh bisa digeser horizontal.
+     overflow-x:clip di body nggak bikin scroll container baru, jadi header sticky tetap jalan.
+     Ini jaring pengaman; sumber overflow-nya sendiri tetap dibenerin satu-satu di bawah. */
+  body{overflow-x:hidden;overflow-x:clip}
+  /* kartu file: konten apa pun di dalamnya nggak boleh ngedorong halaman lebih lebar dari layar */
+  #list .card{overflow:hidden}
+  #list code{overflow-wrap:anywhere;word-break:break-word}
+  #list p{overflow-wrap:anywhere}
+  /* daftar "Yang dibersihin": kolom kanan boleh menyusut & membungkus, bukan ngedorong keluar */
+  .clean-list li>span{min-width:0}
+  /* ——— 2026 gradient system (teal → cyan → lime, no purple-blue cliché) ——— */
+  .grad-text{background:linear-gradient(92deg,#0071E3 0%,#0A84FF 48%,#0071E3 105%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .grad-bg{background:linear-gradient(120deg,#005BB5,#007AFF 52%,#0A84FF);background-size:160% 160%;transition:background-position .4s ease, transform .2s ease, box-shadow .25s ease}
+  .grad-bg:hover{background-position:90% 50%;box-shadow:0 10px 24px -10px rgba(0,122,255,.55)}
+  .grad-bg:active{transform:scale(.98)}
+  .hero-glow{position:absolute;inset:-40px 0 auto;height:340px;pointer-events:none;background:radial-gradient(520px 220px at 18% 0%,rgba(10,132,255,.16),transparent 65%),radial-gradient(480px 200px at 82% 10%,rgba(100,181,255,.12),transparent 65%),radial-gradient(600px 260px at 50% 0%,rgba(0,113,227,.10),transparent 70%);animation:glowShift 9s ease-in-out infinite alternate}
+  @keyframes glowShift{from{opacity:.75;transform:translateY(0)}to{opacity:1;transform:translateY(10px)}}
+  .grad-border{position:relative}
+  /* ——— Motion ——— */
+  @keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  .rise{animation:riseIn .6s cubic-bezier(.22,1,.36,1) both}
+  .rise-1{animation-delay:.05s}.rise-2{animation-delay:.13s}.rise-3{animation-delay:.21s}.rise-4{animation-delay:.29s}
+  @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .float-y{animation:floatY 3.2s ease-in-out infinite}
+  @keyframes itemIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .item-enter{animation:itemIn .45s cubic-bezier(.22,1,.36,1) both}
+  /* thumbnail processing: scan beam + ring */
+  .thumb-wrap{position:relative;flex-shrink:0;border-radius:12px;overflow:hidden}
+  .thumb-wrap .scan-beam{position:absolute;left:0;right:0;top:-30%;height:34%;background:linear-gradient(180deg,transparent,rgba(10,132,255,.55),rgba(100,181,255,.35),transparent);opacity:0;pointer-events:none}
+  .is-processing .thumb-wrap .scan-beam{opacity:1;animation:scanBeam 1.15s ease-in-out infinite}
+  @keyframes scanBeam{0%{top:-35%}55%{top:100%}100%{top:-35%}}
+  .is-processing .thumb-wrap::after{content:"";position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 2px rgba(10,132,255,.75);animation:ringPulse 1.15s ease-in-out infinite}
+  @keyframes ringPulse{0%,100%{opacity:.45}50%{opacity:1}}
+  .is-processing{border-color:rgba(10,132,255,.55) !important}
+  @keyframes popIn{0%{transform:scale(.6)}55%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .is-done .status-pill{animation:popIn .45s cubic-bezier(.22,1,.36,1) both}
+  .is-done{animation:doneFlash .7s ease both}
+  @keyframes doneFlash{0%{box-shadow:0 0 0 0 rgba(10,132,255,.45)}100%{box-shadow:0 0 0 14px rgba(10,132,255,0)}}
+  /* progress: gradient + moving stripes */
+  #batchProgressBar{background:linear-gradient(90deg,#0071E3,#0A84FF,#64B5FF);background-size:200% 100%;position:relative;overflow:hidden}
+  #batchProgressBar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.28) 0 8px,transparent 8px 16px);animation:stripes .7s linear infinite}
+  @keyframes stripes{to{transform:translateX(22px)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(0,113,227,.25);border-top-color:#0071E3;animation:spin .7s linear infinite;display:inline-block;vertical-align:-2px}
+  /* logo generator: MARQUEE — jalan pelan terus, pause pas di-hover / disentuh.
+     Ini dekorasi (bukan kontrol), jadi aman digeser otomatis; semua logo muncul bergantian. */
+  .brand-marquee{overflow:hidden;padding:2px 0;-webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+  .brand-track{display:flex;width:max-content;animation:brandScroll 40s linear infinite}
+  .brand-marquee:hover .brand-track,.brand-marquee:focus-within .brand-track{animation-play-state:paused}
+  @keyframes brandScroll{to{transform:translateX(-50%)}}
+  @media (prefers-reduced-motion: reduce){
+    .brand-track{animation:none;flex-wrap:wrap;width:auto}
+    .brand-marquee{-webkit-mask-image:none;mask-image:none}
+  }
+  .brand-chip{display:inline-flex;align-items:center;gap:9px;padding:7px 14px 7px 7px;margin-right:8px;background:#fff;border:1px solid var(--line);border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;color:#1F2937}
+  .dark .brand-chip{background:#17181A;color:#E5E7EB}
+  /* logo brand asli (file di assets/logos) */
+  .brand-logo{width:30px;height:30px;border-radius:9px;flex-shrink:0;display:block}
+  .brand-logo.cover{object-fit:cover}
+  .brand-logo.pad{object-fit:contain;background:#fff;padding:4px;border:1px solid var(--line)}
+  .brand-word{height:24px;width:auto;border-radius:6px;flex-shrink:0;display:block}
+  .brand-word.light{background:#fff;border:1px solid var(--line);padding:4px 7px;height:28px}
+  /* ——— Tools di TOPBAR ———
+     PC: MEGAMENU — panel lebar di bawah topbar, 5 tool sejajar lengkap sama ikon + penjelasan singkat.
+     HP: BUKAN megamenu — daftar simpel 1 kolom (ikon kiri, nama + keterangan kanan), baris besar
+     gampang diketuk. Nggak ada geser samping: sekali menu dibuka, semua 5 tool langsung kelihatan. */
+  #toolsBtn .chev{transition:transform .2s ease}
+  #toolsBtn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  #toolsBtn[aria-expanded="true"]{border-color:#007AFF;color:#0071E3}
+  .tool-menu{position:absolute;top:calc(100% + 8px);left:12px;right:12px;z-index:50;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 50px -18px rgba(13,20,28,.28);padding:14px;animation:menuIn .22s cubic-bezier(.22,1,.36,1) both}
+  .dark .tool-menu{background:#141517}
+  @keyframes menuIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+  @media (min-width:1024px){
+    .tool-menu{left:50%;right:auto;transform:translateX(-50%);width:min(980px,calc(100vw - 32px));padding:18px}
+    @keyframes menuIn{from{opacity:0;transform:translateX(-50%) translateY(-6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+  }
+  .tool-menu-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 2px 12px}
+  .tool-menu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  @media (min-width:1024px){ .tool-menu-grid{grid-template-columns:repeat(5,1fr);gap:10px} }
+  .tool-tab{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-height:96px;padding:12px;border:1px solid var(--line);border-radius:12px;text-align:left;background:transparent;color:#111827;transition:border-color .18s ease,background .18s ease,box-shadow .18s ease}
+  .dark .tool-tab{color:#F9FAFB}
+  .tool-tab .t-icon{width:36px;height:36px;border-radius:10px;background:#F3F4F6;display:grid;place-items:center;flex-shrink:0}
+  .dark .tool-tab .t-icon{background:#22242A}
+  .tool-tab .t-icon svg{width:18px;height:18px}
+  .tool-tab .t-name{font-size:14.5px;font-weight:800;line-height:1.2;display:flex;align-items:center;gap:6px}
+  .tool-tab .t-desc{font-size:12px;font-weight:500;line-height:1.45;color:var(--muted)}
+  .tool-tab:hover{border-color:#007AFF}
+  .tool-tab[aria-selected="true"]{border-color:#007AFF;background:rgba(0,122,255,.07);box-shadow:0 0 0 1px #007AFF inset}
+  .tool-tab[aria-selected="true"] .t-icon{background:linear-gradient(120deg,#005BB5,#007AFF 55%,#0A84FF);color:#fff}
+  .tool-tab[aria-selected="true"] .t-name::after{content:"Aktif";font-size:10px;font-weight:800;letter-spacing:.04em;color:#0071E3;background:rgba(0,122,255,.14);padding:2px 7px;border-radius:99px}
+  .tool-menu-foot{margin:12px 2px 0;font-size:12px;line-height:1.5;color:var(--muted)}
+  /* seg control sempit: bungkus 2×2 di layar kecil, jangan sampai kepotong / harus geser */
+  @media (max-width:420px){
+    .seg{flex-wrap:wrap}
+    .seg button{flex:1 1 calc(50% - 2px)}
+  }
+  .tool-tab:focus-visible,#toolsBtn:focus-visible{outline:2px solid #007AFF;outline-offset:2px}
+  .tool-panel{animation:riseIn .45s cubic-bezier(.22,1,.36,1) both}
+  /* ——— HP: menu tool = daftar simpel, bukan megamenu ——— */
+  @media (max-width:1023px){
+    .tool-menu{padding:10px;max-height:calc(100dvh - 84px);overflow-y:auto}
+    .tool-menu-head{margin:2px 4px 8px}
+    .tool-menu-grid{grid-template-columns:1fr;gap:6px}
+    .tool-tab{display:grid;grid-template-columns:38px 1fr;column-gap:11px;align-items:center;min-height:58px;padding:9px 12px}
+    .tool-tab .t-icon{grid-row:1 / span 2;width:38px;height:38px}
+    .tool-tab .t-name{align-self:end;font-size:15px}
+    .tool-tab .t-desc{align-self:start}
+    .tool-menu-foot{display:none}
+  }
+  /* ——— Tombol tema terang / gelap ——— */
+  #themeBtn .icon-sun{display:none}
+  html.dark #themeBtn .icon-sun{display:block}
+  html.dark #themeBtn .icon-moon{display:none}
+  #themeBtn:focus-visible{outline:2px solid #007AFF;outline-offset:2px}
+  /* ——— Satu alur utuh: stepper di atas + pipeline di tiap kartu file ——— */
+  .wf-flow{display:flex;flex-direction:column;gap:14px;list-style:none;margin:0;padding:0}
+  .wf-flow>li{flex:1}
+  .wf-flow .wf-conn{display:none}
+  @media (min-width:640px){
+    .wf-flow{flex-direction:row;gap:0;align-items:flex-start}
+    .wf-flow .wf-conn{display:block;flex:0 0 30px;height:2px;background:var(--line);border-radius:99px;margin-top:15px}
+  }
+  .wf-fdot{width:30px;height:30px;border-radius:50%;background:linear-gradient(120deg,#005BB5,#007AFF 55%,#0A84FF);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex-shrink:0;box-shadow:0 6px 14px -6px rgba(0,122,255,.55)}
+  .wf-steps{display:flex;align-items:center;gap:7px;margin-top:10px;flex-wrap:wrap}
+  .wf-step{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--muted)}
+  .wf-dot{width:18px;height:18px;border-radius:50%;background:#E5E7EB;color:#6B7280;display:grid;place-items:center;font-size:10.5px;font-weight:800;flex-shrink:0}
+  .dark .wf-dot{background:#2C2F33;color:#9CA3AF}
+  .wf-step.done{color:#0071E3}
+  .wf-step.done .wf-dot{background:linear-gradient(120deg,#005BB5,#007AFF);color:#fff}
+  .wf-step.active{color:#111827}
+  .dark .wf-step.active{color:#F9FAFB}
+  .wf-step.active .wf-dot{background:#fff;border:2px solid #007AFF;color:#0071E3;animation:ringPulse 1.15s ease-in-out infinite}
+  .wf-line{flex:0 0 14px;height:2px;border-radius:99px;background:var(--line)}
+  .wf-lbl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .wf-select{width:100%;min-height:40px;margin-top:4px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:#fff;color:#111827;font-size:13px;font-weight:600}
+  .dark .wf-select{background:#1A1B1D;color:#F9FAFB}
+  /* dropzone di mode gelap: garis putus-putusnya jangan putih terang */
+  .dark #dropZone,.dark .dz2{border-color:#3F4348 !important}
+  /* kotak info lembut (dipakai hasil Deteksi) — ikut tema, teks tetap kebaca */
+  .soft-box{background:#F7F7F5;border:1px solid var(--line)}
+  .dark .soft-box{background:#1A1B1D}
+  .dz2{transition:border-color .2s ease, background .2s ease, box-shadow .25s ease}
+  .dz2.drop-drag{border-color:#007AFF;background:rgba(0,113,227,.06);box-shadow:0 0 0 5px rgba(10,132,255,.14)}
+  /* tabel metadata */
+  .meta-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .meta-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .meta-table td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
+  .meta-table tr:last-child td{border-bottom:none}
+  .meta-scroll{overflow:visible}
+  .meta-table{table-layout:fixed}
+  .meta-table th{width:38%}
+  .verdict{border-radius:16px;padding:14px 16px}
+  .kv{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  @media (min-width:560px){ .kv{grid-template-columns:repeat(4,1fr)} }
+  .kv div{background:#F7F7F5;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .dark .kv div{background:#1A1B1D}
+  .kv span{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .kv b{display:block;font-size:13.5px;margin-top:2px;word-break:break-word}
+  .frame-shot{border-radius:12px;border:1px solid var(--line);max-height:220px;object-fit:contain;background:#000}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+    html{scroll-behavior:auto}
+  }
+  /* ═══ Apple HIG 2026 — Liquid Glass: SF type, palet netral, satu aksen biru, tanpa gradasi & glow ═══ */
+  :root{
+    --line:rgba(0,0,0,.08);
+    --muted:#6E6E73;
+    --label:#1D1D1F;
+    --bg:#F5F5F7;
+    --surface:#FFFFFF;
+    --fill:rgba(120,120,128,.12);
+    --accent:#0071E3;
+    --green:#248A3D;
+  }
+  html.dark{
+    --line:rgba(255,255,255,.10);
+    --muted:#98989F;
+    --label:#F5F5F7;
+    --bg:#000000;
+    --surface:#1C1C1E;
+    --fill:rgba(120,120,128,.26);
+    --accent:#2997FF;
+    --green:#30D158;
+  }
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;letter-spacing:-.011em;-webkit-tap-highlight-color:transparent}
+  h1,h2,h3{letter-spacing:-.022em}
+  ::selection{background:rgba(0,113,227,.20)}
+  button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* permukaan: putih datar di atas abu-abu terang, sudut besar, tanpa bayangan berat */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:none}
+  .dark .card{background:var(--surface);box-shadow:none}
+  /* aksi utama: biru solid khas Apple, bentuk pill */
+  .grad-bg{background:var(--accent);background-size:auto;transition:opacity .2s ease,transform .15s ease;box-shadow:none}
+  .grad-bg:hover{background-position:0 0;box-shadow:none;opacity:.88}
+  .grad-bg:active{transform:scale(.97)}
+  /* judul: baris kedua abu-abu polos, bukan teks gradasi */
+  .grad-text{background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--muted);-webkit-text-fill-color:var(--muted)}
+  .hero-glow{display:none}
+  .logo-mark{background:#007AFF;color:#fff}
+  #themeBtn{box-shadow:none}
+  #themeBtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* segmented control ala iOS */
+  .seg{background:var(--fill);border-radius:11px;padding:2px;gap:0}
+  .seg button{min-height:34px;border-radius:9px;font-weight:500;color:var(--muted)}
+  .seg button[aria-pressed="true"]{background:#fff;color:var(--label);box-shadow:0 3px 8px rgba(0,0,0,.12),0 0 1px rgba(0,0,0,.10)}
+  .dark .seg{background:var(--fill)}
+  .dark .seg button[aria-pressed="true"]{background:#636366;color:#fff;box-shadow:none}
+  /* slider ala iOS: rel tipis, kenop putih besar */
+  input[type=range]{height:4px;background:rgba(120,120,128,.28)}
+  .dark input[type=range]{background:rgba(120,120,128,.40)}
+  input[type=range]::-webkit-slider-thumb{width:28px;height:28px;background:#fff;border:.5px solid rgba(0,0,0,.06);box-shadow:0 3px 8px rgba(0,0,0,.18),0 0 1px rgba(0,0,0,.12)}
+  input[type=range]::-moz-range-thumb{width:28px;height:28px;background:#fff;border:.5px solid rgba(0,0,0,.06);box-shadow:0 3px 8px rgba(0,0,0,.18)}
+  /* label kecil di Pengaturan & lipatan kartu: huruf biasa ala Settings iOS, bukan kapital ber-spasi */
+  #settingsCard .uppercase,#list .uppercase{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500}
+  /* dropzone */
+  #dropZone{border-color:rgba(0,0,0,.16) !important}
+  html.dark #dropZone{border-color:rgba(255,255,255,.22) !important}
+  #dropZone.drop-drag{border-color:var(--accent);background:rgba(0,113,227,.05);box-shadow:0 0 0 4px rgba(0,113,227,.14);transform:none}
+  .dz2.drop-drag{border-color:var(--accent);background:rgba(0,113,227,.05);box-shadow:0 0 0 4px rgba(0,113,227,.14)}
+  #folderBtn,#videoPickBtn{background:var(--fill);border-color:transparent !important;color:var(--label)}
+  /* tombol di kartu file: pill; sekunder = isian abu-abu transparan */
+  #list button{border-radius:980px}
+  #list a{border-radius:980px}
+  #list button.border{background:var(--fill);border-color:transparent !important}
+  .wf-select{background:var(--fill);border-color:transparent;color:var(--label)}
+  .dark .wf-select{background:var(--fill);color:var(--label)}
+  /* stepper alur: lingkaran monokrom */
+  .wf-fdot{background:var(--label);color:var(--bg);box-shadow:none;font-weight:600}
+  .wf-step.done{color:var(--green)}
+  .wf-step.done .wf-dot{background:var(--green);color:#fff}
+  .wf-step.active .wf-dot{border-color:var(--accent);color:var(--accent)}
+  /* progres & status proses */
+  #batchProgressBar{background:var(--accent)}
+  #batchProgressBar::after{display:none}
+  .spinner{border-color:rgba(0,113,227,.25);border-top-color:var(--accent)}
+  .thumb-wrap .scan-beam{background:linear-gradient(180deg,transparent,rgba(0,113,227,.45),rgba(0,113,227,.15),transparent)}
+  .is-processing .thumb-wrap::after{box-shadow:inset 0 0 0 2px rgba(0,113,227,.65)}
+  .is-processing{border-color:rgba(0,113,227,.45) !important}
+  @keyframes doneFlash{0%{box-shadow:0 0 0 0 rgba(52,199,89,.35)}100%{box-shadow:0 0 0 14px rgba(52,199,89,0)}}
+  /* marquee brand: chip datar tanpa garis tepi */
+  .brand-chip{background:rgba(120,120,128,.08);border-color:transparent;color:var(--label);font-weight:600}
+  .dark .brand-chip{background:rgba(120,120,128,.16);color:var(--label)}
+  .brand-logo{border-radius:8px}
+  /* bar bawah & toast: material kaca */
+  #batchBar{background:rgba(251,251,253,.82);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%)}
+  html.dark #batchBar{background:rgba(28,28,30,.82)}
+  #toast{background:rgba(28,28,30,.92);color:#fff;border-radius:980px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 8px 28px rgba(0,0,0,.22)}
+  html.dark #toast{background:rgba(245,245,247,.95);color:#1D1D1F}
+  /* kotak info & sel nilai */
+  .soft-box{background:var(--fill);border-color:transparent}
+  .dark .soft-box{background:var(--fill)}
+  .kv div{background:var(--fill);border-color:transparent}
+  .dark .kv div{background:var(--fill)}
+  /* animasi masuk: lebih halus & pendek */
+  @keyframes riseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .rise{animation-duration:.5s}
+  @keyframes itemIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  /* ═══ Humanis + semantik warna ala Apple HIG ═══
+     Merah HANYA buat info yang terdeteksi / peringatan di file asli,
+     hijau HANYA buat status sudah bersih. Teks selalu ukuran bacaan
+     (≥13px), line-height lega, kontras teks di atas tint lolos bacaan kecil:
+     merah teks #B42318 (terang) / #FF6961 (gelap), hijau teks #187A2E / #30D158. */
+  :root{
+    --red:#FF3B30; --red-text:#B42318; --red-bg:rgba(255,59,48,.10); --red-line:rgba(255,59,48,.28);
+    --green-solid:#248A3D; --green-text:#187A2E; --green-bg:rgba(52,199,89,.13); --green-line:rgba(36,138,61,.30);
+    --amber-text:#9A6700; --amber-bg:rgba(255,204,0,.16);
+  }
+  html.dark{
+    --red:#FF453A; --red-text:#FF6961; --red-bg:rgba(255,69,58,.16); --red-line:rgba(255,69,58,.38);
+    --green-solid:#30D158; --green-text:#30D158; --green-bg:rgba(48,209,88,.14); --green-line:rgba(48,209,88,.35);
+    --amber-text:#FFD60A; --amber-bg:rgba(255,214,10,.14);
+  }
+  /* pill status di pojok kartu */
+  .status-pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;line-height:1.25;padding:5px 10px;border-radius:980px;white-space:nowrap}
+  .pill-detected{background:var(--red);color:#fff}
+  html.dark .pill-detected{background:var(--red);color:#fff}
+  .pill-clean{background:var(--green-solid);color:#fff}
+  html.dark .pill-clean{color:#06230F}
+  .pill-working{background:var(--amber-bg);color:var(--amber-text)}
+  .pill-plain{background:var(--green-bg);color:var(--green-text)}
+  .pill-error{background:var(--red);color:#fff}
+  /* chip info terdeteksi: merah tint + teks merah gelap, gampang dipindai */
+  .badge-ai{background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-line);font-size:12px;font-weight:600;line-height:1.3;padding:4px 9px;border-radius:980px}
+  .badge-meta{background:var(--fill);color:var(--muted);border:1px solid transparent;font-size:12px;font-weight:600;line-height:1.3;padding:4px 9px;border-radius:980px}
+  /* chip sumber utama: logo asli generator-nya nempel di nama (mis. OpenAI buat DALL·E) */
+  .badge-src{display:inline-flex;align-items:center;gap:6px}
+  .badge-logo{width:18px;height:18px;border-radius:5px;flex-shrink:0;display:block}
+  .badge-logo.cover{object-fit:cover}
+  .badge-logo.pad{object-fit:contain;background:#fff;padding:2px}
+  /* kotak "ditemukan di file asli" — merah lembut, bahasa manusia */
+  .detect-box{margin-top:10px;background:var(--red-bg);border:1px solid var(--red-line);border-radius:14px;padding:11px 13px}
+  .detect-box .detect-head{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;line-height:1.35;color:var(--red-text)}
+  .detect-box .detect-body{margin-top:3px;font-size:13.5px;line-height:1.55;color:var(--label)}
+  .detect-box.clean-note{background:var(--green-bg);border-color:var(--green-line)}
+  .detect-box.clean-note .detect-head{color:var(--green-text)}
+  /* kotak hasil: "Sudah bersih" — hijau tegas, hierarki jelas */
+  .clean-box{margin-top:12px;background:var(--green-bg);border:1px solid var(--green-line);border-radius:14px;padding:12px 13px}
+  .clean-box .clean-head{display:flex;align-items:center;gap:8px;font-size:15.5px;font-weight:700;line-height:1.3;color:var(--green-text)}
+  .clean-box .clean-check{width:22px;height:22px;border-radius:50%;background:var(--green-solid);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:800;flex-shrink:0}
+  html.dark .clean-box .clean-check{color:#06230F}
+  .clean-box .clean-body{margin-top:5px;font-size:14px;line-height:1.6;color:var(--label)}
+  .clean-box .clean-saved{margin-top:8px;font-size:13px;line-height:1.55;color:var(--muted)}
+  .clean-box .clean-saved code{display:block;margin-top:2px;font-size:13px;color:var(--label);overflow-wrap:anywhere;word-break:break-word}
+  /* pesan gagal / sisa label: merah, jangan tenggelam */
+  .error-box{margin-top:12px;background:var(--red-bg);border:1px solid var(--red-line);border-radius:14px;padding:11px 13px;font-size:14px;line-height:1.6;font-weight:500;color:var(--label)}
+  /* keterbacaan kartu file (HIG: hierarki + spasi lega) */
+  #list .card{padding:16px}
+  #list h4{font-size:15px;line-height:1.4;letter-spacing:-.01em}
+  #list .file-meta{font-size:13px;line-height:1.5;margin-top:3px}
+  .wf-steps{margin-top:12px;gap:8px}
+  .wf-step{font-size:12.5px}
+  /* teks pendukung di bawah daftar & isi lipatan: ukuran bacaan, bukan 12px pudar */
+  #queueSection>p{font-size:13.5px !important;line-height:1.6 !important}
+  #list .fold-body-text{font-size:14px;line-height:1.6}
+  .meta-table{font-size:13.5px;line-height:1.55}
+  /* ═══ Nuansa app iOS asli: grup inset ala Settings, baris disclosure 50px
+     dengan chevron yang berputar pas dibuka, target sentuh ≥44px,
+     tanpa delay ketuk (touch-action manipulation) ═══ */
+  button{touch-action:manipulation}
+  .act-primary{display:flex;gap:8px}
+  .act-primary>button{margin-top:14px}
+  .ios-group{margin-top:12px;background:var(--fill);border-radius:16px;overflow:hidden}
+  #list button.ios-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:50px;padding:0 16px;border-radius:0;background:transparent;color:var(--label);font-size:15px;font-weight:500;text-align:left}
+  #list button.ios-row:active{background:rgba(120,120,128,.16)}
+  .ios-row .chev{color:var(--muted);flex-shrink:0;transition:transform .25s ease}
+  .ios-row[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  .ios-sep{height:1px;background:var(--line);margin-left:16px}
+  .fold-pad{padding:2px 16px 16px}
+  #list .btn-remove{display:block;margin:4px auto 0;min-height:44px;padding:0 18px;background:transparent;color:var(--red);font-size:15px;font-weight:500;border-radius:980px}
+  #list .btn-remove:active{opacity:.55}
+  /* ═══ 3D Motion + Maskot ═══
+     Lapisan gerak di atas gaya iOS yang bersih: perspektif & putaran
+     halus (maks. ±10° di maskot, ±3° di kartu), pegas cubic-bezier,
+     tanpa glow / gradasi baru. Semua animasi mati total di
+     prefers-reduced-motion (aturan global di atas + blok di bawah). */
+  body,.card,header,#batchBar{transition:background-color .45s ease,border-color .45s ease}
+  /* — Maskot 3D — */
+  .mascot-stage{position:relative;display:flex;flex-direction:column;align-items:center;margin:2px auto 14px;transition:transform .65s cubic-bezier(.34,1.4,.64,1),margin .65s cubic-bezier(.34,1.4,.64,1);animation:mascotIn .8s cubic-bezier(.22,1,.36,1) backwards}
+  @keyframes mascotIn{from{opacity:0;transform:translateY(16px) scale(.82)}to{opacity:1;transform:translateY(0) scale(1)}}
+  /* — Maskot 3D TANAYA: TANPA kartu / frame — cutout transparan
+     (assets/mascot-tanaya-body.webp + mascot-tanaya-hand.webp buat idle,
+     pose kerja & pose rayain ditumpuk di frame yang sama), ngambang bebas
+     di atas halaman, cuma bayangan elips lembut di bawah kakinya. — */
+  .mascot-scene{perspective:900px;width:146px}
+  @media (min-width:640px){ .mascot-scene{width:168px} }
+  .mascot-3d{position:relative;width:100%;height:100%;transform-style:preserve-3d;transform:rotateX(var(--mrx,0deg)) rotateY(var(--mry,0deg));cursor:pointer;outline-offset:4px}
+  .mascot-float{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:mascotFloat 3.8s ease-in-out infinite}
+  @keyframes mascotFloat{0%,100%{transform:translateY(0) rotate(-1.3deg)}50%{transform:translateY(-10px) rotate(1.5deg)}}
+  .mascot-img{width:100%;height:auto;display:block;transform:translateZ(24px)}
+  /* — Pose reaksi Tanaya: 3 gambar se-frame ditumpuk, crossfade ikut status.
+     Idle = nyapa (default). Pas file dibersihin mukanya ganti fokus megang
+     penghapus (pose-work); pas beres / pas file diseret ganti pose lompat
+     kegirangan (pose-celebrate) — celebrate menang dari working. — */
+  .mascot-pose{transition:opacity .28s ease}
+  .pose-idle{position:relative;transform-style:preserve-3d}
+  .pose-work,.pose-celebrate{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;transform:translateZ(24px)}
+  .mascot-stage.is-working .pose-idle{opacity:0}
+  .mascot-stage.is-working .pose-work{opacity:1}
+  .mascot-stage.is-excited .pose-idle,.mascot-stage.is-celebrate .pose-idle{opacity:0}
+  .mascot-stage.is-excited .pose-work,.mascot-stage.is-celebrate .pose-work{opacity:0}
+  .mascot-stage.is-excited .pose-celebrate,.mascot-stage.is-celebrate .pose-celebrate{opacity:1}
+  /* tangan lambaian: layer terpisah di atas badan idle, sendinya di
+     pergelangan (18.8% / 34.5% dari gambar) — dirotasi dari titik itu pas melambai */
+  .mascot-hand{position:absolute;inset:0;width:100%;height:100%;display:block;transform:translateZ(26px);transform-origin:18.8% 34.5%;pointer-events:none}
+  .mascot-stage.is-waving .mascot-hand{animation:mascotWave 1.5s ease-in-out both}
+  @keyframes mascotWave{0%,100%{transform:translateZ(26px) rotate(0deg)}14%{transform:translateZ(26px) rotate(-16deg)}30%{transform:translateZ(26px) rotate(11deg)}46%{transform:translateZ(26px) rotate(-14deg)}62%{transform:translateZ(26px) rotate(8deg)}78%{transform:translateZ(26px) rotate(-4deg)}}
+  /* pas nyapa badannya ikut condong kecil ke arah tangan */
+  .mascot-stage.is-waving .mascot-3d{animation:mascotGreet .75s ease-in-out 2}
+  @keyframes mascotGreet{0%,100%{rotate:0deg}50%{rotate:2.2deg}}
+  .mascot-shadow{width:92px;height:15px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(0,60,120,.28),transparent 68%);filter:blur(2px);margin-top:-12px;animation:shadowPulse 3.8s ease-in-out infinite}
+  html.dark .mascot-shadow{background:radial-gradient(ellipse at center,rgba(41,151,255,.30),transparent 68%)}
+  @keyframes shadowPulse{0%,100%{transform:scaleX(1);opacity:.75}50%{transform:scaleX(.78);opacity:.5}}
+  /* status maskot */
+  .mascot-stage.is-working .mascot-float{animation:mascotWork .55s ease-in-out infinite}
+  @keyframes mascotWork{0%,100%{transform:translate(0,0) rotate(-2.6deg)}25%{transform:translate(-4px,-6px) rotate(1.8deg)}55%{transform:translate(4px,-2px) rotate(2.6deg)}80%{transform:translate(-2px,-7px) rotate(-1.6deg)}}
+  .mascot-stage.is-excited .mascot-float{animation:mascotExcited .42s ease-in-out infinite}
+  @keyframes mascotExcited{0%,100%{transform:translateY(0) scale(1.04)}50%{transform:translateY(-13px) scale(1.08)}}
+  .mascot-stage.is-jumping .mascot-float{animation:mascotJump .65s cubic-bezier(.22,1,.36,1) both}
+  @keyframes mascotJump{0%{transform:translateY(0) scale(1,1)}30%{transform:translateY(4px) scale(1.07,.9)}55%{transform:translateY(-20px) scale(.95,1.06)}78%{transform:translateY(0) scale(1.04,.96)}100%{transform:translateY(0) scale(1)}}
+  .mascot-stage.is-celebrate .mascot-float{animation:mascotCelebrate 1.15s cubic-bezier(.22,1,.36,1) both}
+  @keyframes mascotCelebrate{0%{transform:translateY(0) rotateY(0)}35%{transform:translateY(-22px) rotateY(180deg) scale(1.05)}70%{transform:translateY(2px) rotateY(330deg) scale(1.03,.97)}100%{transform:translateY(0) rotateY(360deg) scale(1)}}
+  /* kilau kecil muter di sekeliling maskot (bentuk CSS, bukan emoji) */
+  .sparkle{position:absolute;width:9px;height:9px;border-radius:2px;background:#0A84FF;opacity:0;pointer-events:none;animation:sparkleTwinkle 3s ease-in-out infinite}
+  .sparkle.s1{top:6%;left:-7%;transform:rotate(45deg)}
+  .sparkle.s2{top:20%;right:-8%;background:#64B5FF;width:7px;height:7px;animation-delay:1s}
+  .sparkle.s3{bottom:14%;left:-4%;background:#0A84FF;width:6px;height:6px;animation-delay:2s}
+  @keyframes sparkleTwinkle{0%,100%{opacity:0;transform:rotate(45deg) scale(.45)}50%{opacity:.95;transform:rotate(200deg) scale(1)}}
+  .mascot-stage.is-celebrate .sparkle{animation-duration:.55s}
+  /* balon kata: muncul cuma pas ada kejadian (drag / proses / beres / diketuk) */
+  .mascot-bubble{position:absolute;top:-4px;left:calc(50% + 52px);z-index:3;background:var(--surface);color:var(--label);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:7px 12px;font-size:13px;font-weight:700;line-height:1.25;white-space:nowrap;box-shadow:0 10px 24px -10px rgba(0,0,0,.25);opacity:0;pointer-events:none;transform:translateY(8px) scale(.75) rotate(4deg);transform-origin:bottom left;transition:opacity .3s ease,transform .38s cubic-bezier(.34,1.56,.64,1)}
+  @media (min-width:640px){ .mascot-bubble{left:calc(50% + 64px)} }
+  .mascot-bubble.show{opacity:1;transform:translateY(0) scale(1) rotate(-2deg)}
+  /* — Dropzone 3D: miring halus ngikutin pointer (desktop), membal pas file diseret — */
+  /* fill backwards: animasi masuk .rise nggak boleh ngunci transform dropzone selamanya */
+  #dropZone.rise{animation-fill-mode:backwards}
+  #dropZone{transform:perspective(1100px) rotateX(var(--drx,0deg)) rotateY(var(--dry,0deg));transform-style:preserve-3d;will-change:transform;transition:border-color .2s ease,background .2s ease,box-shadow .25s ease,transform .15s ease-out}
+  #dropZone .dz-inner-3d{transform:translateZ(18px)}
+  #dropZone.drop-drag{transform:perspective(1100px) rotateX(var(--drx,0deg)) rotateY(var(--dry,0deg)) scale(1.02) translateY(-2px)}
+  #dropZone:active{transform:perspective(1100px) rotateX(var(--drx,0deg)) rotateY(var(--dry,0deg)) scale(.995)}
+  /* — Kartu file: masuk dengan putaran 3D, miring tipis ngikutin pointer — */
+  @keyframes itemIn{from{opacity:0;transform:perspective(1000px) rotateX(7deg) translateY(16px) scale(.98)}to{opacity:1;transform:perspective(1000px) rotateX(0deg) translateY(0) scale(1)}}
+  .item-enter{animation:itemIn .55s cubic-bezier(.22,1,.36,1) backwards}
+  #list .card{transform:perspective(1000px) rotateX(var(--crx,0deg)) rotateY(var(--cry,0deg));transition:transform .3s ease,background-color .45s ease,border-color .45s ease}
+  /* lipatan Metadata / Konversi: kebuka dengan lipatan 3D dari atas */
+  #list [id^="fold-"]{animation:foldIn .45s cubic-bezier(.22,1,.36,1) both;transform-origin:top center}
+  @keyframes foldIn{from{opacity:0;transform:perspective(800px) rotateX(-7deg) translateY(-6px)}to{opacity:1;transform:perspective(800px) rotateX(0) translateY(0)}}
+  /* — Transisi permukaan lain — */
+  #previewModal:not(.hidden){animation:modalFade .3s ease both}
+  @keyframes modalFade{from{opacity:0}to{opacity:1}}
+  #previewModal:not(.hidden) #previewBody>*{animation:pop3d .45s cubic-bezier(.34,1.4,.64,1) both}
+  @keyframes pop3d{from{opacity:0;transform:perspective(900px) rotateX(6deg) scale(.92) translateY(14px)}to{opacity:1;transform:perspective(900px) rotateX(0) scale(1) translateY(0)}}
+  #batchBar:not(.hidden){animation:barUp .5s cubic-bezier(.22,1,.36,1) both}
+  @keyframes barUp{from{transform:perspective(900px) rotateX(10deg) translateY(110%);opacity:.4}to{transform:perspective(900px) rotateX(0) translateY(0);opacity:1}}
+  #toast:not(.hidden){animation:toastPop .42s cubic-bezier(.34,1.56,.64,1) both}
+  @keyframes toastPop{from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.82)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+  .grad-bg{transition:transform .18s cubic-bezier(.34,1.56,.64,1),opacity .2s ease}
+  .grad-bg:active{transform:scale(.94) translateY(1px)}
+  .brand-chip{transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+  .brand-chip:hover{transform:translateY(-3px) rotate(-1.2deg) scale(1.05)}
+  .logo-mark{transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
+  .logo-mark:hover{transform:rotate(-10deg) scale(1.12)}
+  #themeBtn{transition:transform .45s cubic-bezier(.34,1.56,.64,1),background-color .45s ease}
+  #themeBtn:active{transform:rotate(50deg) scale(.88)}
+  details>summary{transition:color .2s ease}
+  details[open ]>p{animation:foldIn .4s cubic-bezier(.22,1,.36,1) both;transform-origin:top center}
+  /* — Muncul pas di-scroll (kelasnya dipasang JS; tanpa JS konten tetap tampil) — */
+  .reveal{opacity:0;transform:perspective(900px) rotateX(7deg) translateY(20px);transform-origin:top center}
+  .reveal.inview{opacity:1;transform:perspective(900px) rotateX(0) translateY(0);transition:opacity .65s ease,transform .7s cubic-bezier(.22,1,.36,1)}
+  @media (prefers-reduced-motion: reduce){
+    .mascot-float,.mascot-shadow,.sparkle,.mascot-stage,.mascot-hand,.mascot-stage.is-waving .mascot-3d{animation:none !important}
+    .mascot-3d,#dropZone,#list .card{transform:none !important}
+    .reveal{opacity:1;transform:none}
+  }
+  /* ═══ Icon Pack 2026 — Lucide-style stroke icons, icon-first ═══
+     Prinsip: ikon yang bicara, teks cuma 1 kata pendamping.
+     Tile = rounded squircle isi lembut ala SF Symbols / iOS 26. */
+  .ic{width:20px;height:20px;flex-shrink:0;display:block}
+  .ic-sm{width:16px;height:16px}
+  .ic-lg{width:26px;height:26px}
+  .icon-tile{width:40px;height:40px;border-radius:12px;background:var(--fill);display:grid;place-items:center;color:var(--label);flex-shrink:0}
+  .icon-tile.sm{width:32px;height:32px;border-radius:10px}
+  .icon-tile.accent{background:var(--accent);color:#fff}
+  .icon-tile.red{background:var(--red-bg);color:var(--red-text)}
+  .icon-tile.green{background:var(--green-bg);color:var(--green-text)}
+  .icon-btn{width:44px;height:44px;border-radius:50%;background:var(--fill);display:grid;place-items:center;color:var(--label);flex-shrink:0}
+  .icon-btn:active{opacity:.6}
+  .btn-ic{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+  /* hero: 3 langkah cuma ikon + 1 kata */
+  .hero-steps{display:flex;align-items:flex-start;justify-content:center;gap:0;margin:22px auto 0;max-width:340px}
+  .hero-step{display:flex;flex-direction:column;align-items:center;gap:7px;width:76px;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .hero-step .icon-tile{width:46px;height:46px;border-radius:15px;background:var(--surface);border:1px solid var(--line);color:var(--label)}
+  .hero-step-conn{flex:1;height:1px;background:var(--line);margin-top:23px;min-width:14px}
+  /* dropzone: baris ikon format */
+  .dz-icons{display:flex;justify-content:center;gap:8px;margin-top:14px}
+  .dz-icons .icon-tile{background:var(--fill)}
+  /* brand marquee: ICON-ONLY — logo aja, tanpa nama teks */
+  .brand-chip{width:48px;height:48px;padding:0 !important;margin-right:8px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center}
+  .brand-chip.wide{width:auto;padding:0 12px !important}
+  .brand-chip .brand-logo{width:32px;height:32px;border-radius:9px}
+  .brand-chip .brand-word{height:26px}
+  .brand-chip .brand-word.light{height:30px}
+  /* pengaturan: kepala grup = ikon + 1 kata */
+  .set-head{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:600;color:var(--label)}
+  /* baris lipatan kartu: ikon kiri */
+  #list button.ios-row{justify-content:flex-start}
+  #list button.ios-row .row-label{flex:1;text-align:left}
+  /* pill status: ikon + kata pendek */
+  .status-pill .ic{width:13px;height:13px}
+  /* FAQ: ikon di kiri pertanyaan */
+  .faq-q{display:flex;align-items:center;gap:11px;flex:1;min-width:0;text-align:left}
+  /* tombol hapus: ikon + kata */
+  #list .btn-remove{display:inline-flex;align-items:center;gap:6px}
+  .remove-wrap{display:flex;justify-content:center}
+  .wf-lbl .ic{display:inline-block;vertical-align:-3px}
+  .detect-head .ic,.clean-head .ic{flex-shrink:0}
+  /* ═══ Proses KELIHATAN di dalam kartu + dock bawah (UX HP) ═══
+     Dulu status proses cuma hidup di atas halaman (maskot hero + bar di
+     kepala daftar): sekali user scroll ke kartu di HP, dua-duanya hilang
+     dari layar dan badan kartu sendiri kosong selama dibersihkan.
+     Sekarang: (1) tiap kartu punya panel proses sendiri di badannya,
+     (2) hero menyusut pas ada file biar kartu pertama langsung di atas,
+     (3) dock progres melayang di bawah (zona jempol) selama batch jalan. */
+  /* panel proses di dalam kartu */
+  .card-progress{margin-top:10px;background:var(--fill);border-radius:12px;padding:10px 12px}
+  .card-progress .cp-head{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;line-height:1.35;color:var(--label)}
+  .card-progress .cp-track{height:6px;border-radius:99px;background:rgba(120,120,128,.28);overflow:hidden;margin-top:8px}
+  .card-progress .cp-fill{height:100%;width:38%;border-radius:99px;background:var(--accent);animation:cpSlide 1.1s ease-in-out infinite}
+  @keyframes cpSlide{0%{transform:translateX(-110%)}100%{transform:translateX(290%)}}
+  .card-progress.is-wait .cp-fill{animation:none;width:16%;opacity:.35}
+  .card-progress.is-wait .spinner{visibility:hidden}
+  .card-progress.is-wait .cp-head{color:var(--muted);font-weight:500}
+  /* hero menyusut pas workspace berisi: judul & langkah ikon hilang,
+     maskot tetap nemenin (kecil), kartu pertama langsung dekat atas */
+  body.has-files #heroSection{padding-top:12px;padding-bottom:2px}
+  body.has-files #heroSection h1,
+  body.has-files #heroSection>p,
+  body.has-files #heroSection .hero-steps{display:none}
+  /* anchor scroll nggak ketutup header sticky */
+  #queueSection{scroll-margin-top:70px}
+  #list .card{scroll-margin-top:70px}
+  /* dock progres: melayang di bawah, selalu kelihatan selama batch jalan */
+  #procDock{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:45;width:min(430px,calc(100vw - 24px));background:rgba(28,28,30,.94);color:#fff;border-radius:16px;padding:11px 14px 12px;box-shadow:0 14px 34px -12px rgba(0,0,0,.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  html.dark #procDock{background:rgba(245,245,247,.96);color:#1D1D1F}
+  #procDock:not(.hidden){animation:dockUp .45s cubic-bezier(.22,1,.36,1) both}
+  /* keyframes sendiri: WAJIB bawa translateX(-50%) — kalo pinjem barUp punya
+     batch bar, fill-nya nimpa centering dock & dock-nya geser setengah layar */
+  @keyframes dockUp{from{transform:translateX(-50%) translateY(16px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+  #procDock .pd-row{display:flex;align-items:center;gap:9px}
+  #procDock .pd-text{flex:1;min-width:0;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #procDock .pd-spin{border-color:rgba(255,255,255,.30);border-top-color:#fff}
+  html.dark #procDock .pd-spin{border-color:rgba(0,113,227,.25);border-top-color:var(--accent)}
+  #procDockBtn{flex-shrink:0;min-height:36px;padding:0 14px;border-radius:980px;background:var(--accent);color:#fff;font-size:13px;font-weight:700}
+  #procDockBtn:active{opacity:.7}
+  #procDock .pd-track{height:5px;border-radius:99px;background:rgba(128,128,128,.35);overflow:hidden;margin-top:9px}
+  #procDockBar{height:100%;width:0%;border-radius:99px;background:#2997FF;transition:width .3s ease}
+  @media (prefers-reduced-motion: reduce){
+    .card-progress .cp-fill{animation:none}
+    #procDock:not(.hidden){animation:none}
+  }
+  /* ═══ LOADING PROSES — equalizer biru, gantiin tuts piano ═══
+     Keputusan UX (revisi): indikator tuts piano lama kelihatan ramai &
+     norak, jadi diganti total. Loading sekarang dua lapis yang tenang:
+     (1) maskot proses = pose gosok aja (nggak ada lagi pose piano
+     gantian + not melayang), (2) panel proses DI DALAM kartu (fokus
+     mata di HP) = bar equalizer 5 batang biru Apple yang naik-turun
+     berirama — musiknya dapet (Naya keyboardist) tanpa gambar piano
+     literal, dan animasinya cuma transform scaleY (murah di GPU).
+     Kartu antre (is-wait): batang redup, pendek & diem. */
+  /* goyangan pas kerja: ritmis buat pose gosok */
+  .mascot-stage.is-working .mascot-float{animation:mascotWork 1.24s ease-in-out infinite}
+  /* — Equalizer = indikator proses di dalam kartu — */
+  .cp-eq{display:flex;align-items:flex-end;gap:3px;height:22px;margin-top:10px;padding:0 2px}
+  .cp-eq i{flex:1;height:100%;border-radius:99px;background:linear-gradient(180deg,var(--blue-hi,#64B5FF),var(--blue,#007AFF));transform-origin:bottom center;transform:scaleY(.3);animation:cpEq 1s ease-in-out infinite}
+  .cp-eq i:nth-child(1){animation-delay:0s}
+  .cp-eq i:nth-child(2){animation-delay:.14s}
+  .cp-eq i:nth-child(3){animation-delay:.28s}
+  .cp-eq i:nth-child(4){animation-delay:.42s}
+  .cp-eq i:nth-child(5){animation-delay:.56s}
+  .cp-eq i:nth-child(6){animation-delay:.70s}
+  .cp-eq i:nth-child(7){animation-delay:.84s}
+  @keyframes cpEq{0%,100%{transform:scaleY(.28)}35%{transform:scaleY(1)}70%{transform:scaleY(.5)}}
+  .card-progress.is-wait .cp-eq{opacity:.4}
+  .card-progress.is-wait .cp-eq i{animation:none;transform:scaleY(.3)}
+  @media (prefers-reduced-motion: reduce){
+    .mascot-stage.is-working .mascot-float{animation:none}
+    .cp-eq i{animation:none;transform:scaleY(.55)}
+  }
+  /* ═══ SIRNA: hero tipografi ramping + Naya cuma muncul pas proses ═══
+     Keputusan UX: di keadaan awal (init) maskot nggak makan tempat sama
+     sekali — hero cuma judul + satu baris + 3 langkah ikon, dropzone
+     (satu-satunya next action) langsung kelihatan tanpa scroll panjang.
+     Naya adalah pendamping PROSES, bukan dekorasi pembuka: panggungnya
+     melayang kecil di pojok kiri bawah, muncul (kelas .show dari JS)
+     cuma selama ada file yang lagi dibersihin — pose gosok —
+     ngerayain sebentar pas batch beres, lalu hilang lagi. Reaksinya
+     tetap dekat zona jempol & dock progres, di tempat mata berada. */
+  /* logo: ukuran tetap dari CSS sendiri, nggak bergantung utility class */
+  .logo-mark{width:32px;height:32px;border-radius:9px}
+  .hero-steps{justify-content:flex-start;margin-left:0;margin-right:0;max-width:none}
+  /* — Panggung proses Naya: tersembunyi total di luar momen proses — */
+  #mascotStage{position:fixed;left:12px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:46;margin:0;opacity:0;visibility:hidden;transform:translateY(18px) scale(.92);pointer-events:none;transition:opacity .35s ease,transform .45s cubic-bezier(.34,1.4,.64,1),visibility 0s linear .45s;animation:none}
+  #mascotStage.show{opacity:1;visibility:visible;transform:translateY(0) scale(1);pointer-events:auto;transition:opacity .3s ease,transform .45s cubic-bezier(.34,1.4,.64,1)}
+  #mascotStage .mascot-scene{width:84px}
+  #mascotStage .mascot-shadow{width:56px;height:10px;margin-top:-8px}
+  #mascotStage .mascot-bubble{left:calc(100% - 8px);top:4px}
+  @media (min-width:768px){
+    #mascotStage{left:22px;bottom:22px}
+    #mascotStage .mascot-scene{width:104px}
+    #mascotStage .mascot-shadow{width:68px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #mascotStage{transition:opacity .01ms}
+  }
+  /* ═══ SIRNA — BIRU APPLE HIG + LIQUID GLASS (iOS 26) ═══
+     Satu keluarga warna: biru Apple HIG, dari logo sampai aksen UI.
+       --blue-hi  #64B5FF  biru terang (gradasi atas tile logo)
+       --blue     #007AFF  systemBlue — biru utama (tombol, tile logo)
+       --blue-deep #0071E3 biru pekat buat teks & coretan logo (kontras AA
+                          di atas putih & di atas biru terang)
+     Mode gelap pakai #2997FF (systemBlue dark). Hijau "sudah bersih"
+     tetap hijau semantik Apple (#248A3D) — beda peran, bukan aksen.
+     Liquid Glass: material tembus cahaya di atas latar mesh biru yang
+     diam — blur + saturate, tepi specular (highlight 1px di atas +
+     garis cahaya di sekeliling), bayangan lembut sewarna biru. Dipakai
+     di permukaan yang melayang / berlapis (header, kartu, dropzone,
+     dock, batch bar, toast, balon Naya, chip) — BUKAN di teks biasa.
+     Fallback: browser tanpa backdrop-filter dapet permukaan opak. */
+  :root{
+    --accent:#0071E3;
+    --blue:#007AFF; --blue-hi:#64B5FF; --blue-deep:#0071E3;
+    --glass-bg:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.66));
+    --glass-brd:rgba(255,255,255,.65);
+    --glass-hi:inset 0 1px 0 rgba(255,255,255,.85), inset 0 0 0 1px rgba(255,255,255,.18);
+    --glass-shadow:0 14px 34px -14px rgba(0,113,227,.28), 0 2px 8px -2px rgba(0,113,227,.10);
+  }
+  html.dark{
+    --accent:#2997FF;
+    --glass-bg:linear-gradient(135deg,rgba(38,44,54,.78),rgba(20,26,34,.66));
+    --glass-brd:rgba(255,255,255,.16);
+    --glass-hi:inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 0 1px rgba(255,255,255,.05);
+    --glass-shadow:0 14px 34px -14px rgba(0,0,0,.65), 0 2px 8px -2px rgba(0,0,0,.4);
+  }
+  /* latar mesh biru: sumber cahaya yang "dibiasin" kaca — diam, nggak gerak.
+     PERFORMA: mesh dipindah ke lapisan body::before yang position:fixed.
+     Dulu nempel di body pakai background-attachment:fixed — itu maksa
+     browser gambar ulang seluruh latar di SETIAP frame scroll (biang
+     "terasa berat" di HP). Lapisan fixed diraster SEKALI lalu cukup
+     dikomposit GPU pas scroll. */
+  body{background:linear-gradient(180deg,#F7FAFF,#EDF3FB) !important}
+  html.dark body{background:linear-gradient(180deg,#070B12,#05070C) !important}
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(560px 380px at 12% -60px, rgba(100,181,255,.50), transparent 65%),
+      radial-gradient(520px 360px at 88% 12%, rgba(100,210,255,.34), transparent 65%),
+      radial-gradient(700px 480px at 50% 108%, rgba(0,122,255,.20), transparent 65%);
+  }
+  html.dark body::before{
+    background:
+      radial-gradient(560px 380px at 12% -60px, rgba(41,151,255,.20), transparent 65%),
+      radial-gradient(520px 360px at 88% 12%, rgba(0,122,255,.14), transparent 65%),
+      radial-gradient(700px 480px at 50% 108%, rgba(0,113,227,.22), transparent 65%);
+  }
+  /* — Logo: tile gradasi biru Apple + kilau kaca di tepi atas — */
+  .logo-mark{
+    background:linear-gradient(135deg,var(--blue-hi) 0%,var(--blue) 58%,#0060CC 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -8px 14px -8px rgba(0,113,227,.45), 0 4px 10px -4px rgba(0,113,227,.5);
+  }
+  /* — Judul: baris kedua biru pekat solid (bukan gradasi teks) — */
+  .grad-text{color:var(--blue-deep);-webkit-text-fill-color:var(--blue-deep)}
+  html.dark .grad-text{color:#2997FF;-webkit-text-fill-color:#2997FF}
+  ::selection{background:rgba(0,122,255,.25)}
+  /* — Tombol utama: pil kaca berwarna biru Apple — */
+  .grad-bg{
+    background:linear-gradient(135deg,rgba(100,181,255,.92),rgba(0,122,255,.96) 55%,rgba(0,122,255,.98));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.65), inset 0 -10px 18px -10px rgba(0,70,140,.55), 0 10px 22px -10px rgba(0,113,227,.55);
+  }
+  .grad-bg:hover{opacity:1;filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.65), inset 0 -10px 18px -10px rgba(0,70,140,.55), 0 12px 26px -10px rgba(0,113,227,.6)}
+  /* — Kartu & dropzone: kaca cair di atas mesh —
+     PERFORMA: kartu SENGAJA tanpa backdrop-filter sekarang. Blur 22px di
+     SETIAP kartu (bisa belasan kartu file) bikin GPU HP kerja rodi tiap
+     scroll. Kartu pakai gradasi kaca yang lebih opak + tepi specular —
+     tampilannya tetap kaca, biayanya nol. Blur beneran cuma dipertahankan
+     di permukaan melayang: header, batch bar, dock, toast, balon Naya. */
+  .card{
+    background:var(--glass-bg);
+    border:1px solid var(--glass-brd);
+    box-shadow:var(--glass-hi), var(--glass-shadow);
+  }
+  .dark .card{background:var(--glass-bg);box-shadow:var(--glass-hi), var(--glass-shadow)}
+  #dropZone{border-color:rgba(0,113,227,.35) !important}
+  html.dark #dropZone{border-color:rgba(100,210,255,.35) !important}
+  #dropZone.drop-drag{border-color:var(--blue);background:linear-gradient(135deg,rgba(100,181,255,.30),rgba(255,255,255,.5));box-shadow:0 0 0 4px rgba(0,122,255,.22), var(--glass-shadow)}
+  .dz2.drop-drag{border-color:var(--blue);background:rgba(0,122,255,.08);box-shadow:0 0 0 4px rgba(0,122,255,.20)}
+  /* — Header: kaca lebih bening + garis cahaya di tepi bawah — */
+  header{
+    background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.42)) !important;
+    backdrop-filter:blur(16px) saturate(170%);-webkit-backdrop-filter:blur(16px) saturate(170%);
+    box-shadow:inset 0 -1px 0 rgba(255,255,255,.55), 0 8px 24px -16px rgba(0,113,227,.35);
+  }
+  html.dark header{
+    background:linear-gradient(180deg,rgba(26,32,40,.62),rgba(14,18,24,.45)) !important;
+    box-shadow:inset 0 -1px 0 rgba(255,255,255,.10), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+  #themeBtn{
+    background:var(--glass-bg) !important;border-color:var(--glass-brd) !important;
+    box-shadow:var(--glass-hi), 0 4px 12px -6px rgba(0,113,227,.35);
+  }
+  /* — Permukaan melayang lain ikut kaca — */
+  #batchBar{
+    background:linear-gradient(180deg,rgba(255,255,255,.68),rgba(255,255,255,.48)) !important;
+    backdrop-filter:blur(16px) saturate(170%);-webkit-backdrop-filter:blur(16px) saturate(170%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 -10px 28px -18px rgba(0,113,227,.4);
+  }
+  html.dark #batchBar{
+    background:linear-gradient(180deg,rgba(30,36,44,.66),rgba(16,20,26,.5)) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+  }
+  #procDock{
+    background:linear-gradient(135deg,rgba(8,30,54,.86),rgba(6,26,48,.82));
+    border:1px solid rgba(100,181,255,.28);
+    box-shadow:inset 0 1px 0 rgba(100,181,255,.35), 0 16px 36px -12px rgba(3,24,46,.55);
+    backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);
+  }
+  html.dark #procDock{
+    background:linear-gradient(135deg,rgba(240,248,255,.92),rgba(214,235,255,.88));color:#0A1E33;
+    border-color:rgba(255,255,255,.7);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 16px 36px -12px rgba(0,0,0,.5);
+  }
+  #procDockBar{background:linear-gradient(90deg,var(--blue-hi),var(--blue))}
+  html.dark #procDock .pd-spin{border-color:rgba(0,113,227,.25);border-top-color:var(--blue-deep)}
+  #toast{
+    background:linear-gradient(135deg,rgba(10,34,58,.88),rgba(6,26,48,.85));border:1px solid rgba(100,181,255,.25);
+    box-shadow:inset 0 1px 0 rgba(100,181,255,.3), 0 10px 30px -10px rgba(3,24,46,.5);
+    backdrop-filter:blur(12px) saturate(160%);-webkit-backdrop-filter:blur(12px) saturate(160%);
+  }
+  html.dark #toast{background:linear-gradient(135deg,rgba(240,248,255,.94),rgba(214,235,255,.9));color:#0A1E33;border-color:rgba(255,255,255,.7)}
+  .mascot-bubble{
+    background:var(--glass-bg);border-color:var(--glass-brd);
+    box-shadow:var(--glass-hi), 0 12px 26px -12px rgba(0,113,227,.4);
+    backdrop-filter:blur(12px) saturate(160%);-webkit-backdrop-filter:blur(12px) saturate(160%);
+  }
+  /* — Isian kaca buat kontrol kecil — */
+  .icon-tile,.icon-btn{
+    background:linear-gradient(135deg,rgba(255,255,255,.6),rgba(255,255,255,.28));
+    border:1px solid rgba(255,255,255,.55);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  html.dark .icon-tile,html.dark .icon-btn{
+    background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.05));
+    border-color:rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);
+  }
+  .icon-tile.accent{background:linear-gradient(135deg,var(--blue-hi),var(--blue));border-color:rgba(255,255,255,.4);color:#0A2A4A}
+  .hero-step .icon-tile{
+    background:var(--glass-bg);border-color:var(--glass-brd);
+    box-shadow:var(--glass-hi), 0 8px 18px -10px rgba(0,113,227,.35);
+  }
+  .seg{
+    background:rgba(0,113,227,.10);
+    box-shadow:inset 0 1px 3px rgba(0,113,227,.10);
+  }
+  html.dark .seg{background:rgba(100,210,255,.10);box-shadow:inset 0 1px 3px rgba(0,0,0,.3)}
+  .seg button[aria-pressed="true"]{
+    background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(255,255,255,.78));
+    box-shadow:inset 0 1px 0 #fff, 0 3px 8px rgba(0,113,227,.18);
+  }
+  html.dark .seg button[aria-pressed="true"]{background:linear-gradient(135deg,rgba(100,210,255,.32),rgba(0,122,255,.22));color:#EAF4FF;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+  /* PERFORMA: chip marquee TANPA backdrop-filter — chip-nya bergerak terus,
+     blur di elemen bergerak = re-blur tiap frame. Sekarang cukup gradasi
+     kaca opak + specular, track-nya dikomposit transform aja. */
+  .brand-chip{
+    background:var(--glass-bg);border:1px solid var(--glass-brd);
+    box-shadow:var(--glass-hi), 0 6px 16px -8px rgba(0,113,227,.3);
+  }
+  .brand-track{will-change:transform}
+  .ios-group{
+    background:rgba(0,113,227,.06);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  html.dark .ios-group{background:rgba(100,210,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+  .soft-box,.kv div{background:rgba(0,113,227,.06)}
+  html.dark .soft-box,html.dark .kv div{background:rgba(100,210,255,.07)}
+  .card-progress{background:rgba(0,113,227,.07)}
+  html.dark .card-progress{background:rgba(100,210,255,.08)}
+  #folderBtn,#videoPickBtn{
+    background:var(--glass-bg);border:1px solid var(--glass-brd) !important;
+    box-shadow:var(--glass-hi), 0 6px 16px -8px rgba(0,113,227,.3);
+  }
+  #list button.border{background:rgba(0,113,227,.08)}
+  /* — Proses & status: aksen proses & status satu keluarga biru — */
+  .spinner{border-color:rgba(0,122,255,.28);border-top-color:var(--blue)}
+  .thumb-wrap .scan-beam{background:linear-gradient(180deg,transparent,rgba(0,122,255,.55),rgba(100,181,255,.4),transparent)}
+  .is-processing .thumb-wrap::after{box-shadow:inset 0 0 0 2px rgba(0,122,255,.7)}
+  .is-processing{border-color:rgba(0,122,255,.5) !important}
+  .sparkle{background:var(--blue)}
+  .sparkle.s2{background:var(--blue-hi)}
+  .sparkle.s3{background:#64D2FF}
+  .mascot-shadow{background:radial-gradient(ellipse at center,rgba(0,70,140,.30),transparent 68%)}
+  /* — Fallback tanpa backdrop-filter: permukaan jadi opak bersih — */
+  @supports not ((backdrop-filter:blur(4px)) or (-webkit-backdrop-filter:blur(4px))){
+    .card,.dark .card{background:var(--surface)}
+    header{background:#FBFBFD !important}
+    html.dark header{background:#101216 !important}
+    #batchBar{background:#fff !important}
+    html.dark #batchBar{background:#141517 !important}
+    .icon-tile,.icon-btn,.brand-chip,.mascot-bubble{background:var(--surface)}
+  }
+  @media (prefers-reduced-transparency: reduce){
+    .card,header,#batchBar,#procDock,#toast,.mascot-bubble,.icon-tile,.icon-btn,.brand-chip{backdrop-filter:none;-webkit-backdrop-filter:none}
+    .card{background:var(--surface)}
+  }
+  /* ═══ PERFORMA — animasi & render cuma pas kelihatan ═══
+     - Maskot: selama panggungnya sembunyi (di luar momen proses), semua
+       animasi internalnya di-pause total — dulu float/sparkle/shadow
+       muter terus di balik visibility:hidden.
+     - Marquee brand: di-pause JS pas di luar layar (kelas .paused).
+     - FAQ & strip brand di bawah lipatan: content-visibility bikin
+       browser lewatin render awalnya sampai dekat viewport. */
+  #mascotStage:not(.show) .mascot-float,
+  #mascotStage:not(.show) .mascot-shadow,
+  #mascotStage:not(.show) .sparkle,
+  #mascotStage:not(.show) .mascot-hand{animation-play-state:paused}
+  .brand-track.paused{animation-play-state:paused}
+  #faqSection{content-visibility:auto;contain-intrinsic-size:auto 260px}
+  #brandWrap{content-visibility:auto;contain-intrinsic-size:auto 64px}
+}

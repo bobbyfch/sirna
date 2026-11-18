@@ -25,9 +25,15 @@ if (projectConfig) {
 if (pack.scripts?.['deploy:ci']?.includes('github') || pack.scripts?.['deploy:ci']?.includes('pages')) throw new Error('Legacy deployment reference');
 if (config.assets?.not_found_handling !== undefined && !['404-page', 'single-page-application', 'none'].includes(config.assets.not_found_handling)) throw new Error('Invalid asset not-found handling');
 
-// Starter's bundled static asset requirements apply only while its copy build is in use.
-// Framework migrations must deliberately update/replace their own tests and deploy gates.
+// Migrasi Vite (2026-11-18): entry index.html di root, sumber TS di src/,
+// build = `vite build` -> dist/. Kalau build bukan starter copy, validasi
+// layout Vite ini (bukan public/index.html yang sudah tidak ada).
 const starterStaticBuild = /(?:^|\s)node\s+(?:\.\/)?scripts\/build\.mjs(?:\s|$)/.test(pack.scripts?.build ?? '');
+const viteBuild = /\bvite\s+build\b/.test(pack.scripts?.build ?? '');
+if (viteBuild) {
+  for (const path of ['index.html', 'vite.config.ts', 'src/main.ts', 'src/style.css']) await access(new URL(path, root));
+  if (config.assets?.directory !== './dist') throw new Error('Vite build must deploy ./dist');
+}
 if (starterStaticBuild) {
   if (config.assets?.directory !== './dist') throw new Error('Static starter must deploy ./dist');
   for (const path of ['public/index.html', 'public/404.html', 'public/_headers']) await access(new URL(path, root));
@@ -40,4 +46,4 @@ for (const workflow of workflows.filter(f => /\.ya?ml$/i.test(f))) {
   const violations = detectDuplicateSiteDeploy(await readFile(new URL(workflow, actions), 'utf8'));
   if (violations.length) throw new Error(`Duplicate site deployment workflow (${workflow}): ${violations.join('; ')}`);
 }
-console.log('Source and single-website-deployment checks passed' + (starterStaticBuild ? ' (static starter)' : ' (adapted project)'));
+console.log('Source and single-website-deployment checks passed' + (viteBuild ? ' (vite)' : starterStaticBuild ? ' (static starter)' : ' (adapted project)'));
