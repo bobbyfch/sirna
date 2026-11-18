@@ -1,0 +1,22 @@
+# Sirna contributor / agent workflow
+
+- Work directly on `main`; keep commits scoped and preserve Cloudflare deployment configuration already in the repo. Do not create a separate hosting or deployment route.
+- Sirna processes user-provided metadata/media locally in the browser; maintain privacy, explicit permissions, trustworthy error handling and clear limits. Do not upload users' media, add telemetry, or loosen security guarantees for a visual redesign.
+- Read README.md, package.json and existing tests before edits; prefer the repo's actual `npm run verify`/test commands as applicable. Do not claim actual run unless executed.
+
+
+## Apple-first UI/UX execution contract — 18 Nov 2026
+
+Apply **Apple Human Interface Guidelines (HIG)** as the default grammar for every UI, navigation, layout, component and responsive task, without asking the owner to re-explain shapes, switches or layout. Keep existing branding, architecture, accessibility, security and native platform OS conventions. User's explicit different UI direction overrides this default for that task.
+
+- First inspect existing repo controls, CSS tokens, SDK, navigation, tests and constraints. Prefer reuse over new general UI kits.
+- Control semantics: destinations → tab/sidebar; contextual commands → toolbar; boolean immediate setting → switch; few exclusive local modes → segmented; many choices → picker; continuous value → slider; bounded count → stepper; temporary task → sheet; critical prompt → alert. Distinguish button action from link navigation.
+- Adaptive: phone usually 1-column/content-first; tablet/sidebar or list-detail only when room and task justify; desktop multi-pane for genuine workflow needs; TV remote D-pad with visible focus. Preserve resize/orientation/keyboard/back/URL, safe-area, localization and font scaling.
+- Semantic design tokens and coherent text/spacing/shape/icons; Liquid Glass only purposeful navigation/control chrome, with opaque/reduced transparency fallback. No glass-on-glass; don't ship proprietary SF assets on web/Android without license.
+- Use platform's existing UI implementation (native HTML/CSS, React accessible primitive, Kotlin/Compose, etc.). Google Material 3 Expressive, Fluent 2, Spectrum 2 and Primer are the **only backup design guidelines** and require reasoned platform/task exceptions.
+- QA changed screens across supported mobile/tablet/desktop/TV sizes, dark/light/high contrast, large type/zoom, reduced motion, touch/keyboard/TalkBack/remote, focus, disabled/loading/error/offline, settings persistence and meaningful recovery. Record PASS/FAIL/NOT TESTED accurately; don't claim Apple HIG certification.
+- Preserve all existing main-branch/deployment policies. Documentation changes should not introduce parallel deploy pathways, workflows, new branch policy or dependencies.
+
+Knowledge base: [00 Operating Standard](https://docs.google.com/document/d/1w-1h4fe4ttDmoWW9jMSWBS9QkA6nqgTRSsr1nOLGAGA/edit) · [01 UI Patternbook](https://docs.google.com/document/d/1GG4RlD6YZq8Z7SnLOg7obJz5iUoCEHnVbrVHU_RHk7I/edit) · [02 Engineering & QA](https://docs.google.com/document/d/1tKbQvPvWdwBlNEUDoe2nBvA3z8Rp4TcMR7AjRKdaBSg/edit) · [03 Project Playbooks](https://docs.google.com/document/d/1h1olqr5dLNQmjnl7PTMYAknFNDI-R26o-a8fc9AAV1s/edit) · [04 Research Sources](https://docs.google.com/document/d/1DxcMfR9J293ncqLZgJjI-fQ2yPcUTfqwBx19p7ImcsM/edit). Google Drive isn't always available to coding agents: apply these self-contained rules and consult links when connected.
+
+Sirna UI: precise local-file picker, scan/progress/results, explicit metadata warnings and export/retry. Apple-first appearance must not imply deleting visible privacy/security information.
