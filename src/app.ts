@@ -241,9 +241,11 @@ async function handleFiles(fileList: FileList | File[]){
   for(var ci=0; ci<created.length; ci++){ await cleanItem(created[ci]); done++; paint(); }
   setTimeout(function(){ if(dock) dock.classList.add("hidden"); procCurId=null; },1200);
   batchRunning=false; updateStats();
-  var okCount=created.filter(function(x){return x.cleanedBlob}).length;
+  var okCount=created.filter(function(x){return x.cleanedBlob && x.cleanedScan && !x.cleanedScan.hasAI}).length;
+  var residual=created.filter(function(x){return x.cleanedBlob && x.cleanedScan && x.cleanedScan.hasAI}).length;
   if(okCount===created.length) toast("Beres ✓ " + okCount + " file bersih.");
-  else if(okCount>0) toast(okCount + "/" + created.length + " file beres.");
+  else if(okCount>0) toast(okCount + "/" + created.length + " file bersih" + (residual ? " · " + residual + " masih ada label." : "."));
+  else if(residual>0) toast(residual + " file masih ada label — coba Deep Clean.");
   else toast("Tidak ada yang bisa dibersihkan.");
 }
 
@@ -314,21 +316,25 @@ function sourceBadge(label){
   var img= lg ? '<img class="badge-logo '+lg[1]+'" src="assets/logos/'+lg[0]+'" alt="" aria-hidden="true">' : "";
   return '<span class="badge-ai badge-src">'+img+escapeHtml(label)+'</span>';
 }
-function refreshBadges(item){
+/* scan = hasil scan yang mau ditampilkan; default-nya scan awal file.
+   finishClean memanggil dengan item.cleanedScan supaya kotak merah &
+   chip merah dari scan AWAL hilang begitu re-scan bersih. */
+function refreshBadges(item, scan?){
   var wrap=document.getElementById("badges-"+item.id); if(!wrap) return;
   var html="";
   /* Maksimal DUA chip biar kartu nggak rame: (1) sumber utama MERAH + logo
      aslinya, (2) satu chip ringkasan abu buat temuan lain + jenis catatan
      teknis (IPTC / C2PA / EXIF …) digabung pakai "·". */
-  var found=item.scan.found, types=item.scan.types;
+  var s=scan||item.scan;
+  var found=s.found, types=s.types;
   if(found.length){
     html+=sourceBadge(found[0]);
     var rest=found.slice(1).concat(types);
-    if(item.scan.interesting.length) rest.push("prompt / seed kebaca");
-    if(rest.length) html+='<span class="badge-meta"'+(item.scan.interesting.length?' title="'+escapeHtml(item.scan.interesting.join(" · "))+'"':"")+'>'+escapeHtml(rest.join(" · "))+'</span>';
+    if(s.interesting.length) rest.push("prompt / seed kebaca");
+    if(rest.length) html+='<span class="badge-meta"'+(s.interesting.length?' title="'+escapeHtml(s.interesting.join(" · "))+'"':"")+'>'+escapeHtml(rest.join(" · "))+'</span>';
   } else if(types.length){
     html='<span class="badge-meta">'+escapeHtml(types.join(" · "))+'</span>';
-    if(item.scan.interesting.length) html+='<span class="badge-meta" title="'+escapeHtml(item.scan.interesting.join(" · "))+'">prompt / seed kebaca</span>';
+    if(s.interesting.length) html+='<span class="badge-meta" title="'+escapeHtml(s.interesting.join(" · "))+'">prompt / seed kebaca</span>';
   } else {
     html='<span class="badge-meta">Metadata minim</span>';
   }
@@ -338,7 +344,7 @@ function refreshBadges(item){
      nggak usah kotak sama sekali (pill status udah bilang "Tidak ada label AI"). */
   var box=document.getElementById("detect-"+item.id);
   if(box){
-    if(item.scan.hasAI){
+    if(s.hasAI){
       box.innerHTML='<div class="detect-box" role="note"><p class="detect-head">'+ic("i-alert","ic-sm")+' Label AI ditemukan</p></div>';
     } else {
       box.innerHTML='';
@@ -400,20 +406,27 @@ async function cleanVideoItem(item){
    Dipakai kalau Format = Asli, kualitas masih default (92), dan bukan
    Deep Clean: byte piksel disalin apa adanya, cuma potongan metadata
    yang dibuang — jadi ukuran hasil nyaris sama kayak file asli.
-   PNG: buang tEXt / iTXt / zTXt / eXIf / jumb (prompt, XMP, EXIF, C2PA).
-   JPEG: buang APP1 (EXIF/XMP) / APP11 (JUMBF/C2PA) / APP13 (IPTC) /
-   COM (komentar). ICC dipertahankan (ngaruh ke warna, bukan label AI).
+   ALLOWLIST (bukan denylist): cuma chunk/segment yang aman & perlu yang
+   dipertahankan — sisanya dibuang, termasuk profil warna ICC (iCCP /
+   APP2) yang tag teksnya bisa membawa string label AI, chunk bertipe
+   non-standar (JUMB, c2pa, …), dan data trailing setelah EOI. Asumsi
+   lama "ICC dipertahankan, bukan label AI" terbukti salah (Nov 2026:
+   label OpenAI/C2PA lolos utuh di dalam iCCP/APP2). Tanpa profil ICC,
+   gambar dirender sebagai sRGB — benar untuk hampir semua foto/web.
    File malformed → throw, biar pemanggil jatuh ke jalur canvas. */
 function stripPngMeta(ab){
   var b=new Uint8Array(ab);
   if(b.length<8 || b[0]!==0x89 || b[1]!==0x50 || b[2]!==0x4E || b[3]!==0x47 || b[4]!==0x0D || b[5]!==0x0A || b[6]!==0x1A || b[7]!==0x0A) throw new Error("Bukan PNG.");
-  var DROP={ "tEXt":1, "iTXt":1, "zTXt":1, "eXIf":1, "jumb":1 };
+  /* ALLOWLIST: cuma chunk ini yang dipertahankan — chunk lain apa pun
+     (iCCP, tEXt, iTXt, zTXt, eXIf, jumb, JUMB, c2pa, chunk tak dikenal)
+     dibuang. Chunk setelah IEND juga ikut dibuang (loop berhenti di IEND). */
+  var KEEP={ "IHDR":1, "PLTE":1, "IDAT":1, "IEND":1, "sRGB":1, "gAMA":1, "cHRM":1, "sBIT":1, "tRNS":1, "bKGD":1, "hIST":1, "pHYs":1, "sPLT":1, "tIME":1 };
   var out=[b.slice(0,8)], pos=8, seenIEND=false;
   while(pos+8<=b.length){
     var len=(b[pos]*0x1000000)+(b[pos+1]<<16)+(b[pos+2]<<8)+b[pos+3];
     if(len<0 || pos+12+len>b.length) throw new Error("PNG rusak.");
     var type=String.fromCharCode(b[pos+4],b[pos+5],b[pos+6],b[pos+7]);
-    if(!DROP[type]) out.push(b.slice(pos,pos+12+len));
+    if(KEEP[type]) out.push(b.slice(pos,pos+12+len));
     if(type==="IEND"){ seenIEND=true; break; }
     pos+=12+len;
   }
@@ -425,17 +438,30 @@ function stripPngMeta(ab){
 function stripJpegMeta(ab){
   var b=new Uint8Array(ab);
   if(b.length<4 || b[0]!==0xFF || b[1]!==0xD8) throw new Error("Bukan JPEG.");
-  var DROP={ 0xE1:1, 0xEB:1, 0xED:1, 0xFE:1 }; /* APP1, APP11, APP13, COM */
+  /* APP1 (EXIF/XMP), APP2 (profil ICC — tag teks desc/cprt-nya bisa
+     membawa string label AI, jadi dibuang; output dirender sRGB),
+     APP11 (JUMBF/C2PA), APP13 (IPTC), COM (komentar). */
+  var DROP={ 0xE1:1, 0xE2:1, 0xEB:1, 0xED:1, 0xFE:1 };
   var out=[b.slice(0,2)], pos=2, done=false;
   while(pos+2<=b.length){
     while(pos+1<b.length && b[pos]===0xFF && b[pos+1]===0xFF) pos++; /* byte isi 0xFF */
     if(b[pos]!==0xFF) throw new Error("JPEG rusak.");
     var marker=b[pos+1];
-    if(marker===0xD9 || marker===0xDA){ out.push(b.slice(pos)); done=true; break; } /* EOI / SOS — sisa file disalin utuh */
+    if(marker===0xD9){ out.push(b.slice(pos,pos+2)); done=true; break; } /* EOI tanpa SOS — potong di sini, buang trailing */
     if(marker===0x01 || (marker>=0xD0 && marker<=0xD7)){ out.push(b.slice(pos,pos+2)); pos+=2; continue; } /* marker tanpa panjang */
     if(pos+4>b.length) throw new Error("JPEG rusak.");
     var len=(b[pos+2]<<8)|b[pos+3];
     if(len<2 || pos+2+len>b.length) throw new Error("JPEG rusak.");
+    if(marker===0xDA){
+      /* SOS: salin header segmen + scan data HANYA sampai EOI pertama.
+         Byte 0xFF di scan data selalu diikuti 0x00 (stuffing), kecuali
+         marker RSTn / EOI — jadi kemunculan 0xFFD9 pertama PASTI EOI.
+         Data apa pun setelah EOI (trailing) dibuang, bukan disalin. */
+      var scanStart=pos+2+len, eoi=-1;
+      for(var j=scanStart;j+1<b.length;j++){ if(b[j]===0xFF && b[j+1]===0xD9){ eoi=j; break; } }
+      out.push(eoi===-1 ? b.slice(pos) : b.slice(pos,eoi+2));
+      done=true; break;
+    }
     if(!DROP[marker]) out.push(b.slice(pos,pos+2+len));
     pos+=2+len;
   }
@@ -443,6 +469,21 @@ function stripJpegMeta(ab){
   var total=out.reduce(function(s,c){return s+c.length;},0), res=new Uint8Array(total), off=0;
   out.forEach(function(c){ res.set(c,off); off+=c.length; });
   return res.buffer;
+}
+
+/* Sniff format dari magic bytes, bukan dari File.type (yang cuma ikut
+   ekstensi nama file): JPEG bernama ".png" harus di-strip sebagai JPEG,
+   bukan dilempar ke canvas lalu jadi PNG ~7× lebih besar. */
+function sniffImageKind(ab){
+  var b=new Uint8Array(ab);
+  if(b.length>=2 && b[0]===0xFF && b[1]===0xD8) return "image/jpeg";
+  if(b.length>=8 && b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) return "image/png";
+  if(b.length>=12 && b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 && b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) return "image/webp";
+  if(b.length>=12 && b[4]===0x66 && b[5]===0x74 && b[6]===0x79 && b[7]===0x70){
+    var brand=String.fromCharCode(b[8],b[9],b[10],b[11]);
+    if(brand==="avif" || brand==="avis" || brand==="mif1") return "image/avif";
+  }
+  return "";
 }
 
 async function cleanItem(item){
@@ -455,13 +496,26 @@ async function cleanItem(item){
   if(res) res.classList.add("hidden");
   try{
     var qNum=parseInt($("#qualityRange").value,10);
-    var outType= outFormat==="same" ? (item.file.type==="image/avif" ? "image/png" : item.file.type||"image/png") : outFormat;
+    /* Format asli dari magic bytes (bukan ekstensi nama file) — dipakai
+       buat milih strip lossless & tipe output di bawah. */
+    var ab0=null, realType="";
+    try{ ab0=await item.file.arrayBuffer(); realType=sniffImageKind(ab0); }catch(e){}
+    var fileType=realType||item.file.type||"image/png";
+    var outType= outFormat==="same" ? (fileType==="image/avif" ? "image/png" : fileType) : outFormat;
     if(["image/jpeg","image/png","image/webp"].indexOf(outType)===-1) outType="image/png";
     var blob=null;
     /* Jalur lossless: Format Asli + kualitas default (92) + bukan Deep Clean +
-       PNG/JPEG → buang metadata tanpa sentuh piksel, ukuran nyaris tetap. */
-    if(outFormat==="same" && !deepClean && qNum===92 && outType===item.file.type && (item.file.type==="image/png"||item.file.type==="image/jpeg")){
-      try{ blob=new Blob([item.file.type==="image/png"?stripPngMeta(await item.file.arrayBuffer()):stripJpegMeta(await item.file.arrayBuffer())],{type:item.file.type}); }
+       PNG/JPEG → buang metadata tanpa sentuh piksel, ukuran nyaris tetap.
+       Hasil strip langsung di-scan ulang: kalau label MASIH kebaca
+       (container apa pun yang lolos allowlist), blob lossless dibuang dan
+       file jatuh ke jalur canvas — file nggak boleh pulang dengan label
+       yang masih terdeteksi padahal canvas bisa menghapusnya. */
+    if(outFormat==="same" && !deepClean && qNum===92 && outType===fileType && (fileType==="image/png"||fileType==="image/jpeg") && ab0){
+      try{
+        var lblob=new Blob([fileType==="image/png"?stripPngMeta(ab0):stripJpegMeta(ab0)],{type:fileType});
+        var lscan=scanBuffer(await lblob.arrayBuffer(),"image");
+        if(!lscan.hasAI) blob=lblob;
+      }
       catch(_e){ blob=null; /* file aneh → jatuh ke jalur canvas di bawah */ }
     }
     if(!blob){
@@ -502,6 +556,10 @@ function finishClean(item,res,status,msg){
   var wc=document.getElementById("wf-clean-"+item.id); if(wc){ wc.classList.add("done"); var wd=wc.querySelector(".wf-dot"); if(wd) wd.textContent="\u2713"; }
   var ws=document.getElementById("wf-save-"+item.id); if(ws) ws.classList.add("active");
   setPill(status,verifyState==="clean"?"pill-clean":"pill-error",verifyState==="clean"?"i-check":"i-alert",verifyState==="clean"?"Bersih":verifyState==="residual"?"Label tersisa":"Belum terverifikasi");
+  /* Badge & kotak deteksi ikut hasil BERSIH, bukan scan awal: kalau re-scan
+     0 label, kotak merah "Label AI ditemukan" + chip merah harus hilang —
+     kalau nggak, user baca kartu itu sebagai "label tetap ada". */
+  if(item.cleanedScan) refreshBadges(item, item.cleanedScan);
   if(res){
     res.classList.remove("hidden");
     /* Jangan klaim bersih jika scan ulang mendeteksi sisa label atau gagal. */
@@ -554,6 +612,9 @@ function openPreview(item){
 /* ── Stats / batch bar ── */
 function updateStats(){
   var cleaned=items.filter(function(i){return i.cleanedBlob}).length;
+  /* "Bersih" dihitung dari re-scan, bukan dari ada-tidaknya blob bersih —
+     file yang pill-nya "Label tersisa" nggak boleh kehitung bersih. */
+  var verified=items.filter(function(i){return i.cleanedBlob && i.cleanedScan && !i.cleanedScan.hasAI}).length;
   $("#queueSection").classList.toggle("hidden", items.length===0);
   /* Layout bersih ala TinyPNG: begitu ada file di workspace, canvas upload,
      pengaturan, kartu alur & marquee disembunyiin — halaman fokus ke daftar
@@ -563,9 +624,9 @@ function updateStats(){
   document.body.classList.toggle("has-files",busy); /* hero menyusut: kartu langsung di atas */
   ["dropZone","settingsCard","brandWrap"].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.toggle("hidden",busy); });
   syncDockBottom();
-  $("#statsText").textContent= items.length? "· "+items.length+" file · "+cleaned+" bersih" : "";
+  $("#statsText").textContent= items.length? "· "+items.length+" file · "+verified+" bersih" : "";
   $("#batchBar").classList.toggle("hidden", cleaned<2);
-  $("#batchStats").textContent= cleaned+" file bersih";
+  $("#batchStats").textContent= verified+" file bersih";
   $("#zipBtn").disabled= cleaned<2 || batchRunning;
   $("#zipBtn").innerHTML= ic("i-archive","ic-sm")+"<span>ZIP ("+cleaned+")</span>";
 }
