@@ -277,10 +277,13 @@ function renderItem(item){
         '<div class="hidden" id="fold-meta-'+item.id+'"><div class="fold-pad"><div id="meta-body-'+item.id+'"><p class="text-[13.5px]" style="color:var(--muted)">Lagi dimuat\u2026</p></div></div></div>'+
         '<div class="ios-sep" aria-hidden="true"></div>'+
         '<button type="button" class="ios-row" data-act="more" data-id="'+item.id+'" aria-expanded="false" aria-controls="fold-more-'+item.id+'"><span class="icon-tile sm" style="margin-right:11px">'+ic(item.kind==="video" ? "i-film" : "i-repeat","ic-sm")+'</span><span class="row-label">'+(item.kind==="video" ? "Video" : "Konversi")+'</span><svg class="chev ic ic-sm" aria-hidden="true"><use href="#i-chev"/></svg></button>'+
-      /* Hapus Objek cuma buat foto — video belum didukung editor ini. */
+      /* Hapus Objek & Hapus Watermark cuma buat foto — video belum
+         didukung editor ini. */
       (item.kind==="video" ? "" :
         '<div class="ios-sep" aria-hidden="true"></div>'+
-        '<button type="button" class="ios-row" data-act="erase" data-id="'+item.id+'"><span class="icon-tile sm" style="margin-right:11px">'+ic("i-sparkles","ic-sm")+'</span><span class="row-label">Hapus Objek</span><svg class="chev ic ic-sm" aria-hidden="true"><use href="#i-chev"/></svg></button>')+
+        '<button type="button" class="ios-row" data-act="erase" data-id="'+item.id+'"><span class="icon-tile sm" style="margin-right:11px">'+ic("i-sparkles","ic-sm")+'</span><span class="row-label">Hapus Objek</span><svg class="chev ic ic-sm" aria-hidden="true"><use href="#i-chev"/></svg></button>'+
+        '<div class="ios-sep" aria-hidden="true"></div>'+
+        '<button type="button" class="ios-row" data-act="watermark" data-id="'+item.id+'"><span class="icon-tile sm" style="margin-right:11px">'+ic("i-tag","ic-sm")+'</span><span class="row-label">Hapus Watermark</span><svg class="chev ic ic-sm" aria-hidden="true"><use href="#i-chev"/></svg></button>')+
       (item.kind==="video"
         ? '<div class="hidden" id="fold-more-'+item.id+'"><div class="fold-pad"><div class="flex flex-wrap gap-2 mt-2.5"><button type="button" class="min-h-[44px] px-4 font-bold text-[13px] btn-ic" style="background:var(--fill);color:var(--label);border-radius:980px" data-act="frame" data-id="'+item.id+'">'+ic("i-camera","ic-sm")+'Frame</button><button type="button" class="min-h-[44px] px-4 font-bold text-[13px] btn-ic" style="background:var(--fill);color:var(--label);border-radius:980px" data-act="compress" data-id="'+item.id+'">'+ic("i-compress","ic-sm")+'Kompres</button></div><div id="vid-out-'+item.id+'" class="mt-3"></div></div></div>'
         : '<div class="hidden" id="fold-more-'+item.id+'"><div class="fold-pad"><div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2.5"><label class="block"><span class="wf-lbl">'+ic("i-image","ic-sm")+' Format</span><select id="cv-fmt-'+item.id+'" class="wf-select"><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select></label><label class="block"><span class="wf-lbl">'+ic("i-expand","ic-sm")+' Ukuran</span><select id="cv-size-'+item.id+'" class="wf-select"><option value="0">Asli</option><option value="2048">\u22642048</option><option value="1080">\u22641080</option><option value="720">\u2264720</option></select></label><label class="block"><span class="wf-lbl">'+ic("i-gauge","ic-sm")+' Kualitas</span><select id="cv-q-'+item.id+'" class="wf-select"><option value="92">92%</option><option value="85" selected>85%</option><option value="70">70%</option></select></label></div><div class="flex flex-wrap items-center gap-2 mt-3"><button type="button" class="min-h-[44px] px-5 grad-bg text-white font-bold text-[13px] btn-ic" data-act="convert" data-id="'+item.id+'">'+ic("i-repeat","ic-sm")+'Konversi</button><span id="cv-out-'+item.id+'" class="flex flex-wrap items-center gap-2"></span></div></div></div>')+
@@ -594,7 +597,19 @@ async function openEraserFor(item){
     { onReplace:function(blob){ replaceCleaned(item,blob); }, onToast:toast }
   );
 }
-async function replaceCleaned(item,blob){
+async function openWatermarkFor(item){
+  if(item.kind==="video"){ toast("Hapus Watermark cuma buat foto dulu."); return; }
+  var src=item.cleanedBlob||item.file;
+  var type=item.cleanedType||item.file.type;
+  var wm;
+  try{ wm=await import("./watermark"); }
+  catch(e){ toast("Editor gagal dimuat. Coba refresh."); return; }
+  await wm.openWatermark(
+    { name:item.file.name, blob:src, type:type, suggestName:outName(item) },
+    { onReplace:function(blob){ replaceCleaned(item,blob,"Watermark dihapus","Hasil hapus watermark disimpan ✓"); }, onToast:toast }
+  );
+}
+async function replaceCleaned(item,blob,doneText="Objek dihapus",toastText="Hasil hapus objek disimpan ✓"){
   item.cleanedBlob=blob;
   item.cleanedType=blob.type||item.cleanedType||item.file.type;
   item.cleanedName=outName(item);
@@ -607,9 +622,9 @@ async function replaceCleaned(item,blob){
   var res=document.getElementById("result-"+item.id);
   var statusEl=document.getElementById("status-"+item.id);
   finishClean(item,res,statusEl,
-    "Objek dihapus, lalu dicek ulang: "+(item.cleanedScan && item.cleanedScan.hasAI ? "masih ada label tersisa." : "0 label AI tersisa.")+" Ukuran "+formatBytes(blob.size)+".");
+    doneText+", lalu dicek ulang: "+(item.cleanedScan && item.cleanedScan.hasAI ? "masih ada label tersisa." : "0 label AI tersisa.")+" Ukuran "+formatBytes(blob.size)+".");
   updateStats();
-  toast("Hasil hapus objek disimpan ✓");
+  toast(toastText);
 }
 
 async function saveItem(item){
@@ -870,6 +885,7 @@ $("#list").addEventListener("click",async function(e){
   else if(btn.dataset.act==="compress"){ await compressItem(it,btn); }
   else if(btn.dataset.act==="reclean"){ btn.disabled=true; await cleanItem(it); btn.disabled=false; toast("Dibersihin ulang ✓"); }
   else if(btn.dataset.act==="erase"){ await openEraserFor(it); }
+  else if(btn.dataset.act==="watermark"){ await openWatermarkFor(it); }
   else if(btn.dataset.act==="remove"){
     URL.revokeObjectURL(it.url); if(it.cleanedUrl) URL.revokeObjectURL(it.cleanedUrl);
     items=items.filter(function(i){return i.id!==it.id});

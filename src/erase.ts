@@ -270,9 +270,19 @@ const MODE_DESC: Record<string, string> = {
   lama: "Model LaMa · 198 MB, sekali unduh lalu tersimpan di HP. Hasil paling rapi, lubang besar.",
 };
 
+export interface EraseOptions {
+  title?: string; // judul modal — default "Hapus Objek"
+  /* Mask awal (mis. hasil deteksi watermark): dipanggil sekali pas gambar
+     kerja sudah dimuat; kalau mengembalikan mask, mask itu langsung
+     ditandain merah dan `painted` jadi true — user tinggal tekan Hapus
+     atau ngubah dulu pakai kuas. null = tidak ketemu, mode manual. */
+  initialMask?: (img: ImageData) => { mask: Uint8Array<ArrayBuffer>; note: string } | null;
+  noMaskNote?: string; // catatan kalau initialMask mengembalikan null
+}
+
 function $(id: string): HTMLElement { return document.getElementById(id) as HTMLElement; }
 
-export async function openEraser(source: EraseSource, hooks: EraseHooks): Promise<void> {
+export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: EraseOptions = {}): Promise<void> {
   const modal = $("eraseModal");
   const display = $("eraseCanvas") as HTMLCanvasElement;
   const overlay = $("eraseOverlay") as HTMLCanvasElement;
@@ -320,6 +330,16 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks): Promis
     octx.fillStyle = "rgba(255,59,48,0.45)";
     octx.fillRect(0, 0, ww, wh);
     octx.globalCompositeOperation = "source-over";
+  }
+  /* Tulis mask (1 = hapus) ke maskCanvas + state — dipakai Urungkan dan
+     mask awal (mis. hasil deteksi watermark). */
+  function applyMask(m: Uint8Array<ArrayBuffer>): void {
+    mask = m.slice();
+    mctx.clearRect(0, 0, ww, wh);
+    const d = mctx.createImageData(ww, wh);
+    for (let i = 0; i < ww * wh; i++) { const v = mask[i] ? 255 : 0; d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = v; }
+    mctx.putImageData(d, 0, 0);
+    renderOverlay();
   }
   function renderDisplay(): void {
     dctx.putImageData(current, 0, 0);
@@ -416,12 +436,7 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks): Promis
   $("eraseUndo").addEventListener("click", () => {
     const prev = undoStack.pop();
     if (!prev) { hooks.onToast("Nggak ada yang bisa diurungkan."); return; }
-    mask = prev;
-    mctx.clearRect(0, 0, ww, wh);
-    const d = mctx.createImageData(ww, wh);
-    for (let i = 0; i < ww * wh; i++) { const v = mask[i] ? 255 : 0; d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = v; }
-    mctx.putImageData(d, 0, 0);
-    renderOverlay();
+    applyMask(prev);
   });
   $("eraseClear").addEventListener("click", () => {
     undoStack.push(mask.slice());
@@ -574,10 +589,31 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks): Promis
   });
 
   /* ── Buka ── */
+  /* Judul selalu diatur (bukan cuma kalau opts.title ada) — kalau tidak,
+     judul "Hapus Watermark" dari sesi sebelumnya nempel pas buka
+     Hapus Objek sesudahnya. */
+  $("eraseTitle").textContent = opts.title || "Hapus Objek";
+  modal.setAttribute("aria-label", opts.title || "Hapus Objek");
   $("eraseSub").textContent = source.name + " · " + ow + "×" + oh + (ws < 1 ? " · diedit di " + ww + "×" + wh : "");
   setMode("instant");
   setNote("");
   ($("eraseResultBar") as HTMLElement).classList.add("hidden");
+  /* Mask awal (mis. deteksi watermark): ditandain merah sebelum editor
+     tampil; Urungkan bisa ngebatalin tandaan ini (mask kosong di-push
+     dulu). Deteksi gagal = mode manual, bukan error. */
+  if (opts.initialMask) {
+    try {
+      const found = opts.initialMask(current);
+      if (found && found.mask.some((v) => v)) {
+        undoStack.push(new Uint8Array(ww * wh));
+        applyMask(found.mask);
+        painted = true;
+        setNote(found.note);
+      } else if (opts.noMaskNote) {
+        setNote(opts.noMaskNote);
+      }
+    } catch (_e) { /* abaikan — user coret manual */ }
+  }
   renderDisplay();
   renderOverlay();
   modal.classList.remove("hidden");

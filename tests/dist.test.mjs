@@ -60,6 +60,31 @@ test('Hapus Objek: editor shell ada, model lazy-load, semua file di bawah batas 
   assert.match(all, /migan_pipeline_v2\.onnx/); // chunk erase ada (lazy)
   assert.match(all, /lama_fp32\.onnx/);
 });
+test('Hapus Watermark: hero step ada, deteksi lazy-load, model tetap di chunk erase', async () => {
+  const html = await readFile(new URL('index.html',dir),'utf8');
+  assert.match(html, /Hapus Watermark/);
+  assert.match(html, /id="eraseTitle"/); // judul modal diatur pas dibuka (Objek / Watermark)
+  const assets = await readdir(new URL('assets',dir));
+  const js = assets.filter(n => n.endsWith('.js'));
+  const main = js.filter(n => /^index-/.test(n) || /^main-/.test(n));
+  assert.ok(main.length >= 1, 'Missing main entry chunk');
+  let mainBundle = '';
+  for (const f of main) mainBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
+  // Detektor watermark tinggal di chunk lazy-nya sendiri (watermark-*),
+  // bukan di chunk utama — buka halaman tidak ikut memuat logika deteksi.
+  assert.doesNotMatch(mainBundle, /detectWatermark/);
+  assert.doesNotMatch(mainBundle, /huggingface\.co|migan_pipeline|lama_fp32|onnxruntime/);
+  let all = '';
+  for (const f of js) all += await readFile(new URL('assets/' + f, dir), 'utf8');
+  assert.match(all, /detectWatermark/); // chunk watermark ada (lazy)
+  // Model AI tetap cuma di chunk erase (lazy) — chunk watermark tidak
+  // membawa URL model sama sekali.
+  const wm = js.filter(n => /^watermark-/.test(n));
+  assert.ok(wm.length >= 1, 'Missing watermark chunk');
+  let wmBundle = '';
+  for (const f of wm) wmBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
+  assert.doesNotMatch(wmBundle, /huggingface\.co|migan_pipeline|lama_fp32|onnxruntime/);
+});
 test('Vite build output: bundled JS/CSS, no CDN, preserved fixes', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
   const assets = await readdir(new URL('assets',dir));

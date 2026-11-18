@@ -101,12 +101,14 @@
     <div class="hero-glow" aria-hidden="true"></div>
     <h1 class="rise rise-1 relative font-bold tracking-tight leading-[1.06] text-[34px] sm:text-[50px]">Hapus label AI<br class="hidden sm:block"> <span class="grad-text">dari foto &amp; video</span></h1>
     <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Taruh file. Beres.</p>
-    <div class="hero-steps rise rise-2" aria-label="Alur: deteksi, bersihkan, hapus objek, simpan">
+    <div class="hero-steps rise rise-2" aria-label="Alur: deteksi, bersihkan, hapus objek, hapus watermark, simpan">
       <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg></span>Deteksi</div>
       <span class="hero-step-conn" aria-hidden="true"></span>
       <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-eraser"/></svg></span>Bersihkan</div>
       <span class="hero-step-conn" aria-hidden="true"></span>
       <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg></span>Hapus Objek</div>
+      <span class="hero-step-conn" aria-hidden="true"></span>
+      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span>Hapus Watermark</div>
       <span class="hero-step-conn" aria-hidden="true"></span>
       <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span>Simpan</div>
     </div>
@@ -298,15 +300,17 @@
   </div>
 </div>
 
-<!-- Editor Hapus Objek — overlay; dibuka dari kartu file gambar.
-     Model AI dimuat malas di sini (lihat src/erase.ts): Instan tanpa
-     download, Cepat AI (MI-GAN 27 MB) & Terbaik (LaMa 198 MB) diunduh
-     sekali pas mode itu dipilih, lalu tersimpan di Cache Storage. -->
+<!-- Editor Hapus Objek / Hapus Watermark — overlay; dibuka dari kartu file
+     gambar. Judul & mask awal diatur pas dibuka (lihat src/erase.ts):
+     Hapus Objek = kuas kosong, Hapus Watermark = mask hasil deteksi
+     otomatis (src/watermark.ts). Model AI dimuat malas di sini: Instan
+     tanpa download, Cepat AI (MI-GAN 27 MB) & Terbaik (LaMa 198 MB)
+     diunduh sekali pas mode itu dipilih, lalu tersimpan di Cache Storage. -->
 <div id="eraseModal" class="hidden erase-modal" role="dialog" aria-modal="true" aria-label="Hapus Objek">
   <div class="erase-sheet">
     <div class="erase-head">
       <div class="min-w-0">
-        <h3 class="erase-title">Hapus Objek</h3>
+        <h3 class="erase-title" id="eraseTitle">Hapus Objek</h3>
         <p class="erase-sub" id="eraseSub">Coret objek yang mau dihapus.</p>
       </div>
       <button type="button" id="eraseClose" class="icon-btn shrink-0" aria-label="Tutup editor"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
