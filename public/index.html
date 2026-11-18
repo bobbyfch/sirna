@@ -1189,7 +1189,6 @@ var SIGNATURES=[
   {keys:["luma","dream machine"], label:"Luma (video)", v:1},
   {keys:["pika"], label:"Pika (video)", v:1},
   {keys:["hailuo","minimax"], label:"Hailuo / MiniMax (video)", v:1},
-  {keys:["lavf","ffmpeg"], label:"FFmpeg"},
   {keys:["c2pa","content credentials","contentauthenticity","jumbf"], label:"Cap resmi “dibuat AI”"},
   {keys:["trainedalgorithmicmedia","digital source type"], label:"Penanda resmi konten AI"},
   {keys:["ai generated","generated with ai","made with ai","created with ai"], label:"Label: AI Generated"}
@@ -1217,7 +1216,7 @@ function syncDockBottom(){
   var barUp= bar && !bar.classList.contains("hidden");
   dock.style.bottom= barUp ? "calc(86px + env(safe-area-inset-bottom))" : "calc(14px + env(safe-area-inset-bottom))";
 }
-function formatBytes(b){ if(b===0) return "0 B"; var k=1024,s=["B","KB","MB"],i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(i?1:0)+" "+s[i]; }
+function formatBytes(b){ if(b===0) return "0 B"; var k=1024,s=["B","KB","MB","GB","TB","PB"],i=Math.min(s.length-1,Math.floor(Math.log(b)/Math.log(k))); return (b/Math.pow(k,i)).toFixed(i?1:0)+" "+s[i]; }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]}); }
 var toastTimer=null;
 function toast(msg){ var t=$("#toast"); t.textContent=msg; t.classList.remove("hidden"); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.add("hidden"); },2600); }
@@ -1569,17 +1568,19 @@ async function cleanItem(item){
 }
 
 function finishClean(item,res,status,msg){
+  var verifyState= !item.cleanedScan ? "unverified" : (item.cleanedScan.hasAI ? "residual" : "clean");
   hideProc(item);
   var cardEl=document.getElementById("card-"+item.id);
   if(cardEl){ cardEl.classList.remove("is-processing"); cardEl.classList.add("is-done"); }
   var wc=document.getElementById("wf-clean-"+item.id); if(wc){ wc.classList.add("done"); var wd=wc.querySelector(".wf-dot"); if(wd) wd.textContent="\u2713"; }
   var ws=document.getElementById("wf-save-"+item.id); if(ws) ws.classList.add("active");
-  setPill(status,"pill-clean","i-check","Bersih");
+  setPill(status,verifyState==="clean"?"pill-clean":"pill-error",verifyState==="clean"?"i-check":"i-alert",verifyState==="clean"?"Bersih":verifyState==="residual"?"Label tersisa":"Belum terverifikasi");
   if(res){
     res.classList.remove("hidden");
-    /* Kotak hijau tegas: judul besar "Sudah bersih", baru detailnya.
-       msg dari pemanggil isinya kalimat manusia (hasil cek ulang + ukuran). */
-    res.innerHTML='<div class="clean-box" role="status"><p class="clean-head"><span class="clean-check" aria-hidden="true">'+ic("i-check","ic-sm")+'</span> Sudah bersih</p><p class="clean-body">'+msg+'</p></div>';
+    /* Jangan klaim bersih jika scan ulang mendeteksi sisa label atau gagal. */
+    res.innerHTML=verifyState==="clean"
+      ? '<div class="clean-box" role="status"><p class="clean-head"><span class="clean-check" aria-hidden="true">'+ic("i-check","ic-sm")+'</span> Sudah bersih</p><p class="clean-body">'+msg+'</p></div>'
+      : '<div class="detect-box" role="status"><p class="detect-head">'+ic("i-alert","ic-sm")+(verifyState==="residual"?" Label masih terdeteksi":" Hasil belum terverifikasi")+'</p><p class="clean-body">'+msg+'</p></div>';
   }
   ["save","reclean"].forEach(function(act){ var b=document.querySelector('button[data-act="'+act+'"][data-id="'+item.id+'"]'); if(b) b.classList.remove("hidden"); });
 }
