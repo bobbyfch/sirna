@@ -1,0 +1,96 @@
+name: Remote initialize project (one-time, no deploy)
+
+on:
+  workflow_dispatch:
+    inputs:
+      worker_name:
+        description: 'New Cloudflare Worker name (lowercase; 3-63 characters)'
+        required: true
+        type: string
+      custom_domain:
+        description: 'Optional hostname you own (e.g. app.example.com)'
+        required: false
+        default: ''
+        type: string
+      security_profile:
+        description: 'Default protection profile'
+        required: true
+        type: choice
+        default: site
+        options:
+          - site
+          - app
+          - cdn
+          - api
+
+permissions:
+  contents: write
+
+concurrency:
+  group: remote-initialize-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  initialize:
+    if: github.ref == 'refs/heads/main' && github.repository != 'bobbyfch/cloudflare-starter'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Verify template has not already been initialized
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const config = JSON.parse(readFileSync("wrangler.jsonc", "utf8"));
+            if (config.name !== "starter-not-configured") {
+              throw new Error("Project is already initialized; refusing to rewrite it.");
+            }
+          '
+      - name: Configure new project (no Cloudflare request)
+        shell: bash
+        env:
+          WORKER_NAME: ${{ inputs.worker_name }}
+          CUSTOM_DOMAIN: ${{ inputs.custom_domain }}
+          SECURITY_PROFILE: ${{ inputs.security_profile }}
+        run: |
+          npm ci
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            npm run setup -- "$WORKER_NAME" "$CUSTOM_DOMAIN" --profile "$SECURITY_PROFILE"
+          else
+            npm run setup -- "$WORKER_NAME" --profile "$SECURITY_PROFILE"
+          fi
+      - name: Run all source, test and public asset quality gates
+        run: npm run verify
+      - name: Commit initialized files only to main
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json wrangler.jsonc public/index.html project.config.json
+          if git diff --cached --quiet; then
+            echo 'No configuration changes; initialization refused.'
+            exit 1
+          fi
+          git commit -m 'chore(init): configure remote-first project'
+          git push origin HEAD:main
+      - name: Show remote deploy instructions
+        shell: bash
+        run: |
+          {
+            echo '## GitHub configuration complete'
+            echo 'Setup and tests passed. NO Worker deployment happened in GitHub Actions.'
+            echo 'Next: connect this new repository to Cloudflare Workers Builds on main.'
+            echo 'Build: npm run verify'
+            echo 'Configure the deploy command in Cloudflare Builds as documented in README.'
+            echo 'Node: 24; previews off; cache on'
+          } >> "$GITHUB_STEP_SUMMARY"
