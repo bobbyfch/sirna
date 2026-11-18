@@ -101,10 +101,12 @@
     <div class="hero-glow" aria-hidden="true"></div>
     <h1 class="rise rise-1 relative font-bold tracking-tight leading-[1.06] text-[34px] sm:text-[50px]">Hapus label AI<br class="hidden sm:block"> <span class="grad-text">dari foto &amp; video</span></h1>
     <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Taruh file. Beres.</p>
-    <div class="hero-steps rise rise-2" aria-label="Alur: deteksi, bersihkan, simpan">
+    <div class="hero-steps rise rise-2" aria-label="Alur: deteksi, bersihkan, hapus objek, simpan">
       <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg></span>Deteksi</div>
       <span class="hero-step-conn" aria-hidden="true"></span>
       <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-eraser"/></svg></span>Bersihkan</div>
+      <span class="hero-step-conn" aria-hidden="true"></span>
+      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg></span>Hapus Objek</div>
       <span class="hero-step-conn" aria-hidden="true"></span>
       <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span>Simpan</div>
     </div>
@@ -293,6 +295,57 @@
     </div>
     <div id="previewBody" class="grid place-items-center"></div>
     <p class="text-white/80 text-sm leading-relaxed mt-3 btn-ic" style="justify-content:flex-start"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-download"/></svg><b class="text-white">Tekan lama → Simpan</b></p>
+  </div>
+</div>
+
+<!-- Editor Hapus Objek — overlay; dibuka dari kartu file gambar.
+     Model AI dimuat malas di sini (lihat src/erase.ts): Instan tanpa
+     download, Cepat AI (MI-GAN 27 MB) & Terbaik (LaMa 198 MB) diunduh
+     sekali pas mode itu dipilih, lalu tersimpan di Cache Storage. -->
+<div id="eraseModal" class="hidden erase-modal" role="dialog" aria-modal="true" aria-label="Hapus Objek">
+  <div class="erase-sheet">
+    <div class="erase-head">
+      <div class="min-w-0">
+        <h3 class="erase-title">Hapus Objek</h3>
+        <p class="erase-sub" id="eraseSub">Coret objek yang mau dihapus.</p>
+      </div>
+      <button type="button" id="eraseClose" class="icon-btn shrink-0" aria-label="Tutup editor"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="erase-stage" id="eraseStage">
+      <div class="erase-canvas-box">
+        <canvas id="eraseCanvas"></canvas>
+        <canvas id="eraseOverlay" aria-hidden="true"></canvas>
+      </div>
+    </div>
+    <div class="erase-tools">
+      <div class="seg" role="group" aria-label="Mode hapus">
+        <button type="button" data-erase-mode="instant" aria-pressed="true">Instan</button>
+        <button type="button" data-erase-mode="migan" aria-pressed="false">Cepat AI</button>
+        <button type="button" data-erase-mode="lama" aria-pressed="false">Terbaik</button>
+      </div>
+      <p class="erase-mode-desc" id="eraseModeDesc">Tanpa download — buat coretan kecil, teks &amp; watermark.</p>
+      <label class="erase-brush" for="eraseBrush">Kuas <input type="range" id="eraseBrush" min="8" max="160" step="4" value="48"><span id="eraseBrushVal">48 px</span></label>
+      <div class="erase-row">
+        <button type="button" id="eraseUndo" class="erase-btn">Urungkan</button>
+        <button type="button" id="eraseClear" class="erase-btn">Hapus coretan</button>
+        <button type="button" id="eraseCompare" class="erase-btn">Tahan: asli</button>
+      </div>
+      <div id="eraseModelBar" class="erase-model hidden">
+        <div class="erase-model-top"><span id="eraseModelLabel">Model —</span><span id="eraseModelState">Belum diunduh</span></div>
+        <div class="erase-progress"><div id="eraseModelFill"></div></div>
+        <div class="erase-model-actions">
+          <button type="button" id="eraseModelBtn" class="erase-btn primary">Unduh model</button>
+          <button type="button" id="eraseModelDel" class="erase-btn hidden">Hapus model</button>
+        </div>
+      </div>
+      <button type="button" id="eraseRun" class="erase-run grad-bg">Hapus</button>
+      <div id="eraseResultBar" class="erase-row hidden">
+        <button type="button" id="eraseSave" class="erase-btn primary">Simpan hasil</button>
+        <button type="button" id="eraseDownload" class="erase-btn">Unduh</button>
+        <button type="button" id="eraseMore" class="erase-btn">Lanjut hapus</button>
+      </div>
+      <p class="erase-note" id="eraseNote"></p>
+    </div>
   </div>
 </div>
 

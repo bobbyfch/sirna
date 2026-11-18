@@ -19,6 +19,47 @@ test('Production build exposes only public assets', async () => {
   assert.ok((await stat(new URL('assets/logos/chatgpt.png',dir))).size > 100);
   assert.match(await readFile(new URL('index.html',dir),'utf8'),/<main/);
 });
+test('Hapus Objek: editor shell ada, model lazy-load, semua file di bawah batas deploy', async () => {
+  const html = await readFile(new URL('index.html',dir),'utf8');
+  assert.match(html, /Hapus Objek/);
+  assert.match(html, /id="eraseModal"/);
+  assert.match(html, /data-erase-mode="instant"/);
+  assert.match(html, /data-erase-mode="migan"/);
+  assert.match(html, /data-erase-mode="lama"/);
+  // Runtime wasm onnxruntime-web disalin build ke assets/ort/ (bukan precache SW).
+  const ort = await readdir(new URL('assets/ort',dir));
+  assert.ok(ort.includes('ort-wasm-simd-threaded.wasm'), 'Missing ort wasm');
+  assert.ok(ort.includes('ort-wasm-simd-threaded.mjs'), 'Missing ort wasm glue');
+  // Cloudflare Workers: file statis maks 25 MiB — nggak ada file dist yang boleh lewat.
+  const LIMIT = 25 * 1024 * 1024;
+  async function walk(u) {
+    const out = [];
+    for (const e of await readdir(u, { withFileTypes: true })) {
+      const c = new URL(e.name, u.href.endsWith('/') ? u : new URL(u.href + '/'));
+      if (e.isDirectory()) out.push(...await walk(c));
+      else out.push(c);
+    }
+    return out;
+  }
+  for (const f of await walk(dir)) {
+    const s = await stat(f);
+    assert.ok(s.size <= LIMIT, `${f.pathname} = ${s.size} byte, lewat batas 25 MiB Cloudflare`);
+  }
+  // Aturan lazy-load Bobby: URL model AI & onnxruntime HARUS ada di chunk
+  // terpisah (erase-*), dan TIDAK BOLEH ada di chunk utama (index-* / main).
+  // Kalau ada di chunk utama, model ikut keunduh pas load pertama.
+  const assets = await readdir(new URL('assets',dir));
+  const js = assets.filter(n => n.endsWith('.js'));
+  const main = js.filter(n => /^index-/.test(n) || /^main-/.test(n));
+  assert.ok(main.length >= 1, 'Missing main entry chunk');
+  let mainBundle = '';
+  for (const f of main) mainBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
+  assert.doesNotMatch(mainBundle, /huggingface\.co|migan_pipeline|lama_fp32|onnxruntime/);
+  let all = '';
+  for (const f of js) all += await readFile(new URL('assets/' + f, dir), 'utf8');
+  assert.match(all, /migan_pipeline_v2\.onnx/); // chunk erase ada (lazy)
+  assert.match(all, /lama_fp32\.onnx/);
+});
 test('Vite build output: bundled JS/CSS, no CDN, preserved fixes', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
   const assets = await readdir(new URL('assets',dir));
