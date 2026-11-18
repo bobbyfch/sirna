@@ -1,0 +1,17 @@
+# Build / audit artefacts (bukan bagian dari situs)
+audits/
+.harness/
+.space-build/
+.space-build-cvm/
+assets/media-generation-*.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Dependencies (bila ada di masa depan)
+node_modules/
+
+# Muse snapshot sync records (berisi path lokal & SHA commit)
+*.muse-github-snapshot-sync.json
+*.muse-github-snapshot-sync.json.tmp-*
