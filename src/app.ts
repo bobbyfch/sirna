@@ -2,6 +2,7 @@ import type JSZipType from "jszip";
 import { addHistory, listHistory, getHistory, deleteHistory, clearHistory, historySupported } from "./history";
 import * as metaedit from "./metaedit";
 import { scanTraces } from "./jejak";
+import { inspectFile, integrityOf, type Inspection } from "./inspection";
 
 /* ——— Brand chips: LOGO ASLI tiap generator (file lokal di assets/logos,
    sumber: Wikimedia Commons & favicon resmi situs brand) ——— */
@@ -65,6 +66,8 @@ var SIGNATURES=[
   {keys:["ai generated","generated with ai","made with ai","created with ai"], label:"Label: AI Generated"}
 ];
 var items=[]; var idCounter=0; var deepClean=false; var outFormat="same"; var batchRunning=false; var dlMode="copy"; var procCurId=null;
+var cleanProfile: "label" | "privacy" | "deep" = "label";
+var batchStopRequested = false, batchActive = false;
 
 /* ── Alat aktif (file-first): null = home. Default = "clean" — begitu
    file masuk, Bersihkan langsung jalan (lihat handleFiles), jadi null
@@ -175,6 +178,9 @@ async function autoRunTool(tool, item){
 }
 
 async function cleanBatch(list){
+  if(batchActive) return;
+  batchActive=true; batchStopRequested=false;
+  updateBatchControls();
   var dock=$("#procDock"), dockBar=$("#procDockBar"), dockText=$("#procDockText");
   var done=0;
   function paint(){
@@ -185,9 +191,16 @@ async function cleanBatch(list){
   }
   if(dock) dock.classList.remove("hidden");
   paint();
-  for(var ci=0; ci<list.length; ci++){ await cleanItem(list[ci]); done++; paint(); }
+  for(var ci=0; ci<list.length; ci++){
+    if(batchStopRequested) break;
+    try { await cleanItem(list[ci]); }
+    catch(e){ failClean(list[ci],"failed",String((e as Error).message || e),true); }
+    done++; paint();
+    await new Promise(function(resolve){ setTimeout(resolve,0); });
+  }
   setTimeout(function(){ if(dock) dock.classList.add("hidden"); procCurId=null; },1200);
-  batchRunning=false; updateStats();
+  batchRunning=false; batchActive=false; updateStats();
+  if(batchStopRequested){ toast("Antrean dihentikan. Hasil yang sudah selesai tetap ada."); return; }
   var okCount=list.filter(function(x){return getFileState(x).key==="cleaned"}).length;
   var residual=list.filter(function(x){return getFileState(x).key==="residual"}).length;
   if(okCount===list.length) toast("Beres ✓ " + okCount + " file bersih — label AI sudah hilang.");
@@ -516,7 +529,7 @@ function scanBuffer(buf,kind){
 
 function getExt(name,type){ if(type==="image/png") return ".png"; if(type==="image/webp") return ".webp"; if(type==="image/jpeg") return ".jpg"; var d=name.lastIndexOf("."); return d!==-1? name.slice(d):".jpg"; }
 function isVideoFile(f){ if(f.type && f.type.indexOf("video/")===0) return true; return /\.(mp4|mov|m4v|webm)$/i.test(f.name||""); }
-function isMediaFile(f){ if(f.type && (f.type.indexOf("image/")===0 || f.type.indexOf("video/")===0)) return true; return /\.(jpe?g|png|webp|avif|mp4|mov|m4v|webm)$/i.test(f.name||""); }
+function isMediaFile(f){ if(f.type && (f.type.indexOf("image/")===0 || f.type.indexOf("video/")===0)) return true; return /\.(jpe?g|png|webp|avif|heic|heif|tiff?|mp4|mov|m4v|webm)$/i.test(f.name||""); }
 function outName(item){
   var base=item.file.name.replace(/\.[^.]+$/,"");
   if(item.kind==="video") return dlMode==="same" ? item.file.name : base+"-clean"+getExt(item.file.name,item.file.type);
@@ -728,7 +741,7 @@ async function cleanVideoItem(item){
          tanpa ubah satu byte — cleanedBlob = file asli, re-scan = scan awal.
          (Dulu ini malah dilempar jadi error "Video ini sudah bersih."
          dengan pill Perhatian — file bersih tampil kayak gagal.) */
-      item.cleanedBlob=item.file; item.cleanedType=item.file.type; item.cleanedName=outName(item); item.status="cleaned";
+      item.cleanedBlob=item.file; item.cleanedType=item.file.type; item.cleanedName=outName(item); item.status="cleaned"; item.pixelDataPreserved=true;
       item.cleanedScan=item.scan; item.tools.clean="selesai";
       if(item.cleanedUrl) URL.revokeObjectURL(item.cleanedUrl);
       item.cleanedUrl=URL.createObjectURL(item.file);
@@ -851,8 +864,10 @@ function sniffImageKind(ab){
   if(b.length>=12 && b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 && b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) return "image/webp";
   if(b.length>=12 && b[4]===0x66 && b[5]===0x74 && b[6]===0x79 && b[7]===0x70){
     var brand=String.fromCharCode(b[8],b[9],b[10],b[11]);
-    if(brand==="avif" || brand==="avis" || brand==="mif1") return "image/avif";
+    if(brand==="avif" || brand==="avis") return "image/avif";
+    if(["heic","heix","hevc","hevx","mif1","msf1"].includes(brand)) return "image/heic";
   }
+  if(b.length>=4 && ((b[0]===0x49&&b[1]===0x49&&b[2]===0x2a)||(b[0]===0x4d&&b[1]===0x4d&&b[3]===0x2a))) return "image/tiff";
   return "";
 }
 
@@ -869,25 +884,36 @@ async function cleanItem(item){
     var ab0=null, realType="";
     try{ ab0=await item.file.arrayBuffer(); realType=sniffImageKind(ab0); }catch(e){}
     var fileType=realType||item.file.type||"image/png";
-    var outType= outFormat==="same" ? (fileType==="image/avif" ? "image/png" : fileType) : outFormat;
+    var outType= outFormat==="same" ? fileType : outFormat;
     if(["image/jpeg","image/png","image/webp"].indexOf(outType)===-1) outType="image/png";
     var blob=null;
+    var pixelDataPreserved=false;
+    // Profile privasi memindai semua jejak yang didukung dan menyapu ulang;
+    // hanya jalur format-asli yang dapat mempertahankan pixel data.
+    if(cleanProfile==="privacy" && outFormat==="same"){
+      blob=await scrubTracesBlob(item.file);
+      outType=blob.type || outType;
+      pixelDataPreserved= blob.size>0 && (fileType==="image/jpeg"||fileType==="image/png")
+        && (await scanTraces(blob)).length===0 && blob.type===fileType;
+    }
     /* Jalur lossless: Format Asli + kualitas default (92) + bukan Deep Clean +
        PNG/JPEG → buang metadata tanpa sentuh piksel, ukuran nyaris tetap.
        Hasil strip langsung di-scan ulang: kalau label MASIH kebaca
        (container apa pun yang lolos allowlist), blob lossless dibuang dan
        file jatuh ke jalur canvas — file nggak boleh pulang dengan label
        yang masih terdeteksi padahal canvas bisa menghapusnya. */
-    if(outFormat==="same" && !deepClean && qNum===92 && outType===fileType && (fileType==="image/png"||fileType==="image/jpeg") && ab0){
+    if(!blob && outFormat==="same" && !deepClean && qNum===92 && outType===fileType && (fileType==="image/png"||fileType==="image/jpeg") && ab0){
       try{
         var lblob=new Blob([fileType==="image/png"?stripPngMeta(ab0):stripJpegMeta(ab0)],{type:fileType});
         var lscan=scanBuffer(await lblob.arrayBuffer(),"image");
-        if(!lscan.hasAI) blob=lblob;
+        if(!lscan.hasAI){ blob=lblob; pixelDataPreserved=true; }
       }
       catch(_e){ blob=null; /* file aneh → jatuh ke jalur canvas di bawah */ }
     }
     if(!blob){
-      var bmp=await createImageBitmap(item.file);
+      var bmp: ImageBitmap;
+       try { bmp=await createImageBitmap(item.file); }
+       catch(e) { throw new Error("Browser ini belum bisa membuka format gambar tersebut. Untuk HEIC/HEIF/TIFF, konversi ke JPG atau PNG melalui galeri perangkat lebih dulu."); }
       var scale=deepClean?0.995:1;
       var cw=Math.max(1,Math.round(bmp.width*scale)), ch=Math.max(1,Math.round(bmp.height*scale));
       var canvas=document.createElement("canvas"); canvas.width=cw; canvas.height=ch;
@@ -901,7 +927,7 @@ async function cleanItem(item){
     }
     setProc(item,"Cek ulang…",false);
     var vscan=scanBuffer(await blob.arrayBuffer(),"image");
-    item.cleanedBlob=blob; item.cleanedScan=vscan; item.cleanedType=outType; item.cleanedName=outName(item); item.status="cleaned";
+    item.cleanedBlob=blob; item.cleanedScan=vscan; item.cleanedType=blob.type || outType; item.cleanedName=outName(item); item.status="cleaned"; item.pixelDataPreserved=pixelDataPreserved;
     item.tools.clean= vscan.hasAI ? "perlu perhatian" : "selesai";
     if(item.cleanedUrl) URL.revokeObjectURL(item.cleanedUrl);
     item.cleanedUrl=URL.createObjectURL(blob);
@@ -1158,6 +1184,160 @@ function openPreview(item){
   $("#previewModal").classList.remove("hidden");
 }
 
+
+/* ── Sirna Studio: one inspector for original and selected output. Scanning
+   stays in a module Worker where supported; untrusted files never leave the
+   local device. All async results are guarded against stale selection. ── */
+let inspectorGeneration=0, inspectorItemId=-1;
+let inspectorSource: Blob | null=null;
+const inspectorCache = new WeakMap<Blob, Promise<Inspection>>();
+let inspectWorker: Worker | null = null;
+let inspectSequence=0;
+const pendingInspections=new Map<number,{resolve:(v:Inspection)=>void,reject:(e:unknown)=>void}>();
+try {
+  if(typeof Worker!=="undefined"){
+    inspectWorker=new Worker(new URL("./inspection.worker.ts",import.meta.url),{type:"module"});
+    inspectWorker.addEventListener("message",function(e:MessageEvent){
+      const m=e.data; const promise=pendingInspections.get(m.id);
+      if(!promise)return;
+      pendingInspections.delete(m.id);
+      if(m.error)promise.reject(new Error(m.error));
+      else promise.resolve(m.inspection);
+    });
+    inspectWorker.addEventListener("error",function(){
+      pendingInspections.forEach(function(p){p.reject(new Error("worker unavailable"));});
+      pendingInspections.clear();inspectWorker?.terminate();inspectWorker=null;
+    });
+  }
+}catch { inspectWorker=null; }
+function inspectionFor(blob:Blob,name:string):Promise<Inspection>{
+  const saved=inspectorCache.get(blob);
+  if(saved)return saved;
+  let work:Promise<Inspection>;
+  if(inspectWorker){
+    const id=++inspectSequence;
+    work=new Promise((resolve,reject)=>{
+      pendingInspections.set(id,{resolve,reject});
+      try{inspectWorker!.postMessage({id,blob,name});}
+      catch(e){pendingInspections.delete(id);reject(e);}
+    }).catch(()=>inspectFile(blob,name));
+  }else work=inspectFile(blob,name);
+  inspectorCache.set(blob,work);
+  return work;
+}
+function updateInspector(){
+  const content=document.getElementById("inspectorContent");
+  const credentials=document.getElementById("credentialsContent");
+  const detail=document.getElementById("traceList");
+  const panel=document.getElementById("integrityPanel");
+  const list=document.getElementById("integrityList");
+  if(!content||!credentials||!detail||!panel||!list)return;
+  const it=selectedItem();
+  if(!activeTool||!it) { inspectorItemId=-1;inspectorSource=null;return; }
+  const blob=it.cleanedBlob || it.file;
+  if(inspectorItemId===it.id && inspectorSource===blob)return;
+  inspectorItemId=it.id;inspectorSource=blob;
+  const generation=++inspectorGeneration;
+  content.textContent="Memeriksa struktur dan jejak metadata…";
+  panel.hidden=true;
+  Promise.all([inspectionFor(it.file,it.file.name),
+    blob===it.file?inspectionFor(it.file,it.file.name):inspectionFor(blob,it.cleanedName||it.file.name)])
+  .then(([before,current])=>{
+    if(generation!==inspectorGeneration||selectedItem()?.id!==it.id)return;
+    const traceCount=current.traces.filter(t=>t.kind!=="filename").length;
+    const dims=current.dimensions? current.dimensions.width+" × "+current.dimensions.height:"Belum terverifikasi";
+    const risk=current.risks.length?current.risks.join(" · "):"Tidak terdeteksi risiko umum";
+    content.innerHTML=
+      '<div class="studio-metrics"><div><small>Format</small><strong>'+escapeHtml(current.mime)+'</strong></div>'+
+      '<div><small>Resolusi</small><strong>'+escapeHtml(dims)+'</strong></div>'+
+      '<div><small>Ukuran</small><strong>'+formatBytes(current.size)+'</strong></div>'+
+      '<div><small>Jejak terdeteksi</small><strong>'+traceCount+' jenis</strong></div></div>'+
+      '<p><b>Perlu diperhatikan:</b> '+escapeHtml(risk)+'</p>'+
+      (current.limited?'<p>Pemindaian dibatasi pada awal file besar; hasil negatif bukan bukti tidak ada jejak.</p>':'');
+    credentials.textContent=current.credentialEvidence+
+      (current.credentials==="not-seen"?" (Tidak membuktikan asal-usul file.)":
+      ". Kehadiran manifest bukan bukti siapa yang membuat file; perlu validator C2PA kriptografis.");
+    detail.innerHTML= current.traces.length ?
+      current.traces.map(t=>'<div><strong>'+escapeHtml(t.label)+'</strong><span>'+escapeHtml(t.detail)+'</span></div>').join('') :
+      '<p>Tidak ada metadata yang dikenali pemindai lokal.</p>';
+    if(blob!==it.file){
+      const report=integrityOf(before,current,!!it.pixelDataPreserved);
+      const res= report.resolution==="same"?"Resolusi tetap":
+        report.resolution==="changed"?"Resolusi berubah":
+        report.resolution==="not-applicable"?"Video: resolusi belum diperiksa":"Resolusi belum dapat diperiksa";
+      const preserved=report.bytes==="pixel-data-preserved"
+        ?"Data piksel dipertahankan oleh jalur lossless":"Piksel bisa berubah akibat proses ulang";
+      list.innerHTML='<li>'+escapeHtml(res)+'</li><li>'+escapeHtml(preserved)+'</li>'+
+        '<li>'+formatBytes(report.originalSize)+' → '+formatBytes(report.resultSize)+'</li>'+
+        (report.mimeChange?'<li>Format output berubah</li>':'')+
+        '<li>'+report.remaining+' jejak tertanam masih dikenali pemindai</li>'+
+        '<li>Signature C2PA dan provenance eksternal tidak divalidasi di sini</li>';
+      panel.hidden=false;
+    }
+  }).catch(()=>{
+    if(generation!==inspectorGeneration)return;
+    content.textContent="File ini belum bisa diperiksa sepenuhnya. Coba file lain atau lihat detail metadata.";
+    credentials.textContent="Validasi Content Credentials tidak tersedia.";
+    detail.textContent="Pemeriksaan belum berhasil.";
+  });
+}
+function updateBatchControls(){
+  const container=document.getElementById("batchControls");
+  const status=document.getElementById("batchSummary");
+  const cancel=document.getElementById("batchCancel") as HTMLButtonElement|null;
+  const retry=document.getElementById("batchRetry") as HTMLButtonElement|null;
+  if(!container||!status||!cancel||!retry)return;
+  const show=activeTool==="clean"&&items.length>1;
+  container.classList.toggle("hidden",!show);
+  if(!show)return;
+  const success=items.filter(x=>getFileState(x).key==="cleaned").length;
+  const failed=items.filter(x=>["failed","attention","residual"].includes(getFileState(x).key)).length;
+  status.textContent=success+" dari "+items.length+" file selesai"+(failed?" · "+failed+" perlu perhatian":"")+
+    (batchActive?" · sedang diproses":"");
+  retry.disabled=batchActive||failed===0;
+  cancel.disabled=!batchActive;
+}
+function useCleanProfile(profile:"label"|"privacy"|"deep"){
+  if(batchActive){toast("Antrean masih berjalan. Selesaikan atau batalkan dulu.");return;}
+  cleanProfile=profile;
+  setDeepClean(profile==="deep");
+  $("[data-clean-profile]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.cleanProfile===profile?"true":"false"));
+  try{localStorage.setItem("sirna-clean-profile",profile);}catch{}
+  if(items.length&&activeTool==="clean") void cleanBatch([...items]);
+}
+try{
+  const p=localStorage.getItem("sirna-clean-profile");
+  if(p==="privacy"||p==="deep"||p==="label"){cleanProfile=p;setDeepClean(p==="deep");}
+}catch{}
+$("[data-clean-profile]").forEach(b=>{
+  b.setAttribute("aria-pressed",b.dataset.cleanProfile===cleanProfile?"true":"false");
+  b.addEventListener("click",()=>useCleanProfile(b.dataset.cleanProfile as "label"|"privacy"|"deep"));
+});
+$("#batchCancel").addEventListener("click",()=>{ batchStopRequested=true;toast("Berhenti setelah file saat ini selesai."); });
+$("#batchRetry").addEventListener("click",()=>{
+  const toRetry=items.filter(i=>["failed","attention","residual"].includes(getFileState(i).key));
+  if(toRetry.length)void cleanBatch(toRetry);
+});
+// Templates save deletion rules only — never persist arbitrary EXIF or user data.
+const TEMPLATE_KEY="sirna-meta-delete-rule-v1";
+$("#metaSaveTemplate").addEventListener("click",()=>{
+  const rules=metaedit.exportDeletionTemplate();
+  if(!rules.length){toast("Tandai dulu field yang ingin dihapus, baru simpan aturannya.");return;}
+  try{localStorage.setItem(TEMPLATE_KEY,JSON.stringify(rules));toast("Aturan hapus metadata tersimpan di perangkat.");}
+  catch{toast("Penyimpanan browser tidak tersedia.");}
+});
+$("#metaLoadTemplate").addEventListener("click",()=>{
+  try{
+    const data=JSON.parse(localStorage.getItem(TEMPLATE_KEY)||"[]");
+    const n=metaedit.loadDeletionTemplate(data);
+    toast(n?n+" field ditandai. Periksa lalu ketuk Terapkan.":"Belum ada aturan yang cocok untuk file ini.");
+  }catch{toast("Belum ada aturan tersimpan.");}
+});
+$("#metaDeleteTemplate").addEventListener("click",()=>{
+  try{localStorage.removeItem(TEMPLATE_KEY);toast("Aturan tersimpan dihapus.");}
+  catch{toast("Tidak bisa mengakses penyimpanan browser.");}
+});
+
 /* ── Stats / batch bar ──
    Semua angka baca getFileState (satu sumber kebenaran): "sudah bersih"
    cuma dihitung dari re-scan bersih, "masih ada label" dari residual. */
@@ -1168,6 +1348,7 @@ function updateStats(){
      disembunyiin pas antrean berisi, biar halaman fokus ke file. */
   var sc=document.getElementById("settingsCard"); if(sc) sc.classList.toggle("hidden", activeTool!=="clean");
   var mp=document.getElementById("metaPanel"); if(mp) mp.classList.toggle("hidden", activeTool!=="meta");
+  var mt=document.getElementById("metaTemplateBar"); if(mt) mt.classList.toggle("hidden",activeTool!=="meta");
   var bw=document.getElementById("brandWrap"); if(bw) bw.classList.toggle("hidden", items.length>0);
   /* "Terakhir" (history) cuma di home — editor fullscreen menggantikan home. */
   var hs=document.getElementById("historySection"); if(hs) hs.classList.toggle("hidden", !!activeTool);
@@ -1190,6 +1371,8 @@ function updateStats(){
   }
   syncShell();
   syncPrimary();
+  updateBatchControls();
+  updateInspector();
 }
 
 

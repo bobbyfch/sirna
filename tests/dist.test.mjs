@@ -305,9 +305,9 @@ test('Vite build output: bundled JS/CSS, no CDN, preserved fixes', async () => {
 
 test('Phase 2 layout: file-first + editor kanonis + Simpan di top bar', async () => {
   const html = await readFile(new URL('index.html', dir), 'utf8');
-  assert.match(html, /<h1[^>]*>Taruh foto\. Beres\./);
+  assert.match(html, /Lebih sedikit jejak/);
   assert.doesNotMatch(html, /Hapus label AI/);
-  assert.match(html, /Taruh foto atau video, kami bersihkan label AI-nya, lalu simpan/);
+  assert.match(html, /Periksa apa yang tersembunyi/);
   assert.doesNotMatch(html, /Pilih alat, taruh file, simpan/);
   assert.doesNotMatch(html, /tanpa AI/);
   assert.match(html, /id="sampleBtn"/);

@@ -813,3 +813,30 @@ export function wireMetaPanel(container: HTMLElement): void {
     if (t.closest("#metaScrub")) { void runScrub(); return; }
   });
 }
+
+/** Reusable delete-only metadata template. No edited field values or personal
+ * metadata is stored by the application. Matching uses kind, group and label,
+ * not unstable byte offsets from a different file. */
+export interface DeletionRule { kind:string; group:string; label:string }
+export function exportDeletionTemplate():DeletionRule[] {
+  if(!cur)return [];
+  return [...cur.draft.values()].filter(e=>e.action==="delete").map(e=>{
+    const f=cur!.fields.find(x=>x.id===e.id);
+    return f?{kind:f.kind,group:f.group,label:f.label}:null;
+  }).filter((x):x is DeletionRule=>x!==null);
+}
+export function loadDeletionTemplate(rules:unknown):number {
+  if(!cur||!Array.isArray(rules))return 0;
+  let n=0;
+  for(const r of rules.slice(0,120)){
+    if(!r||typeof r!=="object"||typeof r.kind!=="string"||typeof r.label!=="string")continue;
+    for(const f of cur.fields){
+      if(f.deletable&&f.kind===r.kind&&f.group===r.group&&f.label===r.label) {
+        cur.draft.set(f.id,{id:f.id,action:"delete"});
+        n++;
+      }
+    }
+  }
+  if(n)renderPanel();
+  return n;
+}
