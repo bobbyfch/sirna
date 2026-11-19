@@ -24,7 +24,7 @@ for (const name of ['jejak', 'metaedit']) {
   const errors = emitted.diagnostics?.filter(d => d.category === ts.DiagnosticCategory.Error) || [];
   assert.equal(errors.length, 0, `Transpile ${name}: ${errors.map(e => ts.flattenDiagnosticMessageText(e.messageText, '\\n')).join('; ')}`);
   writeFileSync(join(testDir, `${name}.js`),
-    emitted.outputText.replaceAll('from "./jejak"', 'from "./jejak.js"').replaceAll("from './jejak'", "from './jejak.js'");
+    emitted.outputText.replaceAll('from "./jejak"', 'from "./jejak.js"').replaceAll("from './jejak'", "from './jejak.js'"));
 }
 const { listEditableFields, applyFieldEdits } = await import(pathToFileURL(join(testDir, 'metaedit.js')).href);
 const { scanTraces } = await import(pathToFileURL(join(testDir, 'jejak.js')).href);
