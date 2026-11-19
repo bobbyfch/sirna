@@ -95,6 +95,56 @@
 
 <main class="max-w-3xl mx-auto px-4">
 
+  <!-- ═══ SIDEBAR DESKTOP (≥1024px, MASTER STANDARD §02 + matriks adaptif
+       DESKTOP LARGE / TABLET LANDSCAPE, anchor R06 + R18): hierarki alat +
+       daftar file. Di bawah 1024px display:none — HP tetap pakai pemilih
+       alat di hero (tidak berubah sama sekali). Tombol sidebar memakai
+       data-sidebar-tool (bukan data-tool) supaya tidak bentrok dengan
+       kartu pemilih di tes e2e. ═══ -->
+  <aside id="deskSidebar" aria-label="Alat dan file">
+    <div class="ds-sec">
+      <h2 class="ds-title">Alat</h2>
+      <nav class="ds-tools" aria-label="Pilih alat">
+        <button type="button" class="ds-tool active" data-sidebar-tool="" aria-pressed="true">
+          <span class="icon-tile sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ic ic-sm" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></span>
+          <span class="ds-tool-text"><b>Semua alat</b><span>Beranda</span></span>
+        </button>
+        <button type="button" class="ds-tool" data-sidebar-tool="clean" aria-pressed="false">
+          <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eraser"/></svg></span>
+          <span class="ds-tool-text"><b>Bersihkan</b><span>Hapus label &amp; metadata AI</span></span>
+        </button>
+        <button type="button" class="ds-tool" data-sidebar-tool="erase" aria-pressed="false">
+          <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-sparkles"/></svg></span>
+          <span class="ds-tool-text"><b>Hapus Objek</b><span>Coret orang / benda / teks</span></span>
+        </button>
+        <button type="button" class="ds-tool" data-sidebar-tool="watermark" aria-pressed="false">
+          <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-tag"/></svg></span>
+          <span class="ds-tool-text"><b>Hapus Watermark</b><span>Hapus tanda air di pojok</span></span>
+        </button>
+        <button type="button" class="ds-tool" data-sidebar-tool="background" aria-pressed="false">
+          <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-layers"/></svg></span>
+          <span class="ds-tool-text"><b>Hapus Latar</b><span>Latar apa pun jadi transparan</span></span>
+        </button>
+        <button type="button" class="ds-tool" data-sidebar-tool="upscale" aria-pressed="false">
+          <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-expand"/></svg></span>
+          <span class="ds-tool-text"><b>Perbesar</b><span>Foto jadi 2× lebih besar</span></span>
+        </button>
+        <button type="button" class="ds-tool" data-sidebar-tool="jejak" aria-pressed="false">
+          <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg></span>
+          <span class="ds-tool-text"><b>Hapus Jejak</b><span>Hapus GPS, EXIF &amp; data pribadi</span></span>
+        </button>
+        <button type="button" class="ds-tool" data-sidebar-tool="dedup" aria-pressed="false">
+          <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-repeat"/></svg></span>
+          <span class="ds-tool-text"><b>Hapus Duplikat</b><span>Cari foto yang sama/mirip</span></span>
+        </button>
+      </nav>
+    </div>
+    <div class="ds-sec">
+      <h2 class="ds-title">File</h2>
+      <div id="deskFiles" class="ds-files" aria-live="polite"></div>
+    </div>
+  </aside>
+
   <!-- Judul ringkas — TANPA maskot di keadaan awal: hero ramping biar
        dropzone langsung kelihatan. Naya cuma muncul pas proses, sebagai
        panggung melayang kecil di dekat dock progres (markup-nya ada di

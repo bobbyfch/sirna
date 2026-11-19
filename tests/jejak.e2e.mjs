@@ -58,7 +58,7 @@ try {
   note("modelReqsOnLoad", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
   note("inputChunks", pngChunks(readFileSync(TEST_IMG)).join(","));
 
-  await page.click('button[data-tool="jejak"]');
+  await page.click('button[data-sidebar-tool="jejak"]');
   await page.waitForSelector("#panel-cleaner:not(.hidden)", { timeout: 10000 });
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector("#list .card", { timeout: 30000 });

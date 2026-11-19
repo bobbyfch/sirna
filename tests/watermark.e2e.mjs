@@ -75,7 +75,7 @@ try {
 
   // Upload foto tes (ada watermark) — pilih Bersihkan dulu (tanpa alat,
   // file cuma diantre; arah 19 Nov 2026).
-  await page.click('[data-tool="clean"]');
+  await page.click('[data-sidebar-tool="clean"]');
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });

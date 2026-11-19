@@ -47,7 +47,7 @@ try {
   await page.waitForTimeout(1500);
   note("modelReqsOnLoad", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
 
-  await page.click('button[data-tool="dedup"]');
+  await page.click('button[data-sidebar-tool="dedup"]');
   await page.waitForSelector("#panel-cleaner:not(.hidden)", { timeout: 10000 });
   await page.setInputFiles("#fileInput", [IMG_A, IMG_A, IMG_NEAR, IMG_B]);
   await page.waitForFunction(() => document.querySelectorAll("#list .card").length === 4, { timeout: 30000 });

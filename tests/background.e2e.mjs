@@ -88,7 +88,7 @@ try {
 
   // Pilih alat Hapus Latar Polos, lalu upload (file cuma diantre — alat ini
   // tidak auto-clean; tombol Simpan baru muncul setelah ada hasil).
-  await page.click('button[data-tool="background"]');
+  await page.click('button[data-sidebar-tool="background"]');
   await page.waitForSelector("#panel-cleaner:not(.hidden)", { timeout: 10000 });
   note("pickerHasBackground", await page.evaluate(() => !!document.querySelector('button[data-tool="background"]')));
   note("pickerName", await page.evaluate(() => document.querySelector('button[data-tool="background"] b').textContent));

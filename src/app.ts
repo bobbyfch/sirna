@@ -75,7 +75,7 @@ var activeTool=null;
    atau ketuk badan kartu. */
 var selectedId: number | null = null;
 function selectedItem(){ return items.find(function(i){return i.id===selectedId}) || items[0] || null; }
-function selectItem(id){ selectedId=id; syncShell(); syncPrimary(); }
+function selectItem(id){ selectedId=id; syncShell(); syncPrimary(); renderDeskFiles(); }
 var TOOL_STEPS={
   clean:["Pilih file","Deteksi","Bersihkan","Simpan"],
   erase:["Pilih file","Coret","Hapus","Simpan"],
@@ -91,6 +91,14 @@ function setActiveTool(tool){
   activeTool=tool||null;
   $$("[data-tool-switch]").forEach(function(x){
     var on=x.dataset.toolSwitch===(activeTool||"");
+    x.setAttribute("aria-pressed", on?"true":"false");
+    x.classList.toggle("active", on);
+  });
+  /* Sidebar desktop (§02): selection yang sama — satu sumber kebenaran
+     dengan chip bar & kartu pemilih; "Semua alat" aktif pas belum ada
+     alat yang dipilih. Di HP sidebar display:none, jadi ini no-op visual. */
+  $$("#deskSidebar [data-sidebar-tool]").forEach(function(x){
+    var on=(x.dataset.sidebarTool||"")===(activeTool||"");
     x.setAttribute("aria-pressed", on?"true":"false");
     x.classList.toggle("active", on);
   });
@@ -455,9 +463,19 @@ async function handleFiles(fileList: FileList | File[], opts?: {sample?: boolean
   if(!activeTool){
     if(created.length) selectItem(created[0].id);
     batchRunning=false; updateStats();
-    var p=$("#toolPicker");
-    if(p) p.scrollIntoView({behavior:"smooth",block:"start"});
-    toast(opts && opts.sample ? "Foto contoh dimuat ✓ — pilih alat di atas." : created.length+" file siap — pilih alat dulu di atas.");
+    /* Desktop (≥1024px): workspace sudah tampil berkat body.has-files —
+       bawa mata langsung ke kartu file (focal point), bukan ke pemilih
+       alat yang di desktop sudah jadi sidebar. HP tetap scroll ke
+       pemilih alat (perilaku terverifikasi POCO F6). */
+    var isDesk=!!(window.matchMedia && window.matchMedia("(min-width:1024px)").matches);
+    if(isDesk){
+      var q=$("#queueSection"); if(q) q.scrollIntoView({behavior:"smooth",block:"start"});
+      toast(opts && opts.sample ? "Foto contoh dimuat ✓ — pilih alat di samping." : created.length+" file siap — pilih alat dulu di samping.");
+    } else {
+      var p=$("#toolPicker");
+      if(p) p.scrollIntoView({behavior:"smooth",block:"start"});
+      toast(opts && opts.sample ? "Foto contoh dimuat ✓ — pilih alat di atas." : created.length+" file siap — pilih alat dulu di atas.");
+    }
     return;
   }
   /* Langsung bawa user ke kepala editor: foto + status + rail + tombol
@@ -1230,8 +1248,12 @@ function updateStats(){
      Dropzone juga tetap tampil di workspace. Marquee brand tetap
      disembunyiin pas antrean berisi, biar halaman fokus ke daftar file. */
   var sc=document.getElementById("settingsCard"); if(sc) sc.classList.toggle("hidden", activeTool!=="clean");
+  /* Inspector desktop (§02): pengaturan jadi panel kanan cuma pas alat
+     Bersihkan — kelas ini yang mengaktifkan grid inspector ≥1280px. */
+  var pc=document.getElementById("panel-cleaner"); if(pc) pc.classList.toggle("has-inspector", activeTool==="clean");
   var bw=document.getElementById("brandWrap"); if(bw) bw.classList.toggle("hidden", items.length>0);
   document.body.classList.toggle("has-files", items.length>0);
+  renderDeskFiles();
   updateToolStepper();
   syncDockBottom();
   $("#statsText").textContent= items.length? "· "+items.length+" file · "+verified+" sudah bersih"+(residual? " · "+residual+" masih ada label":"") : "";
@@ -1245,10 +1267,27 @@ function updateStats(){
   if(sb){
     var showB= items.length>0 && !activeTool;
     sb.classList.toggle("hidden", !showB);
-    if(showB) sb.textContent= items.length+" file siap — pilih alat di atas untuk mulai.";
+    /* Desktop: alat ada di sidebar kiri ("di samping"), bukan "di atas". */
+    var deskB=!!(window.matchMedia && window.matchMedia("(min-width:1024px)").matches);
+    if(showB) sb.textContent= items.length+" file siap — pilih alat "+(deskB?"di samping":"di atas")+" untuk mulai.";
   }
   syncShell();
   syncPrimary();
+}
+
+/* ── Daftar file di sidebar desktop (§02: hierarki file) ──
+   Baris ringkas (thumb + nama + status) — dirender ulang dari updateStats
+   (satu titik sinkronisasi) & selectItem (ganti file terpilih). Di HP
+   sidebar display:none, jadi ini no-op visual. */
+function renderDeskFiles(){
+  var wrap=$("#deskFiles"); if(!wrap) return;
+  if(!items.length){ wrap.innerHTML='<p class="ds-empty">Belum ada file.<br>Taruh foto di workspace.</p>'; return; }
+  wrap.innerHTML=items.map(function(x){
+    var st=getFileState(x);
+    return '<button type="button" class="ds-file'+(x.id===selectedId?" active":"")+'" data-desk-file="'+x.id+'" aria-pressed="'+(x.id===selectedId?"true":"false")+'">'+
+      '<img src="'+(x.cleanedUrl||x.url)+'" alt="" loading="lazy">'+
+      '<span class="ds-file-meta"><b>'+escapeHtml(x.file.name)+'</b><i>'+escapeHtml(st.text)+'</i></span></button>';
+  }).join("");
 }
 
 /* ── Mulai ulang: buang semua file, balik ke canvas upload ── */
@@ -1387,6 +1426,24 @@ $$("[data-tool-switch]").forEach(function(b){
     else setActiveTool(b.dataset.toolSwitch);
   });
 });
+/* ── Sidebar desktop (§02): tombol alat + daftar file. Satu sumber
+   kebenaran dengan kartu pemilih: klik = setActiveTool yang sama.
+   "Semua alat" = balik ke beranda (file & hasil tetap di antrean). ── */
+$$("#deskSidebar [data-sidebar-tool]").forEach(function(b){
+  b.addEventListener("click",function(){
+    if(!b.dataset.sidebarTool){ setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"}); return; }
+    setActiveTool(b.dataset.sidebarTool);
+    var panel=$("#panel-cleaner");
+    if(panel) panel.scrollIntoView({behavior:"smooth",block:"start"});
+  });
+});
+$("#deskFiles").addEventListener("click",function(e){
+  var b=(e.target as Element).closest("[data-desk-file]") as HTMLButtonElement; if(!b) return;
+  var id=parseInt(b.dataset.deskFile,10); if(!id) return;
+  selectItem(id);
+  if(activeTool){ var eh=$("#editorHead"); if(eh) eh.scrollIntoView({behavior:"smooth",block:"start"}); }
+  else { var c=document.getElementById("card-"+id); if(c) c.scrollIntoView({behavior:"smooth",block:"center"}); }
+});
 /* Tombol "Cari duplikat" di tampilan Hapus Duplikat. */
 $("#dedupScanBtn").addEventListener("click",function(){ scanDuplicates(); });
 
@@ -1461,7 +1518,13 @@ $("#sampleBtn").addEventListener("click",async function(){
    Belum pilih alat & belum ada file → anchor default scroll ke dropzone
    workspace (yang muncul begitu alat dipilih). */
 $("#topAddBtn").addEventListener("click",function(e){
-  if(!activeTool){ e.preventDefault(); var p=$("#toolPicker"); if(p) p.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  if(!activeTool){
+    e.preventDefault();
+    /* Desktop: pemilih alat sudah jadi sidebar yang selalu kelihatan —
+       tidak ada yang perlu di-scroll ke sana; cukup kembali ke atas. */
+    if(window.matchMedia && window.matchMedia("(min-width:1024px)").matches){ window.scrollTo({top:0,behavior:"smooth"}); return; }
+    var p=$("#toolPicker"); if(p) p.scrollIntoView({behavior:"smooth",block:"start"}); return;
+  }
   if(items.length>0){ e.preventDefault(); fi.click(); }
 });
 fi.addEventListener("change",function(){ handleFiles(fi.files); fi.value=""; });

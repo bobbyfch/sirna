@@ -67,7 +67,7 @@ try {
 
   // (3) Pilih Bersihkan: workspace + kepala editor muncul; file staged
   // (belum dibersihkan — proses jalan lewat tombol utama, bukan otomatis).
-  await page.click('[data-tool="clean"]');
+  await page.click('[data-sidebar-tool="clean"]');
   await page.waitForTimeout(700);
   note("editorHeadVisible", await page.evaluate(() => !document.getElementById("editorHead").classList.contains("hidden")));
   note("shellPillStaged", await page.locator("#shellPill").textContent());
@@ -144,7 +144,7 @@ try {
   note("cardsAfterRestart", await page.evaluate(() => document.querySelectorAll("#list article").length));
 
   // (9) Tombol kembali di topbar: pilih alat tanpa file -> kembali ke pemilih.
-  await page.click('[data-tool="erase"]');
+  await page.click('[data-sidebar-tool="erase"]');
   await page.waitForTimeout(500);
   note("topBackVisibleNoFile", await page.evaluate(() => !document.getElementById("topBackBtn").classList.contains("hidden")));
   await page.click("#topBackBtn");
@@ -235,6 +235,109 @@ try {
   note("p0_canvas", canvasCheck);
   if (!canvasCheck.decoded || canvasCheck.h < 100) throw new Error("editor canvas photo not visible");
   await ctx2.close();
+
+  // ── Konteks 3: desktop — komposisi app shell (§02, R06+R18).
+  // Sidebar ≥1024, workspace focal, toast/pil/maskot menempel workspace.
+  // Screenshot home/kartu/editor di 1366×768, 1440×900, 1920×1080.
+  mkdirSync("/home/hatch/workspace/sirna-desktop-audit", { recursive: true });
+  for (const [w, h, tag] of [[1366, 768, "1366"], [1440, 900, "1440"], [1920, 1080, "1920"]]) {
+    const ctxD = await browser.newContext({ viewport: { width: w, height: h }, ignoreHTTPSErrors: true, ...(proxyOpt ? { proxy: proxyOpt } : {}) });
+    const pd = await ctxD.newPage();
+    pd.on("console", (m) => { if (m.type() === "error") consoleErrors.push("desk" + tag + ": " + m.text()); });
+    pd.on("pageerror", (e) => pageErrors.push("desk" + tag + ": " + String(e)));
+    await pd.goto(BASE, { waitUntil: "networkidle" });
+    await pd.waitForTimeout(1000);
+    // (D1) home: sidebar tampil (8 baris: Semua alat + 7 alat, tinggi
+    // rata), pemilih alat hero sembunyi, header membentang, tanpa overflow.
+    const dHome = await pd.evaluate(() => {
+      const sb = document.getElementById("deskSidebar").getBoundingClientRect();
+      const pk = document.getElementById("toolPicker");
+      const hd = document.querySelector("header>div").getBoundingClientRect();
+      const rows = Array.from(document.querySelectorAll("#deskSidebar .ds-tool")).map((el) => Math.round(el.getBoundingClientRect().height));
+      return {
+        sidebarVisible: sb.width > 0, sidebarW: Math.round(sb.width),
+        pickerHidden: getComputedStyle(pk).display === "none",
+        headerInnerW: Math.round(hd.width),
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        sidebarTools: document.querySelectorAll("#deskSidebar [data-sidebar-tool]").length,
+        rowHMin: Math.min(...rows), rowHMax: Math.max(...rows),
+      };
+    });
+    note("desk" + tag + "_home", dHome);
+    if (!dHome.sidebarVisible) throw new Error("sidebar desktop tidak tampil @" + tag);
+    if (!dHome.pickerHidden) throw new Error("pemilih alat hero masih tampil @" + tag);
+    if (dHome.overflow > 0) throw new Error("horizontal overflow home @" + tag + ": " + dHome.overflow);
+    if (dHome.sidebarTools !== 8) throw new Error("sidebar harus 8 baris (Semua alat + 7 alat), got " + dHome.sidebarTools);
+    if (dHome.rowHMax - dHome.rowHMin > 1) throw new Error("tinggi baris sidebar tidak rata @" + tag + ": " + dHome.rowHMin + "-" + dHome.rowHMax);
+    if (dHome.headerInnerW < 1180) throw new Error("header masih selebar kolom HP @" + tag + ": " + dHome.headerInnerW);
+    await pd.screenshot({ path: "/home/hatch/workspace/sirna-desktop-audit/desktop-home-" + tag + ".png" });
+    // (D2) upload foto contoh: kartu file kelihatan di viewport TANPA
+    // scroll melewati FAQ; toast tidak menutupi judul FAQ; daftar file
+    // sidebar berisi 1 file.
+    await pd.click("#sampleBtn");
+    await waitFor(pd, () => !document.getElementById("sampleBanner").classList.contains("hidden"), 10000);
+    await pd.waitForTimeout(600);
+    const dCard = await pd.evaluate(() => {
+      const card = document.querySelector("#list article");
+      const r = card ? card.getBoundingClientRect() : null;
+      const faq = document.querySelector("#faqSection h2").getBoundingClientRect();
+      const toast = document.getElementById("toast");
+      const tr = !toast.classList.contains("hidden") ? toast.getBoundingClientRect() : null;
+      const overlap = tr ? !(tr.bottom <= faq.top || tr.top >= faq.bottom || tr.right <= faq.left || tr.left >= faq.right) : false;
+      return {
+        cardVisible: !!r && r.top >= 0 && r.bottom <= window.innerHeight && r.height > 100,
+        cardTop: r ? Math.round(r.top) : -1, cardBottom: r ? Math.round(r.bottom) : -1, cardH: r ? Math.round(r.height) : -1, vh: window.innerHeight,
+        faqTop: Math.round(faq.top),
+        toastOverlapFaq: overlap,
+        toastRightGap: tr ? Math.round(window.innerWidth - tr.right) : -1,
+        deskFiles: document.querySelectorAll("#deskFiles .ds-file").length,
+        panelShown: getComputedStyle(document.getElementById("panel-cleaner")).display !== "none",
+      };
+    });
+    note("desk" + tag + "_card", dCard);
+    if (!dCard.cardVisible) throw new Error("kartu file tidak kelihatan di viewport @" + tag + " (top " + dCard.cardTop + ", bottom " + dCard.cardBottom + ", vh " + dCard.vh + ")");
+    if (dCard.toastOverlapFaq) throw new Error("toast menutupi judul FAQ @" + tag);
+    if (dCard.toastRightGap !== -1 && (dCard.toastRightGap < 16 || dCard.toastRightGap > 32)) throw new Error("toast bukan di pojok kanan @" + tag + " (gap " + dCard.toastRightGap + ")");
+    if (dCard.deskFiles !== 1) throw new Error("daftar file sidebar harus 1, got " + dCard.deskFiles);
+    if (!dCard.panelShown) throw new Error("panel workspace tidak tampil setelah upload @" + tag);
+    await pd.screenshot({ path: "/home/hatch/workspace/sirna-desktop-audit/desktop-card-" + tag + ".png" });
+    // (D3) pilih Bersihkan lewat sidebar -> editor kanonis di workspace:
+    // canvas kelihatan, pil utama = pil melayang kanan bawah (bukan bar
+    // selebar layar), inspector pengaturan tampil (kolom kanan), maskot
+    // tidak lagi di tepi kiri viewport.
+    await pd.click('[data-sidebar-tool="clean"]');
+    await pd.waitForTimeout(700);
+    await pd.click("#primaryBtn");
+    await waitFor(pd, () => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, 30000);
+    await pd.waitForTimeout(500);
+    const dEd = await pd.evaluate(() => {
+      const img = document.getElementById("shellImg").getBoundingClientRect();
+      const bar = document.getElementById("primaryBar").getBoundingClientRect();
+      const sc = document.getElementById("settingsCard").getBoundingClientRect();
+      const pc = document.getElementById("panel-cleaner");
+      return {
+        canvasVisible: img.width > 0 && img.height > 100,
+        primaryIsPill: Math.round(bar.width) < window.innerWidth - 100,
+        primaryRightGap: Math.round(window.innerWidth - bar.right),
+        primaryBottomGap: Math.round(window.innerHeight - bar.bottom),
+        primaryLabel: document.getElementById("primaryBtn").textContent,
+        inspectorVisible: getComputedStyle(pc).display === "grid" && sc.width > 0,
+        inspectorW: Math.round(sc.width),
+        mascotBox: (() => { const r = document.getElementById("mascotStage").getBoundingClientRect(); return { rightGap: Math.round(window.innerWidth - r.right), bottomGap: Math.round(window.innerHeight - r.bottom), w: Math.round(r.width) }; })(),
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    note("desk" + tag + "_editor", dEd);
+    if (!dEd.canvasVisible) throw new Error("canvas editor tidak kelihatan @" + tag);
+    if (!dEd.primaryIsPill) throw new Error("tombol utama masih bar selebar layar @" + tag);
+    if (dEd.primaryRightGap < 0 || dEd.primaryRightGap > 40) throw new Error("pil utama tidak di pojok kanan @" + tag + " (gap " + dEd.primaryRightGap + ")");
+    if (!dEd.inspectorVisible) throw new Error("inspector pengaturan tidak tampil @" + tag);
+    if (dEd.mascotBox.rightGap < 16 || dEd.mascotBox.rightGap > 32) throw new Error("maskot bukan di kolom kanan @" + tag + " (rightGap " + dEd.mascotBox.rightGap + ")");
+    if (dEd.mascotBox.bottomGap < 120 || dEd.mascotBox.bottomGap > 165) throw new Error("maskot tidak di atas pil utama @" + tag + " (bottomGap " + dEd.mascotBox.bottomGap + ")");
+    if (dEd.overflow > 0) throw new Error("horizontal overflow editor @" + tag + ": " + dEd.overflow);
+    await pd.screenshot({ path: "/home/hatch/workspace/sirna-desktop-audit/desktop-editor-" + tag + ".png" });
+    await ctxD.close();
+  }
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
 }
