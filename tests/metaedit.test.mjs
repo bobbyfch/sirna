@@ -11,6 +11,8 @@ import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { listPngChunks, decodePng } from './fixtures/png-io.mjs';
+import { ensureMetaFixtures } from './fixtures/bootstrap.mjs';
+ensureMetaFixtures();
 
 // Compile with the real CLI from the checked-out repository, not a local workstation path.
 const root = fileURLToPath(new URL('../', import.meta.url));

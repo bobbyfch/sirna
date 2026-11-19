@@ -13,6 +13,8 @@ import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { decodePng } from './fixtures/png-io.mjs';
+import { ensureWatermarkFixtures } from './fixtures/bootstrap.mjs';
+await ensureWatermarkFixtures();
 
 // Node tidak punya ImageData global — polyfill minimal (removeSparkle
 // hanya memakai konstruktor + .data/.width/.height).
