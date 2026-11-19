@@ -5,7 +5,8 @@
 // -> chaining lewat rail -> sheet konfirmasi. + 390px tanpa overflow.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
+mkdirSync("/home/hatch/workspace/sirna-p0-fix", { recursive: true });
 
 const BASE = "https://127.0.0.1:4173/";
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -185,6 +186,54 @@ try {
     const f = document.getElementById("shellFilm");
     return f.scrollWidth - f.clientWidth;
   }));
+
+  // (10) P0 fix 19 Nov 2026 (screenshot POCO F6 Bobby): rel kartu kanonis
+  // + tombol utama tidak terpotong gesture bar + editor terlihat setelah
+  // pilih alat. Screenshot (a) kartu file, (b) kepala editor — dilihat manual.
+  await page2.evaluate(() => document.querySelector("#list article").scrollIntoView({ block: "start" }));
+  await page2.waitForTimeout(600);
+  await page2.screenshot({ path: "/home/hatch/workspace/sirna-p0-fix/card-390.png" });
+  note("shotCard", "sirna-p0-fix/card-390.png");
+  await page2.evaluate(() => document.getElementById("editorHead").scrollIntoView({ block: "start" }));
+  await page2.waitForTimeout(600);
+  await page2.screenshot({ path: "/home/hatch/workspace/sirna-p0-fix/editor-390.png" });
+  note("shotEditor", "sirna-p0-fix/editor-390.png");
+  // Hard assertions — gagal = throw, bukan cuma log.
+  const pBtn = await page2.locator("#primaryBtn").boundingBox();
+  const vh = page2.viewportSize().height;
+  note("p0_primaryBtnBottom", Math.round(pBtn.y + pBtn.height));
+  note("p0_viewportHeight", vh);
+  if (pBtn.y + pBtn.height > vh - 20) throw new Error("primary button clipped: bottom " + Math.round(pBtn.y + pBtn.height) + " > vh-20 " + (vh - 20));
+  const railCheck = await page2.evaluate(() => {
+    const rail = document.querySelector("#list article .tool-bar");
+    if (!rail) return { hasRail: false };
+    const chips = Array.from(rail.querySelectorAll(".tool-chip"));
+    return {
+      hasRail: true, chipCount: chips.length,
+      oldRail: document.querySelectorAll("#list .tool-rail").length,
+      chipMinHeight: Math.min(...chips.map((c) => Math.round(c.getBoundingClientRect().height))),
+      allOpaque: chips.every((c) => { const bg = getComputedStyle(c).backgroundColor; return bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent"; }),
+      activeFilled: (() => { const a = rail.querySelector(".tool-chip.active"); if (!a) return false; const bg = getComputedStyle(a).backgroundColor; return bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent"; })(),
+      labels: chips.map((c) => c.textContent.trim()).join("|"),
+    };
+  });
+  note("p0_cardRail", railCheck);
+  if (!railCheck.hasRail) throw new Error("card rail .tool-bar missing");
+  if (railCheck.oldRail) throw new Error("old .tool-rail still present in card");
+  if (railCheck.chipCount !== 7) throw new Error("card rail must have 7 chips, got " + railCheck.chipCount);
+  if (railCheck.chipMinHeight < 48) throw new Error("rail chip min-height < 48px: " + railCheck.chipMinHeight);
+  if (!railCheck.allOpaque) throw new Error("a rail chip has transparent background");
+  if (!railCheck.activeFilled) throw new Error("active rail chip is not filled");
+  const overflow390 = await page2.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  note("p0_overflow390", overflow390);
+  if (overflow390 > 0) throw new Error("horizontal overflow at 390px: " + overflow390);
+  const canvasCheck = await page2.evaluate(() => {
+    const img = document.getElementById("shellImg");
+    const r = img.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height), decoded: img.naturalWidth > 0 };
+  });
+  note("p0_canvas", canvasCheck);
+  if (!canvasCheck.decoded || canvasCheck.h < 100) throw new Error("editor canvas photo not visible");
   await ctx2.close();
 } catch (e) {
   note("ERROR", String(e && e.stack || e));

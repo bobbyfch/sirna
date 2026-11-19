@@ -2,7 +2,7 @@
    File ini tinggal di assets/ (satu-satunya folder yang disajikan artifact);
    saat deploy ke domain sendiri, salin sw.js ini ke root domain supaya
    scope-nya mencakup seluruh situs. */
-var CACHE = 'sirna-v3'; /* v3: build Vite (JS/CSS bundel) — ganti cache biar klien lama nggak nyangkut di index.html inline-JS lama */
+var CACHE = 'sirna-v4'; /* v4: rel kartu jadi .tool-bar kanonis + tombol utama min 28px dari gesture bar — ganti cache biar HP Bobby nggak nyangkut di shell lama */
 var ASSETS = [
   'logos/chatgpt.png', 'logos/firefly.png', 'logos/flux.png', 'logos/gemini.png',
   'logos/ideogram.png', 'logos/kling.png', 'logos/leonardo.png', 'logos/luma.png',

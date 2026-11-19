@@ -4,7 +4,7 @@
    path dari root (assets/...), karena dari root, path relatif 'logos/...'
    akan salah arah ke /logos/... Salinan asli yang tinggal di assets/
    (dipakai artefak Muse) tetap ada di public/assets/sw.js. */
-var CACHE = 'sirna-v3'; /* v3: build Vite (JS/CSS bundel) — ganti cache biar klien lama nggak nyangkut di index.html inline-JS lama */
+var CACHE = 'sirna-v4'; /* v4: rel kartu jadi .tool-bar kanonis + tombol utama min 28px dari gesture bar — ganti cache biar HP Bobby nggak nyangkut di shell lama */
 var ASSETS = [
   'assets/logos/chatgpt.png', 'assets/logos/firefly.png', 'assets/logos/flux.png', 'assets/logos/gemini.png',
   'assets/logos/ideogram.png', 'assets/logos/kling.png', 'assets/logos/leonardo.png', 'assets/logos/luma.png',

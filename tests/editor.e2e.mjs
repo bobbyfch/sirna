@@ -81,7 +81,9 @@ try {
   await page.waitForTimeout(400);
 
   // B1 + B5: editor dari hasil Bersihkan, satu engine (Mi-GAN).
-  await page.locator("#list article").nth(0).locator('button[data-act="erase"]').click();
+  // (chip rel kartu + tombol utama, pengganti tombol aksi kartu lama)
+  await page.locator("#list article").nth(0).locator('[data-tool-switch="erase"]').click();
+  await page.click("#primaryBtn");
   await waitFor(page, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
   note("B1_subheadClean", await page.locator("#eraseSub").textContent());
   note("B5_desc", await page.locator("#eraseModal .erase-mode-desc").textContent());
@@ -150,7 +152,8 @@ try {
   await page.waitForTimeout(400);
 
   // B2: Watermark editor — deteksi ketemu 2 tanda.
-  await page.locator("#list article").nth(0).locator('button[data-act="watermark"]').click();
+  await page.locator("#list article").nth(0).locator('[data-tool-switch="watermark"]').click();
+  await page.click("#primaryBtn");
   await waitFor(page, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
   await page.waitForTimeout(800);
   note("B2_note", await page.locator("#eraseNote").textContent());
@@ -177,7 +180,8 @@ try {
   await page2.setInputFiles("#fileInput", [F("wm-test.png")]);
   await waitFor(page2, () => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, 30000);
   await page2.waitForTimeout(400);
-  await page2.locator("#list article").nth(0).locator('button[data-act="erase"]').click();
+  await page2.locator("#list article").nth(0).locator('[data-tool-switch="erase"]').click();
+  await page2.click("#primaryBtn");
   await waitFor(page2, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
   note("B1_beforeUseOriginal", await page2.locator("#eraseSub").textContent());
   // Tombol "Mulai dari file asli" tampil karena sumbernya hasil Bersihkan.
@@ -201,13 +205,15 @@ try {
   await page3.waitForTimeout(500);
   await page3.setInputFiles("#fileInput", [F("wm-clean.png")]);
   await page3.waitForTimeout(1500);
-  await page3.locator("#list article").nth(0).locator('button[data-act="erase"]').click();
+  await page3.locator("#list article").nth(0).locator('[data-tool-switch="erase"]').click();
+  await page3.click("#primaryBtn");
   await waitFor(page3, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
   note("B1_subheadAsli", await page3.locator("#eraseSub").textContent());
   await page3.click("#eraseClose");
   await page3.waitForTimeout(400);
   // B3: Watermark editor di foto tanpa watermark.
-  await page3.locator("#list article").nth(0).locator('button[data-act="watermark"]').click();
+  await page3.locator("#list article").nth(0).locator('[data-tool-switch="watermark"]').click();
+  await page3.click("#primaryBtn");
   await waitFor(page3, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
   await page3.waitForTimeout(800);
   note("B3_note", await page3.locator("#eraseNote").textContent());

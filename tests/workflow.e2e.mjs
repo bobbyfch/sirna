@@ -96,7 +96,8 @@ try {
   note("stepperEraseQueued", await stepperText());
   note("eraseToast", await page.locator("#toast").textContent());
   // Buka editor dari baris alat kartu -> modal muncul -> tutup.
-  await page.click('#list article button[data-act="erase"]');
+  await page.click('#list article [data-tool-switch="erase"]');
+  await page.click("#primaryBtn");
   await page.waitForTimeout(1200);
   note("eraseModalOpen", await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden")));
   await page.click("#eraseClose");

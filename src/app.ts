@@ -301,9 +301,13 @@ function syncDockBottom(){
   var barUp= bar && !bar.classList.contains("hidden");
   var prim=document.getElementById("primaryBar");
   var primUp= prim && !prim.classList.contains("hidden");
-  /* Dock duduk di atas tumpukan bar bawah: batch 69px, primary ~70px. */
-  var base= primUp ? (barUp ? 156 : 84) : (barUp ? 86 : 14);
-  dock.style.bottom= "calc("+base+"px + env(safe-area-inset-bottom))";
+  /* Dock duduk di atas tumpukan bar bawah: batch 69px, primary ~82px
+     (tombol 54px + padding bawah min 28px — naik 12px dari 70px lama
+     sejak fix gesture bar 19 Nov 2026). Tanpa bar di bawahnya, dock
+     adalah elemen paling bawah: lantai 42px biar nggak ketutup gesture
+     bar Android (env() = 0 di Chrome POCO F6). */
+  var base= primUp ? (barUp ? 168 : 96) : (barUp ? 86 : 14);
+  dock.style.bottom= base===14 ? "max(42px, calc(14px + env(safe-area-inset-bottom)))" : "calc("+base+"px + env(safe-area-inset-bottom))";
 }
 function formatBytes(b){ if(b===0) return "0 B"; var k=1024,s=["B","KB","MB","GB","TB","PB"],i=Math.min(s.length-1,Math.floor(Math.log(b)/Math.log(k))); return (b/Math.pow(k,i)).toFixed(i?1:0)+" "+s[i]; }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]}); }
@@ -456,17 +460,19 @@ async function handleFiles(fileList: FileList | File[], opts?: {sample?: boolean
     toast(opts && opts.sample ? "Foto contoh dimuat ✓ — pilih alat di atas." : created.length+" file siap — pilih alat dulu di atas.");
     return;
   }
-  /* Langsung bawa user ke kartu pertama: prosesnya kejadian DI kartu,
-     jadi kartu itu yang harus ada di layar — bukan hero di atas. */
-  var firstCard=document.getElementById("card-"+created[0].id);
-  if(firstCard){
+  /* Langsung bawa user ke kepala editor: foto + status + rail + tombol
+     utama — BUKAN kartu di bawah. Dulu scroll-nya ke kartu pertama,
+     jadi user menatap kartu (dengan rel lama) sementara tombol utama
+     bilang alat lain — persis yang terlihat di screenshot POCO F6. */
+  if(created.length) selectItem(created[0].id);
+  var eh=$("#editorHead");
+  if(eh){
     var rm=!!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    try{ firstCard.scrollIntoView({behavior: rm?"auto":"smooth", block:"start"}); }catch(e){ firstCard.scrollIntoView(); }
+    try{ eh.scrollIntoView({behavior: rm?"auto":"smooth", block:"start"}); }catch(e){ eh.scrollIntoView(); }
   }
   /* Alat selain Bersihkan: file cuma diantre + di-scan buat pill-nya —
      nggak ada yang dibersihkan sebelum user minta. Kartu keluar dari mode
-     proses (nggak ada proses yang jalan) dan user diarahkan ke baris alat
-     di kartunya. */
+     proses (nggak ada proses yang jalan); foto sudah di kepala editor. */
   if(activeTool!=="clean"){
     created.forEach(function(it){
       var cardEl=document.getElementById("card-"+it.id);
@@ -475,7 +481,7 @@ async function handleFiles(fileList: FileList | File[], opts?: {sample?: boolean
     });
     batchRunning=false; updateStats();
     var toolName= activeTool==="erase" ? "Hapus Objek" : activeTool==="watermark" ? "Hapus Watermark" : activeTool==="background" ? "Hapus Latar" : activeTool==="upscale" ? "Perbesar" : activeTool==="jejak" ? "Hapus Jejak" : activeTool==="dedup" ? "Hapus Duplikat" : "Bersihkan";
-    toast(created.length+" file masuk — ketuk "+toolName+" di kartunya.");
+    toast(created.length+" file masuk — "+toolName+" siap di kepala editor.");
     return;
   }
   /* Progres batch hidup di dock bawah (selalu kelihatan pas scroll) +
@@ -525,11 +531,12 @@ function renderItem(item){
       '<div class="flex flex-wrap gap-1.5 mt-2.5" id="badges-'+item.id+'"></div>'+
       '<div class="hidden" id="result-'+item.id+'"></div>'+
       '<div class="version-row hidden" id="versions-'+item.id+'"></div>'+
-      /* Rel alat (Langkah 3): satu baris status semua alat — ketuk segmen
-         = buka alat itu untuk file ini. Cuma buat foto; video belum
-         didukung editor ini. */
+      /* Rel alat di kartu = .tool-bar kanonis (chip ikon+label, bisa
+         di-scroll horizontal, chip aktif biru) — SAMA dengan rail di
+         kepala editor. Satu implementasi rel di seluruh app; ketuk chip
+         = pilih file ini + buka alat itu di kepala editor. */
       (item.kind==="video" ? "" :
-        '<div class="tool-rail" id="rail-'+item.id+'" role="group" aria-label="Alat untuk file ini"></div>')+
+        '<div class="tool-bar" id="rail-'+item.id+'" role="group" aria-label="Alat untuk file ini"></div>')+
       '<div class="act-primary">'+
         '<button type="button" class="hidden flex-1 min-h-[50px] px-5 grad-bg text-white font-semibold text-[15px] btn-ic" data-act="save" data-id="'+item.id+'">'+ic("i-download")+'Simpan</button>'+
         '<button type="button" class="hidden min-h-[50px] px-5 font-semibold text-[15px] btn-ic" style="background:var(--fill);color:var(--label)" data-act="reclean" data-id="'+item.id+'" title="Bersihkan ulang pakai pengaturan sekarang" aria-label="Bersihkan ulang">'+ic("i-rotate")+'</button>'+
@@ -983,21 +990,29 @@ function renderResultBox(item,res,box){
     res.innerHTML='<div class="detect-box" role="status"><p class="detect-head">'+ic("i-alert","ic-sm")+' '+escapeHtml(b.head)+'</p><p class="clean-body">'+b.body+'</p>'+(b.action?'<div class="mt-2"><button type="button" class="min-h-[44px] px-5 grad-bg text-white font-bold text-[13px] btn-ic" data-act="'+b.action.act+'" data-id="'+item.id+'">'+escapeHtml(b.action.label)+'</button></div>':"")+'</div>';
   }
 }
-/* Rel alat (satu baris status semua alat): Bersihkan ✓ · Objek – ·
-   Watermark –. ✓ = pernah dipakai & selesai, ⚠ = perlu perhatian,
-   – = belum dipakai. Ketuk segmen = buka alat itu untuk file ini. */
+/* Rel alat di kartu (satu baris chip semua alat): chip ikon+label yang
+   SAMA dengan rail di kepala editor (.tool-bar/.tool-chip — satu
+   implementasi, bukan rel teks abu-abu terpisah). Ketuk chip = pilih
+   file ini + buka alat itu di kepala editor (ditangani delegasi klik
+   [data-tool-switch] di #list). Chip aktif (alat yang sedang dibuka)
+   diisi biru oleh setActiveTool — sama seperti chip di workspace. */
+var RAIL_TOOLS=[
+  ["clean","Bersihkan","i-eraser"],
+  ["erase","Hapus Objek","i-sparkles"],
+  ["watermark","Hapus Watermark","i-tag"],
+  ["background","Hapus Latar","i-layers"],
+  ["upscale","Perbesar","i-expand"],
+  ["jejak","Hapus Jejak","i-shield"],
+  ["dedup","Hapus Duplikat","i-repeat"]
+];
 function renderRail(item){
   var rail=document.getElementById("rail-"+item.id); if(!rail) return;
   if(item.kind==="video"){ rail.classList.add("hidden"); rail.innerHTML=""; return; }
   rail.classList.remove("hidden");
-  var t=item.tools||{clean:"belum",erase:"belum",watermark:"belum",background:"belum",upscale:"belum",jejak:"belum",dedup:"belum"};
-  function seg(key,label,act){
-    var stt=t[key];
-    var mark= stt==="selesai" ? "✓" : (stt==="perlu perhatian" ? "⚠" : "–");
-    var cls= stt==="selesai" ? " done" : (stt==="perlu perhatian" ? " warn" : "");
-    return '<button type="button" class="tool-rail-seg'+cls+'" data-act="'+act+'" data-id="'+item.id+'">'+label+' <b>'+mark+'</b></button>';
-  }
-  rail.innerHTML= seg("clean","Bersihkan","railclean")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("erase","Objek","erase")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("watermark","Watermark","watermark")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("background","Latar","background")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("upscale","Perbesar","upscale")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("jejak","Jejak","jejak")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("dedup","Duplikat","dedup");
+  rail.innerHTML= RAIL_TOOLS.map(function(t){
+    var on= activeTool===t[0];
+    return '<button type="button" class="tool-chip'+(on?" active":"")+'" data-tool-switch="'+t[0]+'" data-id="'+item.id+'" aria-pressed="'+(on?"true":"false")+'">'+ic(t[2],"ic-sm")+escapeHtml(t[1])+'</button>';
+  }).join("");
 }
 
 /* Kotak hasil (box) dibangun pemanggil dari state item; finishClean cuma
@@ -1524,6 +1539,18 @@ $("#list").addEventListener("click",async function(e){
     }
     return;
   }
+  var sw=(e.target as Element).closest("button[data-tool-switch]") as HTMLButtonElement;
+  if(sw){
+    /* Chip di rel kartu: pilih file ini + buka alat itu di kepala editor
+       (foto kelihatan di atas, bukan kartu di bawah). */
+    var it2=items.find(function(i){return i.id===parseInt(sw.dataset.id,10)});
+    if(it2){
+      selectItem(it2.id);
+      setActiveTool(sw.dataset.toolSwitch);
+      var eh2=$("#editorHead"); if(eh2) eh2.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+    return;
+  }
   var btn=(e.target as Element).closest("button[data-act]") as HTMLButtonElement; if(!btn) return;
   var it=items.find(function(i){return i.id===parseInt(btn.dataset.id,10)}); if(!it) return;
   if(btn.dataset.act==="save"){ saveItem(it); }
@@ -1534,20 +1561,7 @@ $("#list").addEventListener("click",async function(e){
   else if(btn.dataset.act==="compress"){ await compressItem(it,btn); }
   else if(btn.dataset.act==="reclean"){ btn.disabled=true; await cleanItem(it); btn.disabled=false; toast("Dibersihin ulang ✓"); }
   else if(btn.dataset.act==="deepclean"){ setDeepClean(true); btn.disabled=true; await cleanItem(it); btn.disabled=false; }
-  else if(btn.dataset.act==="erase"){ await openEraserFor(it); }
-  else if(btn.dataset.act==="watermark"){ await openWatermarkFor(it); }
-  else if(btn.dataset.act==="background"){ await openBackgroundFor(it); }
-  else if(btn.dataset.act==="upscale"){ await openUpscaleFor(it); }
-  else if(btn.dataset.act==="jejak"){ await openJejakFor(it); }
-  else if(btn.dataset.act==="dedup"){ setActiveTool("dedup"); var dv=document.getElementById("dedupView"); if(dv) dv.scrollIntoView({behavior:"smooth",block:"center"}); }
   else if(btn.dataset.act==="version"){ setCurrentVersion(it, btn.dataset.v); }
-  else if(btn.dataset.act==="railclean"){
-    /* Segmen Bersihkan di rel = buka workspace Bersihkan untuk file ini
-       (aksi bersih-ulangnya tetap tombol putar di sebelah Simpan). */
-    setActiveTool("clean");
-    var rc=document.getElementById("card-"+it.id);
-    if(rc) rc.scrollIntoView({behavior:"smooth",block:"center"});
-  }
   else if(btn.dataset.act==="remove"){
     openSheet({title:"Hapus file ini?", body:it.file.name+" dibuang dari antrean beserta hasilnya.", confirm:"Hapus", danger:true, onConfirm:function(){ removeItem(it); }});
   }

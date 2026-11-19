@@ -559,7 +559,7 @@
   #queueSection{scroll-margin-top:70px}
   #list .card{scroll-margin-top:70px}
   /* dock progres: melayang di bawah, selalu kelihatan selama batch jalan */
-  #procDock{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:45;width:min(430px,calc(100vw - 24px));background:rgba(28,28,30,.94);color:#fff;border-radius:16px;padding:11px 14px 12px;box-shadow:0 14px 34px -12px rgba(0,0,0,.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  #procDock{position:fixed;left:50%;transform:translateX(-50%);bottom:max(42px, calc(14px + env(safe-area-inset-bottom)));z-index:45;width:min(430px,calc(100vw - 24px));background:rgba(28,28,30,.94);color:#fff;border-radius:16px;padding:11px 14px 12px;box-shadow:0 14px 34px -12px rgba(0,0,0,.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
   html.dark #procDock{background:rgba(245,245,247,.96);color:#1D1D1F}
   #procDock:not(.hidden){animation:dockUp .45s cubic-bezier(.22,1,.36,1) both}
   /* keyframes sendiri: WAJIB bawa translateX(-50%) — kalo pinjem barUp punya
@@ -926,9 +926,9 @@
 /* ═══ Baris versi + rel alat di kartu (Langkah 3) ═══
    Baris versi (C5): "Versi: Asli · Bersih · Objek — ketuk untuk kembali".
    Versi aktif = biru; yang lain = abu, ketuk untuk kembali ke versi itu
-   (versi yang lebih baru tetap tersimpan, C6). Rel alat: satu baris
-   status semua alat — Bersihkan ✓ · Objek – · Watermark – — ketuk
-   segmen = buka alat itu untuk file ini. */
+   (versi yang lebih baru tetap tersimpan, C6). Rel alat di kartu = .tool-bar
+   kanonis (satu baris horizontal bisa di-scroll, chip ikon+label ≥48px,
+   chip aktif biru penuh) — sama persis dengan rail di kepala editor. */
 .version-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;font-size:13px}
 .version-label{font-weight:600;color:var(--muted)}
 .version-chip{min-height:36px;padding:0 12px;border-radius:980px;border:1px solid var(--line);background:var(--surface);color:var(--label);font-size:13px;font-weight:600;cursor:pointer}
@@ -936,13 +936,16 @@
 .version-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .version-sep{color:var(--muted)}
 .version-hint{color:var(--muted);font-size:12.5px}
-.tool-rail{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:10px;padding:8px 10px;border-radius:12px;background:var(--fill);font-size:13.5px;font-weight:600}
-.tool-rail-seg{min-height:36px;padding:0 10px;border-radius:980px;border:0;background:none;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
-.tool-rail-seg:active{opacity:.6}
-.tool-rail-seg b{font-weight:800}
-.tool-rail-seg.done{color:var(--green-text)}
-.tool-rail-seg.warn{color:var(--red-text)}
-.tool-rail-sep{color:var(--muted)}
+/* Rel alat di kartu file = SATU implementasi kanonis yang sama dengan
+   workspace: .tool-bar (satu baris horizontal bisa di-scroll, chip
+   ikon+label ≥48px, chip aktif biru penuh). Rel teks abu-abu lama
+   ("Bersihkan - · Objek - · ..." dengan pemisah ·) DIHAPUS 19 Nov 2026 —
+   itulah yang tampil di screenshot POCO F6 Bobby, padahal redesign sudah
+   punya .tool-bar di kepala editor. */
+.tool-bar{display:flex;flex-wrap:nowrap;gap:8px;margin:4px -16px 12px;padding:2px 16px 8px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 32px),transparent 100%);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 32px),transparent 100%)}
+.tool-bar::-webkit-scrollbar{display:none}
+.tool-chip{flex:0 0 auto;scroll-snap-align:start;min-height:48px;display:inline-flex;align-items:center;gap:6px}
+.tool-chip .ic{flex-shrink:0}
 
 /* ═══ Layout kanonis Phase 2 (19 Nov 2026) — arah Bobby 08:49 WIB:
    home tetap pemilih alat (tanpa default), editor: foto di atas, rail
@@ -973,7 +976,7 @@
    (.above-batch) kalau bar itu tampil. */
 #primaryBar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(251,251,253,.82);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-top:1px solid var(--line)}
 html.dark #primaryBar{background:rgba(28,28,30,.82)}
-#primaryBar.above-batch{bottom:calc(69px + env(safe-area-inset-bottom))}
+#primaryBar.above-batch{bottom:max(97px, calc(69px + env(safe-area-inset-bottom)))}
 body.has-primary main{padding-bottom:120px}
 /* Bottom sheet generik (P1): konfirmasi & alur sekunder, maks 1 level. */
 #sheetScrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:70}
@@ -987,4 +990,3 @@ html.dark #sheet{background:#1C1C1E}
 .erase-btn.danger{background:#FF3B30;color:#fff}
 /* Geometri jempol (P0-4): target ketuk sekunder di kartu minimal 44px. */
 .version-chip{min-height:44px}
-.tool-rail-seg{min-height:44px}

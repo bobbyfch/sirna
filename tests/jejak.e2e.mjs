@@ -64,7 +64,9 @@ try {
   await page.waitForSelector("#list .card", { timeout: 30000 });
   await page.waitForTimeout(500);
 
-  await page.click('button[data-act="jejak"]');
+  // Buka modal dari rel alat kartu (chip kanonis) + tombol utama.
+  await page.click('#list [data-tool-switch="jejak"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#jejakModal:not(.hidden)", { timeout: 10000 });
   note("modalTitle", await page.evaluate(() => document.getElementById("jejakTitle").textContent));
   note("modalSub", await page.locator("#jejakSub").textContent());
@@ -95,7 +97,8 @@ try {
 
   // Unduh hasil -> PNG hasil NOL chunk jejak. Buka lagi DARI ASLI (versi
   // tersimpan sudah bersih, jadi tombol Hapus nonaktif) lalu hapus & unduh.
-  await page.click('button[data-act="jejak"]');
+  await page.click('#list [data-tool-switch="jejak"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#jejakModal:not(.hidden)", { timeout: 10000 });
   await page.click("#jejakUseOriginal");
   await page.waitForFunction(() => /Teks PNG/.test(document.getElementById("jejakList").textContent), { timeout: 10000 });
@@ -130,7 +133,8 @@ await p2.waitForTimeout(1000);
 await p2.click('button[data-tool="jejak"]');
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector("#list .card", { timeout: 30000 });
-await p2.click('button[data-act="jejak"]');
+await p2.click('#list [data-tool-switch="jejak"]');
+await p2.click("#primaryBtn");
 await p2.waitForSelector("#jejakModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));

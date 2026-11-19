@@ -79,7 +79,8 @@ try {
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
   note("cleanDone", "save button visible");
-  await page.click('button[data-act="erase"]');
+  await page.click('#list [data-tool-switch="erase"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 
   // (1) Hapus disabled sebelum coretan; langkah 1 aktif.
@@ -211,7 +212,8 @@ await p2.click('[data-tool="clean"]'); // tanpa alat, file cuma diantre (arah 19
 await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-await p2.click('button[data-act="erase"]');
+await p2.click('#list [data-tool-switch="erase"]');
+await p2.click("#primaryBtn");
 await p2.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, modalSw: document.getElementById("eraseModal").scrollWidth }));

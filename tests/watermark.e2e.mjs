@@ -83,7 +83,9 @@ try {
   await page.waitForTimeout(500);
 
   // Buka Hapus Watermark — auto-detect harus sudah menandai kedua mark.
-  await page.click('button[data-act="watermark"]');
+  // (chip rel kartu + tombol utama, pengganti tombol aksi kartu lama)
+  await page.click('#list [data-tool-switch="watermark"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   await page.waitForTimeout(600); // deteksi sinkron, kasih waktu render overlay
   note("modalTitle", await page.evaluate(() => document.getElementById("eraseTitle").textContent));
@@ -150,7 +152,8 @@ try {
   note("cardMentionsWatermark", /Watermark dihapus/.test(cardText));
   note("editorClosedAfterSave", await page.evaluate(() => document.getElementById("eraseModal").classList.contains("hidden")));
   // Buka Hapus Objek sesudah Watermark: judul harus balik "Hapus Objek".
-  await page.click('button[data-act="erase"]');
+  await page.click('#list [data-tool-switch="erase"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   note("titleBackToErase", await page.evaluate(() => document.getElementById("eraseTitle").textContent));
   await page.click("#eraseClose");
@@ -178,7 +181,8 @@ await p2.click('[data-tool="clean"]');
 await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", CLEAN_IMG);
 await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-await p2.click('button[data-act="watermark"]');
+await p2.click('#list [data-tool-switch="watermark"]');
+await p2.click("#primaryBtn");
 await p2.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(600);
 note("cleanNote", await p2.locator("#eraseNote").textContent());

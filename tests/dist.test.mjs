@@ -220,7 +220,7 @@ test('Step 2: pemilih alat + workspace per alat + stepper per alat', async () =>
   assert.match(bundle, /Pilih file/);
   assert.match(bundle, /Coret/);
   assert.match(bundle, /Deteksi/);
-  assert.match(bundle, /file masuk — ketuk/);
+  assert.match(bundle, /file masuk — .* siap di kepala editor/); // toast pasca-upload: foto di kepala editor, bukan kartu
 });
 test('Step 3: tumpukan versi + rel alat di kartu', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
@@ -236,7 +236,15 @@ test('Step 3: tumpukan versi + rel alat di kartu', async () => {
   assert.match(src, /function renderRail\(item\)/);
   assert.match(src, /function renderResultBox\(item,res,box\)/);
   assert.match(src, /data-act="version"/);
-  assert.match(src, /"railclean"/); // segmen Bersihkan di rel (act dilewat sebagai argumen seg())
+  // Rel di kartu = .tool-bar kanonis (chip ikon+label, data-tool-switch) —
+  // SATU implementasi rel; rel teks abu-abu lama + segmen "railclean" sudah
+  // dihapus 19 Nov 2026 (screenshot POCO F6).
+  assert.match(src, /RAIL_TOOLS/);
+  assert.match(src, /class="tool-bar" id="rail-/);
+  assert.match(src, /data-tool-switch/);
+  assert.doesNotMatch(src, /tool-rail/);
+  assert.doesNotMatch(src, /"railclean"/);
+  assert.doesNotMatch(src, /tool-rail-sep/);
   assert.match(src, /showUseOriginal/);
   assert.match(src, /onUseOriginal/);
   // Editor meneruskan opsi "Mulai dari file asli" (erase + watermark).
@@ -327,7 +335,7 @@ test('Hapus Latar: SATU engine ORMBG int8, chroma-key DIHAPUS', async () => {
   assert.match(appSrc, /background:\["Pilih file","Deteksi","Hapus","Simpan"\]/);
   assert.match(appSrc, /function openBackgroundFor\(item/);
   assert.match(appSrc, /"Latar"/);
-  assert.match(appSrc, /seg\("background","Latar","background"\)/);
+  assert.match(appSrc, /\["background","Hapus Latar","i-layers"\]/); // chip rel kartu kanonis
   assert.match(appSrc, /Hapus Latar/);
   const bgSrc = await readFile(new URL('../src/background.ts', dir), 'utf8');
   assert.match(bgSrc, /ensureEngine\("ormbg"/);
@@ -394,9 +402,10 @@ test('Perbesar + Hapus Jejak + Hapus Duplikat: modal & wiring, SATU engine Real-
   assert.match(appSrc, /function removeDedupItems\(removeIds, keepIds\)/);
   assert.match(appSrc, /"Perbesar"/);
   assert.match(appSrc, /"Jejak"/);
-  assert.match(appSrc, /seg\("upscale","Perbesar","upscale"\)/);
-  assert.match(appSrc, /seg\("jejak","Jejak","jejak"\)/);
-  assert.match(appSrc, /seg\("dedup","Duplikat","dedup"\)/);
+  // Rel kartu kanonis: chip RAIL_TOOLS (ikon+label, data-tool-switch).
+  assert.match(appSrc, /\["upscale","Perbesar","i-expand"\]/);
+  assert.match(appSrc, /\["jejak","Hapus Jejak","i-shield"\]/);
+  assert.match(appSrc, /\["dedup","Hapus Duplikat","i-repeat"\]/);
   // Algoritma murni di sumber (bukan di bundle — nama di-minify).
   const lanczosSrc = await readFile(new URL('../src/lanczos.ts', dir), 'utf8');
   assert.match(lanczosSrc, /function lanczosUpscale\(img: ImageData, scale: Upscale\)/);

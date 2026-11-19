@@ -86,7 +86,9 @@ try {
   await page.waitForSelector("#list .card", { timeout: 30000 });
   await page.waitForTimeout(500);
 
-  await page.click('button[data-act="upscale"]');
+  // Buka modal dari rel alat kartu (chip kanonis) + tombol utama.
+  await page.click('#list [data-tool-switch="upscale"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 });
   note("modalTitle", await page.evaluate(() => document.getElementById("upTitle").textContent));
   note("modalSub", await page.locator("#upSub").textContent());
@@ -151,7 +153,8 @@ try {
 
   // Unduh hasil -> PNG valid (buka lagi dulu, run lagi — model sudah
   // di-cache, jadi 0 request model baru).
-  await page.click('button[data-act="upscale"]');
+  await page.click('#list [data-tool-switch="upscale"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 });
   const reqsBeforeRun2 = modelReqs().length;
   await page.click("#upRun");
@@ -185,7 +188,8 @@ await p2.waitForTimeout(1000);
 await p2.click('button[data-tool="upscale"]');
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector("#list .card", { timeout: 30000 });
-await p2.click('button[data-act="upscale"]');
+await p2.click('#list [data-tool-switch="upscale"]');
+await p2.click("#primaryBtn");
 await p2.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));

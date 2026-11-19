@@ -334,7 +334,7 @@
 <!-- Bar utama sticky (P0-1): SATU tombol, kata kerja alat aktif, 16px di
      atas safe-area. Muncul kalau workspace buka + ada foto + alat aktif.
      Naik di atas batch bar (ZIP) kalau bar itu tampil. -->
-<div id="primaryBar" class="hidden" style="padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+<div id="primaryBar" class="hidden" style="padding-bottom:max(28px, calc(16px + env(safe-area-inset-bottom)))">
   <div class="max-w-3xl mx-auto px-4">
     <button type="button" id="primaryBtn" class="btn-ic w-full min-h-[54px] px-6 rounded-full grad-bg text-white font-bold text-[16px] shadow-lg"></button>
   </div>
@@ -573,7 +573,7 @@
   </div>
 </div>
 
-<div id="toast" class="hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold text-sm px-4 py-2.5 rounded-full shadow-lg max-w-[92vw] text-center" style="bottom:calc(84px + env(safe-area-inset-bottom))"></div>
+<div id="toast" class="hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold text-sm px-4 py-2.5 rounded-full shadow-lg max-w-[92vw] text-center" style="bottom:max(112px, calc(84px + env(safe-area-inset-bottom)))"></div>
 
 
 

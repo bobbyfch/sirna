@@ -42,7 +42,7 @@ async function cardInfo(nth) {
       pill: c.querySelector(".status-pill")?.textContent?.trim(),
       versions: versions?.classList.contains("hidden") ? "(hidden)" : versions?.textContent?.replace(/\s+/g, " ").trim(),
       activeVersion: versions?.querySelector(".version-chip.active")?.textContent?.trim(),
-      rail: c.querySelector(".tool-rail")?.textContent?.replace(/\s+/g, " ").trim(),
+      rail: c.querySelector(".tool-bar")?.textContent?.replace(/\s+/g, " ").trim(),
       saveHidden: c.querySelector('button[data-act="save"]')?.classList.contains("hidden"),
       resultHead: c.querySelector(".clean-head, .detect-head")?.textContent?.trim(),
     };
@@ -104,7 +104,9 @@ try {
   // diandalkan di halaman ini — timeout padahal modal sudah terbuka &
   // visible (diverifikasi via classList + bounding rect 1280x900 flex);
   // pakai waitForFunction di semua penunggu modal di tes ini.
-  await page.locator("#list article").nth(1).locator('button[data-act="erase"]').click();
+  // (chip rel kartu + tombol utama)
+  await page.locator("#list article").nth(1).locator('[data-tool-switch="erase"]').click();
+  await page.click("#primaryBtn");
   await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
   await paintCircle();
   await page.click("#eraseRun");
@@ -122,7 +124,8 @@ try {
   note("f2_previewObjek_circle", await previewPixel(1, 400, 300));
 
   // (6) File 2: Hapus Watermark via rel alat -> deteksi otomatis -> Instan -> Simpan hasil.
-  await page.locator("#list article").nth(1).locator('button[data-act="watermark"]').click();
+  await page.locator("#list article").nth(1).locator('[data-tool-switch="watermark"]').click();
+  await page.click("#primaryBtn");
   await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
   await page.waitForTimeout(800);
   note("f2_wmOverlay", await page.evaluate(() => {
@@ -147,7 +150,8 @@ try {
 
   // (8) "Mulai dari file asli" (file 1): tombol tampil (sumber = hasil
   // Bersihkan) -> klik -> editor buka ulang dari asli -> tombol hilang.
-  await page.locator("#list article").nth(0).locator('button[data-act="erase"]').click();
+  await page.locator("#list article").nth(0).locator('[data-tool-switch="erase"]').click();
+  await page.click("#primaryBtn");
   await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
   note("f1_origBtnVisible", await page.evaluate(() => !document.getElementById("eraseUseOriginal").classList.contains("hidden")));
   await page.click("#eraseUseOriginal");
@@ -156,12 +160,12 @@ try {
   await page.click("#eraseClose");
   await page.waitForTimeout(400);
 
-  // (9) Segmen Bersihkan di rel = pindah workspace ke Bersihkan.
+  // (9) Chip Bersihkan di rel kartu = pindah workspace ke Bersihkan.
   await page.click('[data-tool-switch="erase"]');
   await page.waitForTimeout(500);
-  await page.locator("#list article").nth(0).locator('button[data-act="railclean"]').click();
+  await page.locator("#list article").nth(0).locator('.tool-bar [data-tool-switch="clean"]').click();
   await page.waitForTimeout(500);
-  note("railcleanSwitches", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
+  note("cardRailCleanSwitches", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
 }

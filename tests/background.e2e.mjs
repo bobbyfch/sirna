@@ -97,8 +97,9 @@ try {
   note("cardVisible", true);
   await page.waitForTimeout(500);
 
-  // Buka modal dari rel alat kartu.
-  await page.click('button[data-act="background"]');
+  // Buka modal dari rel alat kartu (chip kanonis) + tombol utama.
+  await page.click('#list [data-tool-switch="background"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 });
   note("modalOpen", await page.evaluate(() => !document.getElementById("bgModal").classList.contains("hidden")));
   note("modalTitle", await page.evaluate(() => document.getElementById("bgTitle").textContent));
@@ -138,7 +139,8 @@ try {
 
   // Buka lagi + run kedua: 0 request model BARU (Cache Storage — model
   // sudah di HP). Timeout run kedua lebih pendek (tanpa unduh).
-  await page.click('button[data-act="background"]');
+  await page.click('#list [data-tool-switch="background"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 });
   const reqsBeforeRun2 = modelReqs().length;
   const t2 = Date.now();
@@ -177,7 +179,8 @@ await p2.waitForTimeout(1000);
 await p2.click('button[data-tool="background"]');
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector("#list .card", { timeout: 30000 });
-await p2.click('button[data-act="background"]');
+await p2.click('#list [data-tool-switch="background"]');
+await p2.click("#primaryBtn");
 await p2.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));

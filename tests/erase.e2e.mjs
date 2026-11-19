@@ -89,8 +89,9 @@ try {
   note("cleanDone", "save button visible");
   await page.waitForTimeout(500);
 
-  // Buka editor Hapus Objek.
-  await page.click('button[data-act="erase"]');
+  // Buka editor Hapus Objek (chip rel kartu + tombol utama).
+  await page.click('#list [data-tool-switch="erase"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   const modalVisible = await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden"));
   note("editorOpen", modalVisible);
@@ -191,7 +192,8 @@ try {
 
   // Buka lagi, coret BESAR (>2% foto): peringatan mask muncul, TANPA
   // tombol pindah mode AI (revert: tidak ada lagi "Pakai Cepat AI").
-  await page.click('button[data-act="erase"]');
+  await page.click('#list [data-tool-switch="erase"]');
+  await page.click("#primaryBtn");
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   const box3 = await page.locator("#eraseCanvas").boundingBox();
   const toPx3 = (ix, iy) => ({ x: box3.x + (ix / 800) * box3.width, y: box3.y + (iy / 600) * box3.height });
@@ -233,7 +235,8 @@ await p2.click('[data-tool="clean"]');
 await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-await p2.click('button[data-act="erase"]');
+await p2.click('#list [data-tool-switch="erase"]');
+await p2.click("#primaryBtn");
 await p2.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, modalSw: document.getElementById("eraseModal").scrollWidth }));
