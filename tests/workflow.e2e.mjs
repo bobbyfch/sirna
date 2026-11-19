@@ -1,8 +1,10 @@
-// Alur redesain (tool-first + auto-run): pemilih alat -> workspace
-// Bersihkan -> upload -> alat jalan sendiri -> Sudah bersih -> ganti
-// alat (file & hasil tetap, alat baru langsung jalan/buka editor) ->
-// balik ke pemilih -> workspace Hapus Objek -> upload langsung buka
-// editor (coretan = input). + 390px tanpa overflow, 0 error konsol.
+// Alur file-first (3 alat, tanpa model): home (dropzone + contoh, tanpa
+// pemilih alat) -> upload -> editor terbuka, Bersihkan jalan sendiri ->
+// Sudah bersih -> ganti alat via chip (file & hasil tetap, alat baru
+// langsung jalan otomatis) -> Back -> "Buka editor" -> editor kembali ->
+// Mulai ulang -> upload langsung jalan otomatis -> chip watermark v1
+// (sparkle Gemini saja, tanpa editor kuas).
+// + 390px tanpa overflow, 0 error konsol.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -38,91 +40,97 @@ async function toolStatusText() {
 async function primaryText() {
   return await page.evaluate(() => document.getElementById("primaryBtn")?.textContent?.trim() || "");
 }
-async function primaryVisible() {
-  return await page.evaluate(() => !document.getElementById("primaryBtn").classList.contains("hidden"));
+async function shellPill() {
+  return await page.evaluate(() => document.getElementById("shellPill")?.textContent?.trim() || "");
 }
-async function cardPill(nth) {
-  return await page.evaluate((n) => document.querySelectorAll("#list article .status-pill")[n]?.textContent?.trim(), nth);
+async function filmCount() {
+  return await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb").length);
 }
 
 try {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
-  // (1) Layar A: pemilih alat kelihatan, workspace sembunyi.
+  // (1) Layar A file-first: dropzone + contoh kelihatan, TIDAK ADA
+  // #toolPicker di DOM, workspace sembunyi.
   note("pickerVisible", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
-  note("pickerCards", await page.evaluate(() => Array.from(document.querySelectorAll("#toolPicker .tool-card")).map((c) => c.dataset.tool).filter(Boolean).join(",")));
+  note("dropzoneVisible", await page.evaluate(() => { const d = document.getElementById("dropZone"); const r = d.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < window.innerHeight; }));
+  note("toolPickerAbsent", await page.evaluate(() => !document.getElementById("toolPicker")));
+  note("sampleRowBelowDropzone", await page.evaluate(() => { const d = document.getElementById("dropZone").getBoundingClientRect(), s = document.getElementById("sampleRow").getBoundingClientRect(); return s.top >= d.bottom; }));
   note("panelHidden", await page.evaluate(() => document.getElementById("panel-cleaner").classList.contains("hidden")));
-  // (2) Pilih Bersihkan -> workspace muncul, baris status, pengaturan tampil.
-  await page.click('[data-tool="clean"]');
-  await page.waitForTimeout(600);
-  note("panelVisible", await page.evaluate(() => !document.getElementById("panel-cleaner").classList.contains("hidden")));
-  note("heroHidden", await page.evaluate(() => document.getElementById("heroSection").classList.contains("hidden")));
-  note("toolStatusClean", await toolStatusText());
-  note("settingsVisible", await page.evaluate(() => !document.getElementById("settingsCard").classList.contains("hidden")));
-  note("cleanChipActive", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
-  // (3) Upload file berlabel -> alat jalan sendiri -> tombol utama "Simpan foto".
+  // (2) Upload langsung dari home -> editor terbuka, Bersihkan jalan
+  // sendiri (default), baris status + pengaturan tampil.
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
   await page.waitForFunction(() => {
     const b = document.getElementById("primaryBtn");
     return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
   }, { timeout: 60000 });
   await page.waitForTimeout(400);
-  note("cleanPill", await cardPill(0));
+  note("panelVisible", await page.evaluate(() => !document.getElementById("panel-cleaner").classList.contains("hidden")));
+  note("heroHidden", await page.evaluate(() => document.getElementById("heroSection").classList.contains("hidden")));
+  note("toolStatusClean", await toolStatusText());
+  note("settingsVisible", await page.evaluate(() => !document.getElementById("settingsCard").classList.contains("hidden")));
+  note("cleanChipActive", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
+  // (3) File berlabel sudah dibersihkan otomatis -> tombol utama "Simpan foto".
+  note("cleanPill", await shellPill());
   note("toolStatusCleanDone", await toolStatusText());
   note("primaryAfterClean", await primaryText());
   // Pengaturan TETAP tampil walau file sudah masuk (dulu hilang).
   note("settingsStillVisible", await page.evaluate(() => !document.getElementById("settingsCard").classList.contains("hidden")));
-  // (4) Ganti alat ke Hapus Objek via chip -> editor langsung terbuka
-  // (coretan = input, prinsip B); tutup -> file & hasil Bersihkan tetap.
-  await page.click('[data-tool-switch="erase"]');
-  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 15000 });
-  note("eraseModalAutoOpenOnSwitch", await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden")));
-  await page.click("#eraseClose");
+  // (4) Ganti alat ke Hapus Watermark via chip -> auto-run v1 (tanpa
+  // modal kuas): status jujur di #shellResult; file & hasil Bersihkan tetap.
+  await page.click('[data-tool-switch="watermark"]');
+  // Tunggu status jujur watermark v1 (kotak lama "Beres" dari Bersihkan
+  // diganti — tunggu teks baru, bukan sekadar kotak terlihat).
+  await page.waitForFunction(() => {
+    const t = document.getElementById("shellResult")?.textContent || "";
+    return t.includes("Tidak ketemu tanda watermark") || t.includes("bukan pola Gemini") || t.includes("Sparkle Gemini dihapus");
+  }, { timeout: 15000 });
+  note("wmModalAbsent", await page.evaluate(() => !document.getElementById("eraseModal")));
+  note("wmResult", await page.locator("#shellResult").textContent());
   await page.waitForTimeout(600);
-  note("toolStatusErase", await toolStatusText());
-  note("settingsHiddenErase", await page.evaluate(() => document.getElementById("settingsCard").classList.contains("hidden")));
-  note("pillAfterSwitch", await cardPill(0));
-  note("primaryAfterSwitchErase", await primaryText());
-  // (5) Balik ke pemilih -> pilih Bersihkan lagi -> kartu masih ada.
-  // Tombol Back di top bar editor (#editorBackBtn); chip "‹ Semua alat"
-  // [data-tool-switch=""] sudah dihapus saat redesain layout — selector
-  // usang itu dulu timeout 30 dtk dan ditelan try/catch, sehingga
-  // langkah 5–6 tidak pernah dieksekusi.
+  note("toolStatusWatermark", await toolStatusText());
+  note("settingsHiddenWatermark", await page.evaluate(() => document.getElementById("settingsCard").classList.contains("hidden")));
+  note("pillAfterSwitch", await shellPill());
+  note("primaryAfterSwitchWatermark", await primaryText());
+  // (5) Balik ke home -> #queueHint terlihat ("1 file di antrean") ->
+  // klik "Buka editor" -> editor kembali, file masih ada.
   await page.click("#editorBackBtn");
   await page.waitForTimeout(600);
   note("pickerAgain", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
-  await page.click('[data-tool="clean"]');
+  note("queueHintVisible", await page.evaluate(() => !document.getElementById("queueHint").classList.contains("hidden")));
+  note("queueHintText", await page.evaluate(() => document.getElementById("queueHintText")?.textContent?.trim()));
+  await page.click("#resumeBtn");
   await page.waitForTimeout(600);
-  note("cardKept", await page.evaluate(() => document.querySelectorAll("#list article").length));
-  note("pillKept", await cardPill(0));
-  // (6) Mulai ulang -> balik ke pemilih. Pilih Hapus Objek -> upload
-  // langsung buka editor (prinsip B): pill tetap "Ada label AI" sampai
-  // dicoret, tombol utama jadi "Coret foto" (bukan "Simpan").
+  note("filmKept", await filmCount());
+  note("pillKept", await shellPill());
+  // (6) Mulai ulang -> home. Upload langsung (default Bersihkan jalan)
+  // -> klik chip watermark -> auto-run v1: hasil Bersihkan sudah ada,
+  // jadi tombol utama tetap "Simpan foto"; status jujur di kotak hasil
+  // — TANPA modal kuas, TANPA tombol "Coret watermark".
   await page.click("#restartBtn");
   await page.waitForTimeout(400);
   await page.click("#sheetConfirm"); // konfirmasi sheet (Phase 2)
   await page.waitForTimeout(600);
   note("pickerAfterRestart", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
-  await page.click('[data-tool="erase"]');
-  await page.waitForTimeout(600);
-  note("toolStatusEraseEmpty", await toolStatusText());
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
-  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 15000 });
-  note("eraseModalAutoOpenOnUpload", await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden")));
-  await page.click("#eraseClose");
+  await page.waitForFunction(() => {
+    const b = document.getElementById("primaryBtn");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, { timeout: 60000 });
+  note("toolStatusAfterCleanUpload", await toolStatusText());
+  await page.click('[data-tool-switch="watermark"]');
+  await page.waitForFunction(() => {
+    const t = document.getElementById("shellResult")?.textContent || "";
+    return t.includes("Tidak ketemu tanda watermark") || t.includes("bukan pola Gemini") || t.includes("Sparkle Gemini dihapus");
+  }, { timeout: 15000 });
+  note("wmModalAbsentUpload", await page.evaluate(() => !document.getElementById("eraseModal")));
+  note("wmResultUpload", await page.locator("#shellResult").textContent());
   await page.waitForTimeout(600);
-  note("eraseQueuePill", await cardPill(0));
-  note("primaryEraseNoResult", await primaryText());
+  note("wmQueuePill", await shellPill());
+  note("primaryWatermarkNoResult", await page.evaluate(() => document.getElementById("primaryBtn").classList.contains("hidden") ? "(hidden)" : document.getElementById("primaryBtn").textContent.trim()));
   note("dockHidden", await page.evaluate(() => document.getElementById("procDock").classList.contains("hidden")));
-  note("toolStatusEraseQueued", await toolStatusText());
-  note("eraseToast", await page.locator("#toast").textContent());
-  // Tombol utama "Coret foto" -> editor terbuka lagi -> tutup.
-  await page.click("#primaryBtn");
-  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 15000 });
-  note("eraseModalOpen", await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden")));
-  await page.click("#eraseClose");
-  await page.waitForTimeout(400);
-  note("eraseModalClosed", await page.evaluate(() => document.getElementById("eraseModal").classList.contains("hidden")));
+  note("toolStatusWatermarkQueued", await toolStatusText());
+  note("wmToast", await page.locator("#toast").textContent());
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
 }
@@ -145,7 +153,12 @@ try {
   await page2.goto(BASE, { waitUntil: "networkidle" });
   await page2.waitForTimeout(1000);
   note("m390_overflow", await page2.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth));
-  await page2.click('[data-tool="clean"]');
+  // File-first 390px: upload langsung dari home membuka editor.
+  await page2.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
+  await page2.waitForFunction(() => {
+    const b = document.getElementById("primaryBtn");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, { timeout: 60000 });
   await page2.waitForTimeout(600);
   // Rail kini SATU baris scroll horizontal (P0-1), bukan wrap: scrollWidth >
   // clientWidth itu BENAR — yang dicek: chip terakhir bisa dicapai dengan
@@ -174,9 +187,6 @@ note("consoleErrors390", consoleErrors2.slice(0, 10));
 await ctx2.close();
 server2.kill();
 await browser.close();
-// Jangan telan kegagalan diam-diam: kalau ada ERROR/ERROR390 di log,
-// langkah workflow ada yang tidak tereksekusi — skrip harus exit 1,
-// bukan DONE dengan exit 0.
 if (log.some(([k]) => k === "ERROR" || k === "ERROR390")) process.exitCode = 1;
 writeFileSync(OUT, JSON.stringify(log, null, 2));
 console.log("DONE ->", OUT);

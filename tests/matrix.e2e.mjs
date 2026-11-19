@@ -1,10 +1,11 @@
-// Matriks label 23 kasus (Langkah 1 — verifikasi fix 8052eebb).
+// Matriks label 23 kasus pivot (Langkah 1 — verifikasi fix 8052eebb).
 // Semua file di tests/fixtures/matrix/ membawa label OpenAI/DALL·E +
 // manifest C2PA di SATU container (12 PNG + 10 JPEG + 1 PNG-bernama-JPEG).
-// Batch upload -> tiap kartu HARUS berakhir pill "Sudah bersih" +
+// Batch upload -> tiap file HARUS berakhir pill "Sudah bersih" +
 // kotak "Beres — sudah bersih" + bukti (0 label AI tersisa, ukuran
-// sebelum -> sesudah, "File ini aman diunggah."). Stats + batch bar
-// juga dicek (satu sumber kebenaran: getFileState).
+// sebelum -> sesudah, "File ini aman diunggah."). State dibaca lewat
+// filmstrip (daftar kartu file DIHAPUS pivot) — satu sumber kebenaran:
+// getFileState.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { readdirSync, writeFileSync } from "node:fs";
@@ -41,36 +42,36 @@ try {
   note("files", FILES.length);
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
-  // Pilih alat dulu (arah 19 Nov 2026: tanpa alat, file cuma diantre —
-  // tidak ada lagi auto-pilih Bersihkan).
-  await page.click('[data-tool="clean"]');
-  await page.waitForTimeout(500);
+  // File-first: upload langsung dari home -> auto-clean (tanpa pilih alat).
   await page.setInputFiles("#fileInput", FILES);
-  // Tunggu semua 23 kartu selesai: tombol Simpan muncul per kartu.
-  // Tunggu tombol utama jadi "Simpan semua (N)" — Simpan per kartu
-  // sudah dihapus (prinsip C).
+  // Tunggu tombol utama jadi "Simpan semua (N)".
   await page.waitForFunction((n) => {
     const b = document.getElementById("primaryBtn");
     return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan semua (" + n + ")");
   }, FILES.length, { timeout: 120000 });
   await page.waitForTimeout(500);
-  const states = await page.evaluate(() => {
-    const cards = Array.from(document.querySelectorAll("#list article"));
-    return cards.map((c) => {
-      const name = c.querySelector("h4")?.textContent || "?";
-      const pill = c.querySelector(".status-pill")?.textContent?.trim() || "?";
-      const box = c.querySelector("#result-" + c.id.replace("card-", ""))?.textContent || "";
-      const boxEl = c.querySelector(".clean-box, .detect-box");
-      return { name, pill, head: boxEl?.querySelector(".clean-head, .detect-head")?.textContent?.trim() || "", body: boxEl?.querySelector(".clean-body")?.textContent?.trim() || "" };
+  // Baca state tiap file lewat filmstrip (satu-satunya antrean).
+  const states = [];
+  const thumbs = await page.evaluate(() => Array.from(document.querySelectorAll("#shellFilm button")).map((b) => b.dataset.shellId));
+  for (let i = 0; i < thumbs.length; i++) {
+    await page.click(`#shellFilm button[data-shell-id="${thumbs[i]}"]`);
+    await page.waitForTimeout(150);
+    const st = await page.evaluate(() => {
+      const box = document.getElementById("shellResult");
+      const boxEl = box?.querySelector(".clean-box, .detect-box");
+      return {
+        pill: document.getElementById("shellPill")?.textContent?.trim() || "?",
+        head: boxEl?.querySelector(".clean-head, .detect-head")?.textContent?.trim() || "",
+        body: boxEl?.querySelector(".clean-body")?.textContent?.trim() || "",
+      };
     });
-  });
+    states.push({ name: FILES[i].split("/").pop(), ...st });
+  }
   const bad = states.filter((s) => s.pill !== "Sudah bersih" || !s.head.includes("Beres — sudah bersih") || !s.body.includes("0 label AI tersisa") || !s.body.includes("→") || !s.body.includes("File ini aman diunggah."));
   note("matrixBad", bad);
   note("matrixPass", states.length - bad.length + "/" + states.length);
   for (const s of states) if (bad.includes(s)) note("BAD:" + s.name, s.pill + " | " + s.head + " | " + s.body.slice(0, 120));
-  note("statsText", await page.locator("#statsText").textContent());
-  note("batchStats", await page.locator("#batchStats").textContent());
-  note("batchBarVisible", await page.evaluate(() => !document.getElementById("batchBar").classList.contains("hidden")));
+  note("toolStatus", await page.evaluate(() => document.getElementById("toolStatus")?.textContent?.trim() || ""));
   note("toast", await page.locator("#toast").textContent());
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
@@ -79,5 +80,6 @@ note("consoleErrors", consoleErrors.slice(0, 10));
 note("pageErrors", pageErrors.slice(0, 10));
 await browser.close();
 server.kill();
+if (log.some(([k]) => k === "ERROR")) process.exitCode = 1;
 writeFileSync(OUT, JSON.stringify(log, null, 2));
 console.log("DONE ->", OUT);

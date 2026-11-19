@@ -1,556 +1,320 @@
-// Adaptasi Sirna dari tests/dist.test.mjs template bobbyfch/cloudflare-starter:
-// - 'favicon.svg' dihapus dari daftar wajib: Sirna tidak punya favicon.svg
-//   (favicon-nya inline data: SVG di index.html).
-// - Pemeriksaan 'assets/site.css' diganti: Sirna tidak punya stylesheet
-//   terpisah; yang diverifikasi adalah aset yang memang dipakai halaman —
-//   sw.js root, manifest.webmanifest, dan satu logo.
-// - 'sw.js' ditambahkan ke daftar wajib tingkat atas dist/ (service worker
-//   root, scope seluruh situs).
+// Pivot 19 Nov 2026 (DESIGN.md): Sirna tinggal 3 alat AI-related tanpa
+// model — Bersihkan Label AI, Edit Metadata, Hapus Watermark AI — + history
+// lokal (IndexedDB). File ini ditulis ulang dari 0 untuk pivot; tes lama
+// yang mengasersi model (Mi-GAN/ORMBG/Real-ESRGAN, dist/ort, 7 alat,
+// #queueSection, #dedupView, modal bg/up/jejak) sudah tidak berlaku dan
+// dihapus bersama alatnya — bukan disembunyikan, melainkan diganti tes
+// pivot di bawah.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir, stat } from 'node:fs/promises';
 const dir = new URL('../dist/', import.meta.url);
+
+async function allJs() {
+  const assets = await readdir(new URL('assets', dir));
+  const js = assets.filter(n => n.endsWith('.js'));
+  let out = '';
+  for (const f of js) out += await readFile(new URL('assets/' + f, dir), 'utf8');
+  return { assets, js, out };
+}
+async function mainBundle() {
+  const { js } = await allJs();
+  const main = js.filter(n => /^index-/.test(n) || /^main-/.test(n));
+  assert.ok(main.length >= 1, 'Missing main entry chunk');
+  let out = '';
+  for (const f of main) out += await readFile(new URL('assets/' + f, dir), 'utf8');
+  return out;
+}
+
 test('Production build exposes only public assets', async () => {
-  const names=await readdir(dir);
-  for(const name of ['index.html','404.html','_headers','robots.txt','assets','sw.js']) assert.ok(names.includes(name),`Missing ${name}`);
-  for(const name of ['AGENTS.md','package.json','.env','scripts','node_modules','wrangler.jsonc']) assert.equal(names.includes(name),false,`Source accidentally published: ${name}`);
-  assert.ok((await stat(new URL('assets/sw.js',dir))).size > 100);
-  assert.ok((await stat(new URL('assets/manifest.webmanifest',dir))).size > 100);
-  assert.ok((await stat(new URL('assets/logos/chatgpt.png',dir))).size > 100);
-  assert.match(await readFile(new URL('index.html',dir),'utf8'),/<main/);
+  const names = await readdir(dir);
+  for (const name of ['index.html', '404.html', '_headers', 'robots.txt', 'assets', 'sw.js']) assert.ok(names.includes(name), `Missing ${name}`);
+  for (const name of ['AGENTS.md', 'package.json', '.env', 'scripts', 'node_modules', 'wrangler.jsonc']) assert.equal(names.includes(name), false, `Source accidentally published: ${name}`);
+  assert.ok((await stat(new URL('assets/sw.js', dir))).size > 100);
+  assert.ok((await stat(new URL('assets/manifest.webmanifest', dir))).size > 100);
+  assert.ok((await stat(new URL('assets/logos/chatgpt.png', dir))).size > 100);
+  assert.match(await readFile(new URL('index.html', dir), 'utf8'), /<main/);
+  // Pivot: tidak ada lagi dist/ort (WASM ORT dicabut).
+  assert.equal(names.includes('ort'), false, 'dist/ort must not exist after pivot');
 });
-test('Hapus Objek: editor shell ada, SATU engine Mi-GAN, semua file di bawah batas deploy', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  assert.match(html, /Hapus Objek/);
-  assert.match(html, /id="eraseModal"/);
-  // Single-engine (19 Nov 2026): tidak ada lagi pilih mode AI
-  // (Instan/Cepat/Terbaik), tapi bar progres unduhan model ADA —
-  // model diunduh sekali saat alat dibuka, dengan Batalkan.
-  assert.doesNotMatch(html, /data-erase-mode=/);
-  assert.match(html, /id="eraseModelBar"/);
-  assert.match(html, /id="eraseCancel"/);
-  assert.match(html, /Batalkan/);
-  assert.doesNotMatch(html, /Cepat AI|Terbaik|Instan/);
-  // Redesain (P2-03): deskripsi engine di UI pengguna TANPA nama model /
-  // ukuran — cuma "sekali unduh, tersimpan di perangkat".
-  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat/);
-  assert.doesNotMatch(html, /Mi-GAN, 28 MB/);
-  // dist/ort ADA (bukan tidak ada): cuma 2 file WASM thread yang
-  // dipakai — jsep/asyncify/jspi TIDAK boleh ada (jsep 29,5 MB dan
-  // asyncify 28,7 MB lewat batas 25 MiB/file Cloudflare).
-  const ortFiles = await readdir(new URL('ort',dir));
-  assert.deepEqual(ortFiles.sort(), ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']);
-  // Cloudflare Workers: file statis maks 25 MiB — nggak ada file dist yang boleh lewat.
+
+test('File-first: dropzone di home, tanpa pemilih alat — rail 3 chip di editor', async () => {
+  const html = await readFile(new URL('index.html', dir), 'utf8');
+  // Home file-first: dropzone DI DALAM #heroSection & DI LUAR #panel-cleaner,
+  // contoh tepat di bawah dropzone; TIDAK ADA lagi pemilih alat / tile.
+  assert.match(html, /id="dropZone"/);
+  assert.doesNotMatch(html, /id="toolPicker"/);
+  assert.doesNotMatch(html, /data-tool="/);
+  assert.ok(html.indexOf('id="dropZone"') > html.indexOf('id="heroSection"'), 'dropzone harus di dalam #heroSection');
+  assert.ok(html.indexOf('id="dropZone"') < html.indexOf('id="panel-cleaner"'), 'dropzone harus di luar #panel-cleaner');
+  assert.ok(html.indexOf('id="sampleRow"') > html.indexOf('id="dropZone"'), 'contoh harus di bawah dropzone');
+  assert.match(html, /id="queueHint"/);
+  assert.match(html, /id="resumeBtn"/);
+  assert.match(html, /Buka editor/);
+  // Nama alat kini hidup di chip rail editor (bukan tile): label chip.
+  assert.match(html, />Bersihkan</);
+  assert.match(html, /Edit Metadata/);
+  assert.match(html, />Hapus Watermark</);
+  // Copy tile lama hilang total dari HTML.
+  assert.doesNotMatch(html, /Bersihkan Label AI/);
+  assert.doesNotMatch(html, /Hapus Watermark AI/);
+  assert.doesNotMatch(html, /Foto &amp; video · otomatis/);
+  assert.doesNotMatch(html, /Hanya foto · deteksi otomatis/);
+  assert.doesNotMatch(html, /id="sampleBanner"/);
+  // Rail editor: 3 chip.
+  assert.match(html, /id="toolBar"/);
+  assert.match(html, /data-tool-switch="clean"/);
+  assert.match(html, /data-tool-switch="meta"/);
+  assert.match(html, /data-tool-switch="watermark"/);
+  // Alat lama: tidak ada di HTML mana pun.
+  for (const t of ['"erase"', '"background"', '"upscale"', '"jejak"', '"dedup"']) {
+    assert.doesNotMatch(html, new RegExp('data-tool=' + t.replace(/"/g, '\\"')));
+    assert.doesNotMatch(html, new RegExp('data-tool-switch=' + t.replace(/"/g, '\\"')));
+  }
+  assert.doesNotMatch(html, /Hapus Objek/);
+  assert.doesNotMatch(html, /Hapus Latar/);
+  assert.doesNotMatch(html, /Hapus Duplikat/);
+  assert.doesNotMatch(html, /Hapus Jejak/);
+  assert.doesNotMatch(html, /id="queueSection"/);
+  assert.doesNotMatch(html, /id="dedupView"/);
+  assert.doesNotMatch(html, /id="bgModal"/);
+  assert.doesNotMatch(html, /id="upModal"/);
+  assert.doesNotMatch(html, /id="jejakModal"/);
+  assert.doesNotMatch(html, /id="eraseModelBar"/);
+  assert.doesNotMatch(html, /id="eraseCancel"/);
+  assert.doesNotMatch(html, /id="bgModelBar"/);
+  assert.doesNotMatch(html, /id="upModelBar"/);
+  assert.doesNotMatch(html, /Lagi unduh model/);
+  // Sumber: tidak ada lagi open*For alat lama / scanDuplicates / renderItem.
+  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
+  assert.doesNotMatch(appSrc, /function openEraserFor|function openBackgroundFor|function openUpscaleFor|function openJejakFor/);
+  assert.doesNotMatch(appSrc, /function scanDuplicates|function removeDedupItems|function renderItem/);
+  assert.doesNotMatch(appSrc, /TOOL_STEPS|RAIL_TOOLS/);
+  assert.match(appSrc, /TOOL_RESULT_LABEL=\{clean:"Bersih",meta:"Metadata",watermark:"Watermark"\}/);
+  assert.match(appSrc, /function openMetaFor\(/);
+  assert.match(appSrc, /function openWatermarkFor\(/);
+  assert.match(appSrc, /function autoRunTool\(tool, item\)/);
+  assert.match(appSrc, /function updateToolStatus\(\)/);
+});
+
+test('Pivot: tanpa model — tidak ada onnx / host model / Telea di mana pun', async () => {
+  const { out, js } = await allJs();
+  assert.doesNotMatch(out, /onnxruntime|huggingface\.co|migan|ormbg|esrgan|Telea|inpaintTelea|Lagi unduh model/);
+  assert.doesNotMatch(out, /sirna-models-v2/);
+  // Chunk model/worker lama hilang; chunk watermark + sample tetap ada.
+  assert.equal(js.some(n => n.startsWith('ai-worker-')), false, 'ai-worker chunk must be gone');
+  assert.equal(js.some(n => n.startsWith('models-')), false, 'models chunk must be gone');
+  assert.equal(js.some(n => n.startsWith('erase-')), false, 'erase chunk must be gone');
+  assert.equal(js.some(n => n.startsWith('background-')), false, 'background chunk must be gone');
+  assert.equal(js.some(n => n.startsWith('upscale-')), false, 'upscale chunk must be gone');
+  assert.equal(js.some(n => n.startsWith('jejak-')), false, 'jejak chunk must be gone');
+  assert.equal(js.some(n => n.startsWith('dedup-')), false, 'dedup chunk must be gone');
+  assert.ok(js.some(n => n.startsWith('watermark-')), 'Missing watermark chunk');
+  assert.ok(js.some(n => n.startsWith('sample-')), 'Missing sample chunk');
+  // Sumber: file model sudah dicabut dari repo (bukan cuma tidak di-bundle).
+  for (const f of ['src/models.ts', 'src/ai-worker.ts', 'src/background.ts', 'src/upscale.ts', 'src/dedup.ts', 'src/lanczos.ts', 'src/telea.ts', 'src/erase.ts', 'src/brush.ts']) {
+    await assert.rejects(readFile(new URL('../' + f, dir), 'utf8'), f + ' must not exist');
+  }
+  const pkg = JSON.parse(await readFile(new URL('../package.json', dir), 'utf8'));
+  assert.equal(pkg.dependencies['onnxruntime-web'], undefined, 'onnxruntime-web must be uninstalled');
+  const headers = await readFile(new URL('_headers', dir), 'utf8');
+  const csp = (headers.match(/Content-Security-Policy: ([^\n]+)/) || [])[1] || '';
+  assert.match(csp, /script-src 'self' 'unsafe-inline';/);
+  assert.doesNotMatch(csp, /wasm-unsafe-eval|'unsafe-eval'|huggingface/);
+  assert.match(csp, /connect-src 'self';/);
+});
+
+test('Hapus Watermark v1: Gemini sparkle SAJA via reverse-alpha — tanpa brush, tanpa coret (keputusan Bobby 19 Nov 2026 17:24)', async () => {
+  const html = await readFile(new URL('index.html', dir), 'utf8');
+  assert.match(html, /Hapus Watermark/);
+  // TIDAK ADA lagi modal kuas / tombol coret di v1.
+  assert.doesNotMatch(html, /id="eraseModal"/);
+  assert.doesNotMatch(html, /id="eraseRun"/);
+  assert.doesNotMatch(html, /id="eraseSave"/);
+  assert.doesNotMatch(html, /id="eraseTitle"/);
+  assert.doesNotMatch(html, /id="eraseCanvas"/);
+  assert.doesNotMatch(html, /id="eraseBrush"/);
+  assert.doesNotMatch(html, /Hapus Objek/);
+  assert.doesNotMatch(html, /Coret watermark/);
+  assert.doesNotMatch(html, /Coret manual/);
+  // brush.ts TIDAK PERNAH ADA (erase.ts dicabut penuh, bukan di-rename).
+  for (const f of ['src/brush.ts', 'src/erase.ts']) {
+    await assert.rejects(readFile(new URL('../' + f, dir), 'utf8'), f + ' must not exist');
+  }
+  const css = await readFile(new URL('../src/style.css', dir), 'utf8');
+  assert.doesNotMatch(css, /\.erase-modal\{|#eraseCanvas\{/);
+  // reverse-alpha di sumber: deteksi NCC + unblend, ambang 0.60.
+  const revSrc = await readFile(new URL('../src/revalpha.ts', dir), 'utf8');
+  assert.match(revSrc, /export function detectGeminiSparkle/);
+  assert.match(revSrc, /export function removeSparkle/);
+  assert.match(revSrc, /NCC_MIN = 0\.6/);
+  assert.doesNotMatch(revSrc, /onnx|Telea|opencv|OpenCV/);
+  // watermark.ts: SATU jalur removeWatermark (otomatis) + deteksi generik
+  // HANYA untuk status jujur "bukan Gemini". Tanpa openBrush / fill / TBD.
+  const wmSrc = await readFile(new URL('../src/watermark.ts', dir), 'utf8');
+  assert.match(wmSrc, /export async function removeWatermark/);
+  assert.match(wmSrc, /detectGeminiSparkle/);
+  assert.match(wmSrc, /removeSparkle/);
+  assert.match(wmSrc, /Tanda ketemu tapi bukan pola Gemini yang dikenal\./);
+  assert.match(wmSrc, /Tidak ketemu tanda watermark di foto ini\./);
+  assert.doesNotMatch(wmSrc, /openBrush|FILL_TBD|fill\?|Telea|inpaintTelea/);
+  // app.ts: auto-run watermark tanpa editor; primary TIDAK menawarkan coret.
+  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
+  assert.match(appSrc, /function openWatermarkFor\(item\)\{/);
+  assert.match(appSrc, /removeWatermark/);
+  assert.doesNotMatch(appSrc, /Coret watermark/);
+  assert.doesNotMatch(appSrc, /openWatermark\(/);
+  // Detektor tetap lazy di chunk watermark, bukan chunk utama. (Nama
+  // `removeWatermark` WAJAR muncul di main sebagai property access
+  // wm.removeWatermark() — yang tidak boleh ada di main adalah isi
+  // deteksinya: NCC + alpha map + detectWatermark.)
+  const main = await mainBundle();
+  assert.doesNotMatch(main, /detectGeminiSparkle|detectWatermark|getAlphaMap|nccScore/);
+  const { out } = await allJs();
+  assert.match(out, /detectWatermark/);
+  assert.match(out, /removeWatermark/);
+  assert.doesNotMatch(out, /openBrush|FILL_TBD/);
+});
+
+test('Edit Metadata: modul baru + Hapus Jejak dilebur, jejak.ts jadi library', async () => {
+  const html = await readFile(new URL('index.html', dir), 'utf8');
+  assert.match(html, /id="metaPanel"/);
+  const metaSrc = await readFile(new URL('../src/metaedit.ts', dir), 'utf8');
+  assert.match(metaSrc, /export async function listEditableFields/);
+  assert.match(metaSrc, /export async function applyFieldEdits/);
+  assert.match(metaSrc, /export function wireMetaPanel/);
+  assert.match(metaSrc, /Hapus jejak/);
+  assert.match(metaSrc, /Terapkan perubahan/);
+  assert.match(metaSrc, /Urungkan perubahan/);
+  const jejakSrc = await readFile(new URL('../src/jejak.ts', dir), 'utf8');
+  assert.match(jejakSrc, /function scanTraces\(blob: Blob\)/);
+  assert.match(jejakSrc, /function parseExif\(/);
+  assert.match(jejakSrc, /function filenameTrace\(/);
+  assert.doesNotMatch(jejakSrc, /openJejak|JejakHooks/);
+  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
+  assert.match(appSrc, /function openMetaFor\(/);
+  assert.match(appSrc, /wireMetaPanel/);
+});
+
+test('History lokal: IndexedDB sirna-history, maks 20 FIFO, seksi Terakhir', async () => {
+  const html = await readFile(new URL('index.html', dir), 'utf8');
+  assert.match(html, /id="historySection"/);
+  assert.match(html, /id="historyGrid"/);
+  assert.match(html, /id="historyEmpty"/);
+  assert.match(html, /id="historyClearBtn"/);
+  assert.match(html, /Hanya di perangkat ini — tidak diunggah ke mana pun\./);
+  assert.match(html, /History saya tersimpan di mana\?/);
+  assert.match(html, /id="previewMeta"/);
+  assert.match(html, /id="previewDownload"/);
+  assert.match(html, /id="previewDelete"/);
+  const histSrc = await readFile(new URL('../src/history.ts', dir), 'utf8');
+  assert.match(histSrc, /sirna-history/);
+  assert.match(histSrc, /HISTORY_MAX = 20/);
+  assert.match(histSrc, /byCreated/);
+  assert.match(histSrc, /byFileTool/);
+  assert.match(histSrc, /export async function addHistory/);
+  assert.match(histSrc, /export async function listHistory/);
+  assert.match(histSrc, /export async function deleteHistory/);
+  assert.match(histSrc, /export async function clearHistory/);
+  assert.match(histSrc, /export async function makeThumb/);
+  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
+  assert.match(appSrc, /function renderHistory\(\)/);
+  assert.match(appSrc, /function recordHistory\(/);
+  assert.match(appSrc, /function openHistoryPreview\(/);
+  // History disembunyikan saat editor aktif (editor fullscreen = bukan home).
+  assert.match(appSrc, /historySection/);
+});
+
+test('Bersihkan Label AI: logika scan/strip dipertahankan + copy §4.3', async () => {
+  const { out } = await allJs();
+  assert.match(out, /Tidak ada label/);
+  assert.match(out, /label AI sudah hilang/);
+  assert.match(out, /Beres — sudah bersih/);
+  assert.match(out, /Masih ada label/);
+  assert.match(out, /Label AI ketemu/);
+  assert.match(out, /0 label AI tersisa/);
+  assert.match(out, /File ini aman diunggah/);
+  assert.match(out, /Bersihkan dengan Deep/);
+  assert.doesNotMatch(out, /Coba Deep Clean/);
+  assert.match(out, /File aslimu aman/);
+  assert.match(out, /WebM hanya bisa dicek\. Pakai MP4 kalau mau dibersihkan\./);
+  assert.match(out, /Label ketemu, tapi tidak bisa dibuang dari file ini\./);
+  assert.match(out, /Lagi dibersihin…/);
+  assert.match(out, /Sudah bersih/);
+  assert.match(out, /Belum terverifikasi/);
+  assert.match(out, /tEXt/);
+  assert.match(out, /`TB`,`PB`/);
+  // Copy lama yang sudah diganti tidak boleh muncul lagi.
+  // "Bersih" SAH muncul lagi sebagai label versi alat Bersihkan
+  // (TOOL_RESULT_LABEL) — bukan copy lama yang sudah diganti.
+  assert.doesNotMatch(out, /Label tersisa/);
+  assert.doesNotMatch(out, /Label AI ditemukan/);
+  assert.doesNotMatch(out, /Mulai ulang\./);
+  assert.doesNotMatch(out, /Lanjut hapus/);
+  assert.doesNotMatch(out, /wf-clean-|wf-save-/);
+  assert.doesNotMatch(out, /Belum diunduh/);
+  assert.doesNotMatch(out, /Tersimpan di HP ✓/);
+  assert.doesNotMatch(out, /Mengunduh…/);
+  assert.doesNotMatch(out, /Coba mode lain/);
+  // State machine satu sumber status masih ada di sumber.
+  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
+  assert.match(appSrc, /function getFileState\(item\)/);
+  assert.match(appSrc, /getFileState\(x\)\.key==="cleaned"/);
+  assert.match(appSrc, /function renderResultBox\(item,res,box\)/);
+  assert.match(appSrc, /function pushVersion\(item,label,blob,type,scan,box\)/);
+  assert.match(appSrc, /function setCurrentVersion\(item,label\)/);
+  assert.match(appSrc, /function renderVersions\(item\)/);
+  assert.match(appSrc, /data-v="/); // chip versi (dulu data-act="version")
+  assert.match(out, /Versi:/);
+  assert.match(out, /ketuk untuk kembali/);
+  assert.match(out, /Kembali ke versi /);
+  assert.match(out, /Versi yang lebih baru tetap tersimpan/);
+});
+
+test('Vite build output: bundled JS/CSS, no CDN, preserved fixes', async () => {
+  const html = await readFile(new URL('index.html', dir), 'utf8');
+  const assets = await readdir(new URL('assets', dir));
+  const js = assets.filter(n => n.endsWith('.js'));
+  const css = assets.filter(n => n.endsWith('.css'));
+  assert.ok(js.length >= 1, 'Missing bundled JS');
+  assert.ok(css.length >= 1, 'Missing bundled CSS');
+  assert.doesNotMatch(html, /cdn\.tailwindcss\.com|cdnjs\.cloudflare\.com/);
+  const { out } = await allJs();
+  assert.doesNotMatch(out, /cdn\.tailwindcss\.com|cdnjs\.cloudflare\.com/);
+  assert.match(out, /serviceWorker/);
+  assert.match(out, /register\(["'`]sw\.js["'`]\)/);
+  assert.match(html, /© 2026 Bobby Fajar Christian · Bagian dari semesta limaraya\.com/);
+  assert.match(html, /sosmed nggak lagi nganggep fotomu konten AI/);
+  assert.doesNotMatch(out, /lavf|ffmpeg/);
+  // Cloudflare Workers: file statis maks 25 MiB.
   const LIMIT = 25 * 1024 * 1024;
   async function walk(u) {
-    const out = [];
+    const o = [];
     for (const e of await readdir(u, { withFileTypes: true })) {
       const c = new URL(e.name, u.href.endsWith('/') ? u : new URL(u.href + '/'));
-      if (e.isDirectory()) out.push(...await walk(c));
-      else out.push(c);
+      if (e.isDirectory()) o.push(...await walk(c));
+      else o.push(c);
     }
-    return out;
+    return o;
   }
   for (const f of await walk(dir)) {
     const s = await stat(f);
     assert.ok(s.size <= LIMIT, `${f.pathname} = ${s.size} byte, lewat batas 25 MiB Cloudflare`);
   }
-  // Single-engine: model HANYA di chunk worker + models (lazy).
-  // Chunk utama TIDAK BOLEH membawa onnxruntime / host model / URL model.
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  const main = js.filter(n => /^index-/.test(n) || /^main-/.test(n));
-  assert.ok(main.length >= 1, 'Missing main entry chunk');
-  let mainBundle = '';
-  for (const f of main) mainBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.doesNotMatch(mainBundle, /onnxruntime|huggingface\.co|migan_pipeline|model_quantized|realesr-general/);
-  // Worker chunk AI ADA dan membawa ORT (satu-satunya tempat ORT ada).
-  const worker = js.filter(n => /^ai-worker-/.test(n));
-  assert.ok(worker.length >= 1, 'Missing ai-worker chunk');
-  let workerBundle = '';
-  for (const f of worker) workerBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.match(workerBundle, /InferenceSession/);
-  // WASM-only ditegakkan di SUMBER worker (string "webgpu" tetap ada di
-  // bundle ORT karena kode EP-nya ikut ter-bundle — yang penting tidak
-  // pernah dipakai): executionProviders cuma ["wasm"].
-  const workerSrc = await readFile(new URL('../src/ai-worker.ts', dir), 'utf8');
-  assert.match(workerSrc, /executionProviders: \["wasm"\]/);
-  assert.doesNotMatch(workerSrc, /executionProviders: \["webgpu"\]/);
-  // Telea tetap ada sebagai fallback offline diam-diam (bukan mode).
-  const eraseSrc = await readFile(new URL('../src/erase.ts', dir), 'utf8');
-  assert.match(eraseSrc, /inpaintTelea/);
-  assert.match(eraseSrc, /Mode offline/);
-  assert.match(eraseSrc, /ensureEngine\("migan"/);
-  assert.doesNotMatch(eraseSrc, /Lagi unduh model Mi-GAN/); // P2-03: tanpa nama model di UI
-  assert.doesNotMatch(eraseSrc, /setMode|Cepat AI|Terbaik|lama_fp32/);
-  const teleaSrc = await readFile(new URL('../src/telea.ts', dir), 'utf8');
-  assert.match(teleaSrc, /GRAD_CLAMP = 8/); // clamp ±8 (hotfix zebra)
-  const eraseChunk = js.filter(n => /^erase-/.test(n));
-  assert.ok(eraseChunk.length >= 1, 'Missing erase chunk');
-});
-test('Hapus Watermark: kartu alat ada, deteksi lazy-load, model tetap di chunk erase', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  assert.match(html, /Hapus Watermark/);
-  assert.match(html, /id="eraseTitle"/); // judul modal diatur pas dibuka (Objek / Watermark)
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  const main = js.filter(n => /^index-/.test(n) || /^main-/.test(n));
-  assert.ok(main.length >= 1, 'Missing main entry chunk');
-  let mainBundle = '';
-  for (const f of main) mainBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  // Detektor watermark tinggal di chunk lazy-nya sendiri (watermark-*),
-  // bukan di chunk utama — buka halaman tidak ikut memuat logika deteksi.
-  assert.doesNotMatch(mainBundle, /detectWatermark/);
-  // Model TIDAK di chunk utama (cuma di worker + models, lazy).
-  assert.doesNotMatch(mainBundle, /onnxruntime|huggingface\.co|migan_pipeline|model_quantized|realesr-general/);
-  let all = '';
-  for (const f of js) all += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.match(all, /detectWatermark/); // chunk watermark ada (lazy)
-  const wm = js.filter(n => /^watermark-/.test(n));
-  assert.ok(wm.length >= 1, 'Missing watermark chunk');
-  let wmBundle = '';
-  for (const f of wm) wmBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.doesNotMatch(wmBundle, /onnxruntime|huggingface\.co/); // watermark murni deteksi — modelnya di chunk erase
-});
-test('Step 0: hotfix zebra + copy status', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  // Editor: strip langkah DIHAPUS (prinsip F — diganti baris status),
-  // "Tahan: lihat asli" jadi toggle "Lihat asli" (prinsip I); peringatan
-  // mask besar, tombol "Urungkan hasil", Hapus disabled sampai ada coretan.
-  assert.doesNotMatch(html, /id="eraseSteps"/);
-  assert.doesNotMatch(html, /Tahan: lihat asli/);
-  assert.match(html, /Lihat asli/);
-  assert.match(html, /id="eraseMaskWarn"/);
-  assert.match(html, /id="eraseUndoResult"/);
-  assert.match(html, /Urungkan hasil/);
-  assert.match(html, /Bersihin coretan/);
-  assert.match(html, /id="eraseRun"[^>]*disabled/);
-  assert.doesNotMatch(html, /id="eraseMore"/); // "Lanjut hapus" dihapus
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  let bundle = '';
-  for (const f of js) bundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  // Copy §4.3 (cepat): "Polos" -> "Tidak ada label", toast batch menutup
-  // loop ("label AI sudah hilang"), toast "Mulai ulang." dihapus.
-  assert.match(bundle, /Tidak ada label/);
-  assert.match(bundle, /label AI sudah hilang/);
-  assert.doesNotMatch(bundle, /Mulai ulang\./);
-  assert.doesNotMatch(bundle, /Lanjut hapus/);
-});
-test('Step 1: state machine + copy §4.3 (satu sumber status)', async () => {
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  let bundle = '';
-  for (const f of js) bundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  // Satu state machine: getFileState ada di SUMBER (identifier lokal
-  // di-minify di bundle, jadi yang diasersi di bundle adalah literal
-  // string pill yang cuma dihasilkan getFileState + PILL).
-  const src = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(src, /function getFileState\(item\)/);
-  assert.match(src, /getFileState\(x\)\.key==="cleaned"/);
-  assert.match(src, /getFileState\(i\)\.key==="cleaned"/);
-  assert.match(bundle, /Lagi dibersihin…/);
-  assert.match(bundle, /Sudah bersih/);
-  // Copy §4.3: pill + kotak hasil + stats + aksi di kotak.
-  assert.match(bundle, /Beres — sudah bersih/);
-  assert.match(bundle, /Masih ada label/);
-  assert.match(bundle, /Label AI ketemu/);
-  assert.match(bundle, /0 label AI tersisa/);
-  assert.match(bundle, /File ini aman diunggah/);
-  assert.match(bundle, /file siap disimpan/);
-  assert.match(bundle, /sudah bersih/);
-  assert.match(bundle, /Bersihkan dengan Deep/);
-  assert.doesNotMatch(bundle, /Coba Deep Clean/); // satu konsep, satu nama (prinsip K)
-  assert.match(bundle, /File aslimu aman/);
-  assert.match(bundle, /WebM hanya bisa dicek\. Pakai MP4 kalau mau dibersihkan\./);
-  assert.match(bundle, /Label ketemu, tapi tidak bisa dibuang dari file ini\./);
-  assert.match(bundle, /Lagi dibersihin…/);
-  // Copy lama yang sudah diganti tidak boleh muncul lagi.
-  assert.doesNotMatch(bundle, /"Bersih"/);
-  assert.doesNotMatch(bundle, /Label tersisa/);
-  assert.doesNotMatch(bundle, /Label AI ditemukan/);
-  assert.doesNotMatch(bundle, /Dicek ulang: 0 label ·/);
-  // Referensi mati #wf-clean-* / #wf-save-* sudah dibersihkan.
-  assert.doesNotMatch(bundle, /wf-clean-|wf-save-/);
-});
-test('Step 2: pemilih alat + workspace per alat + stepper per alat', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  // Layar A: pemilih alat (7 kartu — semua alat model-free).
-  assert.match(html, /id="toolPicker"/);
-  assert.match(html, /data-tool="clean"/);
-  assert.match(html, /data-tool="erase"/);
-  assert.match(html, /data-tool="watermark"/);
-  assert.match(html, /data-tool="background"/);
-  assert.match(html, /data-tool="upscale"/);
-  assert.match(html, /data-tool="jejak"/);
-  assert.match(html, /data-tool="dedup"/);
-  assert.match(html, /Foto &amp; video · otomatis/);
-  assert.match(html, /Hanya foto · coret dengan kuas/);
-  assert.match(html, /Hanya foto · coba deteksi otomatis/);
-  assert.match(html, /Hanya foto · AI/);
-  assert.match(html, /Latar apa pun jadi transparan/);
-  assert.match(html, /Foto jadi 2× atau 3× lebih besar/);
-  assert.doesNotMatch(html, /Foto dulu/);
-  assert.match(html, /Hapus GPS, EXIF &amp; data pribadi/);
-  assert.match(html, /Cari foto yang sama\/mirip/);
-  assert.match(html, /Pilih alat, taruh file, simpan/);
-  // Stepper hero 5 langkah sudah dibunuh — tidak ada lagi di HTML.
-  assert.doesNotMatch(html, /hero-steps/);
-  assert.doesNotMatch(html, /Alur: deteksi, bersihkan, hapus objek/);
-  // Layar B: workspace tersembunyi sampai alat dipilih; baris ganti alat
-  // (chip wrap) + stepper per alat + pengaturan Bersihkan di dalam panel.
-  assert.match(html, /<div class="tool-panel hidden" id="panel-cleaner">/);
-  assert.match(html, /id="toolBar"/);
-  assert.match(html, /data-tool-switch="clean"/);
-  assert.match(html, /data-tool-switch="erase"/);
-  assert.match(html, /data-tool-switch="watermark"/);
-  assert.match(html, /data-tool-switch="background"/);
-  assert.match(html, /data-tool-switch="upscale"/);
-  assert.match(html, /data-tool-switch="jejak"/);
-  assert.match(html, /data-tool-switch="dedup"/);
-  assert.match(html, /Semua alat/);
-  assert.match(html, /id="dedupView"/);
-  assert.match(html, /id="dedupAddBtn"/); // <2 file: ajakan tambah file (prinsip H)
-  assert.match(html, /id="dedupStatus"/);
-  assert.doesNotMatch(html, /id="dedupScanBtn"/);
-  assert.match(html, /id="dedupGroups"/);
-  assert.match(html, /id="toolStatus"/); // stepper palsu → satu baris status (prinsip F)
-  assert.doesNotMatch(html, /id="toolStepper"/);
-  assert.match(html, /id="settingsCard"/);
-  // Router alat ada di sumber (identifier lokal di-minify di bundle).
-  const src = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(src, /var activeTool/);
-  assert.match(src, /TOOL_RESULT_LABEL/);
-  assert.match(src, /function setActiveTool\(tool\)/);
-  assert.match(src, /function updateToolStatus\(\)/);
-  assert.doesNotMatch(src, /TOOL_STEPS/);
-  assert.doesNotMatch(src, /function updateToolStepper\(\)/);
-  assert.match(src, /function routeFiles\(fileList\)/);
-  // Label langkah tiap alat + toast antre ada di bundle.
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  let bundle = '';
-  for (const f of js) bundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.match(bundle, /Pilih file/);
-  assert.match(bundle, /Coret/);
-  // Stepper dihapus (prinsip F) — yang diasersi sekarang baris status
-  // jujur + ajakan dedup, bukan label langkah "Deteksi"/"Hapus"/"Simpan".
-  assert.match(bundle, /Lagi dibersihin…/);
-  assert.match(bundle, /Sudah bersih/);
-  assert.match(bundle, /Tambah 1 file lagi/);
-  assert.doesNotMatch(bundle, /"Deteksi","Hapus","Simpan"/);
-  assert.match(bundle, /file siap — pilih alat dulu di atas\./); // toast pasca-upload tanpa alat: file diantre, alat tidak jalan
-  // Foto contoh TIDAK LAGI diantre tanpa alat (Fase 2): tombolnya ada di
-  // bawah dropzone workspace, jadi alat sudah dipilih dan foto contoh
-  // langsung menjalankan alat itu — toast "Foto contoh dimuat" dihapus.
-  assert.doesNotMatch(bundle, /Foto contoh dimuat/);
-  assert.ok(html.indexOf('id="dropZone"') < html.indexOf('id="sampleRow"')); // contoh = thumbnail di bawah dropzone
-  assert.match(html, /id="sampleThumbImg"/);
-  assert.match(src, /function ensureSampleThumb/);
-});
-test('Step 3: tumpukan versi + rel alat di kartu', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  // Tombol "Mulai dari file asli" di modal editor.
-  assert.match(html, /id="eraseUseOriginal"/);
-  assert.match(html, /Mulai dari file asli/);
-  const src = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(src, /item\.versions/);
-  assert.match(src, /currentLabel/);
-  assert.match(src, /function pushVersion\(item,label,blob,type,scan,box\)/);
-  assert.match(src, /function setCurrentVersion\(item,label\)/);
-  assert.match(src, /function renderVersions\(item\)/);
-  assert.doesNotMatch(src, /function renderRail\(item\)/); // rel kartu dihapus (prinsip E)
-  assert.doesNotMatch(src, /RAIL_TOOLS/);
-  assert.doesNotMatch(src, /class="tool-bar" id="rail-/);
-  assert.match(src, /function renderResultBox\(item,res,box\)/);
-  assert.match(src, /data-act="version"/);
-  // Rel kartu DIHAPUS (prinsip E) — yang tersisa cuma rail kepala editor
-  // (#toolBar, data-tool-switch); rel teks abu-abu lama + segmen
-  // "railclean" sudah dihapus 19 Nov 2026 (screenshot POCO F6).
-  assert.match(src, /data-tool-switch/);
-  assert.doesNotMatch(src, /tool-rail/);
-  assert.doesNotMatch(src, /"railclean"/);
-  assert.doesNotMatch(src, /tool-rail-sep/);
-  assert.match(src, /showUseOriginal/);
-  assert.match(src, /onUseOriginal/);
-  // Editor meneruskan opsi "Mulai dari file asli" (erase + watermark).
-  const eraseSrc = await readFile(new URL('../src/erase.ts', dir), 'utf8');
-  assert.match(eraseSrc, /showUseOriginal/);
-  assert.match(eraseSrc, /onUseOriginal/);
-  const wmSrc = await readFile(new URL('../src/watermark.ts', dir), 'utf8');
-  assert.match(wmSrc, /opts: EraseOptions/);
-  // Copy C5–C6 di bundle.
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  let bundle = '';
-  for (const f of js) bundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.match(bundle, /Versi:/);
-  assert.match(bundle, /ketuk untuk kembali/);
-  assert.match(bundle, /Kembali ke versi /);
-  assert.match(bundle, /Versi yang lebih baru tetap tersimpan/);
-  assert.match(bundle, /Bersihkan/);
-});
-test('Step 4: kejelasan editor (copy B1–B17) — SATU engine Mi-GAN, tanpa tier', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  // B5: deskripsi statis di HTML — engine sekali saja, TANPA nama model /
-  // ukuran di UI pengguna (P2-03).
-  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat\. Paling pas buat coretan kecil, teks, dan watermark\./);
-  // Tidak ada lagi tier mode / bar model lama di HTML; bar progres ADA.
-  assert.doesNotMatch(html, /data-erase-mode=/);
-  assert.doesNotMatch(html, /Pakai Cepat AI/);
-  assert.match(html, /id="eraseModelBar"/);
-  assert.match(html, /id="eraseCancel"/);
-  const eraseSrc = await readFile(new URL('../src/erase.ts', dir), 'utf8');
-  // B1: subhead nyebut sumber gambar.
-  assert.match(eraseSrc, /diedit dari /);
-  assert.match(eraseSrc, /sourceLabel/);
-  // Single-engine: Mi-GAN dipakai, Telea cuma fallback offline —
-  // TIDAK ADA tier (setMode / Cepat AI / Terbaik / LaMa).
-  assert.match(eraseSrc, /ensureEngine\("migan"/);
-  assert.match(eraseSrc, /inpaintTelea/);
-  assert.match(eraseSrc, /Mode offline/);
-  assert.doesNotMatch(eraseSrc, /setMode|Cepat AI|Terbaik|lama_fp32|MODE_DESC/);
-  assert.doesNotMatch(eraseSrc, /Download sekali 27 MB|Download sekali 198 MB/);
-  // B17 baru: gagal hapus -> saran coretan lebih kecil; peringatan mask
-  // besar -> bagi area (tanpa tawar mode AI).
-  assert.match(eraseSrc, /Coba lagi dengan coretan lebih kecil/);
-  assert.match(eraseSrc, /bagi jadi beberapa bagian kalau hasilnya kurang tajam/);
-  // B2–B3: catatan deteksi watermark persis §4.3.
-  const wmSrc = await readFile(new URL('../src/watermark.ts', dir), 'utf8');
-  assert.match(wmSrc, /Ketemu[\s\S]*tanda di[\s\S]*periksa dulu, lalu tekan Hapus\./);
-  assert.match(wmSrc, /Tidak ketemu tanda otomatis — coret manual bagian yang mau dihapus\./);
-  // app.ts meneruskan label sumber ke editor.
-  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(appSrc, /SOURCE_LABEL/);
-  assert.match(appSrc, /sourceLabel:/);
-  assert.match(appSrc, /hasil Bersihkan/);
-  // Copy bar model lama B10–B13 tidak boleh ada lagi di bundle mana pun.
-  // ("Gagal unduh model" SAH muncul lagi — sekarang sebagai pesan error
-  // jujur dari getModelBytes di src/models.ts, bukan copy bar mode.)
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  let bundle = '';
-  for (const f of js) bundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.doesNotMatch(bundle, /Belum diunduh/);
-  assert.doesNotMatch(bundle, /Tersimpan di HP ✓/);
-  assert.doesNotMatch(bundle, /Mengunduh…/);
-  assert.doesNotMatch(bundle, /Coba mode lain/);
-});
-test('Hapus Latar: SATU engine ORMBG int8, chroma-key DIHAPUS', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  assert.match(html, /Hapus Latar/);
-  assert.match(html, /Latar apa pun bisa/);
-  assert.match(html, /data-tool="background"/);
-  assert.match(html, /data-tool-switch="background"/);
-  assert.match(html, /id="bgModal"/);
-  assert.match(html, /id="bgRetry"/); // auto-run: tombol run dihapus, sisa "Coba lagi" (prinsip A)
-  assert.doesNotMatch(html, /id="bgRun"/);
-  assert.doesNotMatch(html, /id="bgDownload"/);
-  assert.match(html, /checkerboard/); // preview transparan di atas papan catur
-  // Chroma-key DIHAPUS: tidak ada lagi swatch/toleransi/mode kontigu.
-  assert.doesNotMatch(html, /id="bgKeySwatch"/);
-  assert.doesNotMatch(html, /id="bgKeyLabel"/);
-  assert.doesNotMatch(html, /id="bgTol"/);
-  assert.doesNotMatch(html, /data-bg-mode=/);
-  assert.doesNotMatch(html, /Yang nyambung aja/);
-  assert.doesNotMatch(html, /Hanya untuk foto berlatar polos/);
-  assert.doesNotMatch(html, /Hapus Latar Polos/);
-  // Bar progres model ADA (44 MB, sekali, + Batalkan).
-  assert.match(html, /id="bgModelBar"/);
-  assert.match(html, /id="bgCancel"/);
-  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat\. Latar apa pun bisa: orang, produk, ilustrasi\./);
-  assert.doesNotMatch(html, /ORMBG, 44 MB/);
-  // Wiring alat di sumber (identifier lokal di-minify di bundle).
-  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(appSrc, /function openBackgroundFor\(item/);
-  assert.match(appSrc, /function autoRunTool\(tool, item\)/); // pilih alat = alat jalan (prinsip A)
-  assert.match(appSrc, /"Latar"/);
-  assert.doesNotMatch(appSrc, /\["background","Hapus Latar","i-layers"\]/); // rel kartu dihapus (prinsip E)
-  assert.match(appSrc, /Hapus Latar/);
-  const bgSrc = await readFile(new URL('../src/background.ts', dir), 'utf8');
-  assert.match(bgSrc, /ensureEngine\("ormbg"/);
-  assert.doesNotMatch(bgSrc, /Lagi unduh model ORMBG/); // P2-03: tanpa nama model di UI
-  // P1-11: toast error memuat panduan lengkap (bukan cuma "Failed to fetch").
-  assert.match(bgSrc, /Gagal hapus latar: " \+ msg \+ "\. Hapus Latar butuh internet sekali buat unduh model — coba lagi pas online\."/);
-  assert.match(bgSrc, /function featherMask\(/); // post-pass wajib
-  assert.match(bgSrc, /function upscaleMask\(/); // mask 1024 -> ukuran penuh
-  assert.match(bgSrc, /blobToImageDataExact/); // ORMBG fixed-shape: input HARUS 1024x1024
-  assert.match(bgSrc, /Latar dihapus ✓/);
-  assert.doesNotMatch(bgSrc, /function keyAlpha\(|sampleCornerColor|despill|isnet|staticimgly/);
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  const main = js.filter(n => /^index-/.test(n) || /^main-/.test(n));
-  assert.ok(main.length >= 1, 'Missing main entry chunk');
-  let mainBundle = '';
-  for (const f of main) mainBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  // Model TIDAK di chunk utama (cuma di worker + models, lazy).
-  assert.doesNotMatch(mainBundle, /onnxruntime|huggingface\.co|model_quantized/);
-  const bg = js.filter(n => /^background-/.test(n));
-  assert.ok(bg.length >= 1, 'Missing background chunk');
-  // Copy jujur alat baru ada di bundle.
-  let all = '';
-  for (const f of js) all += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.match(all, /Latar dihapus ✓/);
-  assert.match(all, /cek pinggir rambutnya/);
-  // CSP single-engine (diasersi pada baris Content-Security-Policy-nya
-  // saja, bukan komentar file): script-src mengizinkan 'wasm-unsafe-eval'
-  // (WAJIB buat ORT — tanpa ini wasm gagal compile) tapi TIDAK
-  // 'unsafe-eval' (eval JS tetap dilarang); connect-src mengizinkan
-  // huggingface.co + CDN LFS-nya.
-  const headers = await readFile(new URL('_headers', dir), 'utf8');
-  const csp = (headers.match(/Content-Security-Policy: ([^\n]+)/) || [])[1] || '';
-  assert.match(csp, /script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';/);
-  assert.doesNotMatch(csp, /'unsafe-eval'|staticimgly/);
-  assert.match(csp, /connect-src 'self' https:\/\/huggingface\.co https:\/\/cdn-lfs\.huggingface\.co;/);
-});
-test('Perbesar + Hapus Jejak + Hapus Duplikat: modal & wiring, SATU engine Real-ESRGAN', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  // Modal Perbesar: seg skala 2x/3x, peringatan 3x, tombol bandingkan,
-  // bar progres model + Batalkan.
-  assert.match(html, /id="upModal"/);
-  assert.match(html, /data-up-scale="2"/);
-  assert.match(html, /data-up-scale="3"/);
-  assert.match(html, /id="upWarn3"/);
-  assert.match(html, /3× diproses dari 4× lalu diperkecil/);
-  assert.match(html, /id="upRetry"/); // auto-run 2×: tombol run dihapus, sisa "Coba lagi" (prinsip A/B)
-  assert.doesNotMatch(html, /id="upRun"/);
-  assert.doesNotMatch(html, /id="upDownload"/);
-  assert.match(html, /id="upCompare"/);
-  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat\./);
-  assert.doesNotMatch(html, /Real-ESRGAN x4v3, 4,6 MB/);
-  assert.match(html, /id="upModelBar"/);
-  assert.match(html, /id="upCancel"/);
-  assert.doesNotMatch(html, /Memperbesar tanpa AI/);
-  assert.doesNotMatch(html, /3× bisa terlihat lembut/);
-  // Modal Hapus Jejak: daftar jejak + tombol hapus.
-  assert.match(html, /id="jejakModal"/);
-  assert.match(html, /id="jejakList"/);
-  assert.match(html, /id="jejakRetry"/); // auto-run: tombol run dihapus, sisa "Coba lagi" (prinsip A)
-  assert.doesNotMatch(html, /id="jejakRun"/);
-  assert.doesNotMatch(html, /id="jejakDownload"/);
-  // Wiring di sumber.
-  const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(appSrc, /function openUpscaleFor\(item/);
-  assert.match(appSrc, /function openJejakFor\(item/);
-  assert.match(appSrc, /function scrubTracesBlob\(blob\)/);
-  assert.match(appSrc, /function scanDuplicates\(opts\?: \{keepSummary\?: boolean\}\)/); // opsi keepSummary: ringkasan hapus tidak tertimpa pindai ulang (prinsip H)
-  assert.match(appSrc, /function removeDedupItems\(removeIds, keepIds\)/);
-  assert.match(appSrc, /"Perbesar"/);
-  assert.match(appSrc, /"Jejak"/);
-  // Rel kartu DIHAPUS (prinsip E) — RAIL_TOOLS sudah tidak ada.
-  assert.doesNotMatch(appSrc, /\["upscale","Perbesar","i-expand"\]/);
-  assert.doesNotMatch(appSrc, /\["jejak","Hapus Jejak","i-shield"\]/);
-  assert.doesNotMatch(appSrc, /\["dedup","Hapus Duplikat","i-repeat"\]/);
-  // Algoritma murni di sumber (bukan di bundle — nama di-minify).
-  const lanczosSrc = await readFile(new URL('../src/lanczos.ts', dir), 'utf8');
-  assert.match(lanczosSrc, /function lanczosUpscale\(img: ImageData, scale: Upscale\)/);
-  assert.match(lanczosSrc, /function lanczosResample\(img: ImageData, newW: number, newH: number\)/); // 4x -> 3x di worker
-  assert.match(lanczosSrc, /function lanczos\(x: number\)/);
-  assert.match(lanczosSrc, /function unsharp\(img: ImageData/);
-  const upSrc = await readFile(new URL('../src/upscale.ts', dir), 'utf8');
-  assert.match(upSrc, /ensureEngine\("esrgan"/);
-  assert.doesNotMatch(upSrc, /Lagi unduh model Real-ESRGAN/); // P2-03: tanpa nama model di UI
-  assert.match(upSrc, /kind: "upscale"/);
-  assert.match(upSrc, /Mode offline/); // Lanczos cuma fallback offline
-  const jejakSrc = await readFile(new URL('../src/jejak.ts', dir), 'utf8');
-  assert.match(jejakSrc, /function scanTraces\(blob: Blob\)/);
-  assert.match(jejakSrc, /function parseExif\(/);
-  assert.match(jejakSrc, /function filenameTrace\(/);
-  const dedupSrc = await readFile(new URL('../src/dedup.ts', dir), 'utf8');
-  assert.match(dedupSrc, /function phashImage\(blob: Blob\)/);
-  assert.match(dedupSrc, /function hamming\(a: bigint, b: bigint\)/);
-  assert.match(dedupSrc, /function groupDuplicates\(/);
-  assert.match(dedupSrc, /function renderDedupGroups\(/);
-  // Chunk lazy ada di dist; model TIDAK di chunk utama (cuma di worker
-  // + models, lazy) — guard ini memeriksa SEMUA file JS untuk chunk
-  // utama, dan worker chunk secara terpisah.
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  const main = js.filter(n => /^index-/.test(n) || /^main-/.test(n));
-  let mainBundle = '';
-  for (const f of main) mainBundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.doesNotMatch(mainBundle, /onnxruntime|huggingface\.co|realesr-general/);
-  for (const prefix of ['upscale-', 'jejak-', 'dedup-', 'models-', 'ai-worker-']) {
-    assert.ok(js.some(n => n.startsWith(prefix)), 'Missing ' + prefix + ' chunk');
-  }
-});
-test('Single-engine: URL model ter-pin ke revisi HF + SHA-256 + SATU onnxruntime-web', async () => {
-  // Registry di sumber: 3 URL resolve di-pin ke commit HF (bukan main),
-  // 3 SHA-256 hex, 3 ukuran byte, 3 lisensi.
-  const modelsSrc = await readFile(new URL('../src/models.ts', dir), 'utf8');
-  assert.match(modelsSrc, /huggingface\.co\/andraniksargsyan\/migan\/resolve\/406830d0fa60666da0071c342ad2fbc8f30c5c64\/migan_pipeline_v2\.onnx/);
-  assert.match(modelsSrc, /huggingface\.co\/onnx-community\/ormbg-ONNX\/resolve\/034e2d884afbab897e10e78fc5bb566b29533fd6\/onnx\/model_quantized\.onnx/);
-  assert.match(modelsSrc, /huggingface\.co\/CoderViking\/realesr-general-x4v3-onnx\/resolve\/c6a971706797c7502945a2b4c4274fce4900d4ab\/realesr-general-x4v3\.onnx/);
-  assert.match(modelsSrc, /6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b/); // Mi-GAN 28.079.181 B
-  assert.match(modelsSrc, /ffbcae62a7b675d616e64cb392ee028786c4cf74f83596590fba13733ef00171/); // ORMBG 44.315.205 B
-  assert.match(modelsSrc, /1940a93ee08283a0a7286183186357b1688fe9fa8ede74604b424586aaddf112/); // x4v3 4.866.417 B
-  assert.match(modelsSrc, /28079181/);
-  assert.match(modelsSrc, /44315205/);
-  assert.match(modelsSrc, /4866417/);
-  assert.doesNotMatch(modelsSrc, /\/resolve\/main\//); // TIDAK ADA fetch main tanpa pin
-  assert.match(modelsSrc, /sirna-models-v2/); // Cache Storage sekali
-  assert.match(modelsSrc, /crypto\.subtle\.digest\("SHA-256"/); // verifikasi SHA
-  // SATU onnxruntime-web, exact 1.31.1, tanpa alias/dual-version.
-  const pkg = JSON.parse(await readFile(new URL('../package.json', dir), 'utf8'));
-  assert.equal(pkg.dependencies["onnxruntime-web"], "1.31.1");
-  assert.equal(pkg.dependencies["ort121"], undefined);
-  assert.doesNotMatch(JSON.stringify(pkg.dependencies), /onnxruntime-web@/); // tanpa alias npm:
-  // URL ter-pin juga ada di chunk models yang di-bundle (lazy) — dan
-  // TIDAK ADA URL main tanpa pin di bundle mana pun.
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  let all = '';
-  for (const f of js) all += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.match(all, /406830d0fa60666da0071c342ad2fbc8f30c5c64/);
-  assert.match(all, /034e2d884afbab897e10e78fc5bb566b29533fd6/);
-  assert.match(all, /c6a971706797c7502945a2b4c4274fce4900d4ab/);
-  assert.doesNotMatch(all, /huggingface\.co\/[^"'\s]*\/resolve\/main\//);
-  // LaMa + ISNet + staticimgly sudah tidak ada di mana pun.
-  assert.doesNotMatch(all, /lama_fp32|isnet|staticimgly|background-removal/);
-  assert.doesNotMatch(modelsSrc, /lama_fp32|isnet|staticimgly/);
-});
-test('Vite build output: bundled JS/CSS, no CDN, preserved fixes', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  const assets = await readdir(new URL('assets',dir));
-  const js = assets.filter(n => n.endsWith('.js'));
-  const css = assets.filter(n => n.endsWith('.css'));
-  assert.ok(js.length >= 1, 'Missing bundled JS');
-  assert.ok(css.length >= 1, 'Missing bundled CSS');
-  // Tailwind + JSZip dibundel: tidak ada lagi referensi CDN di output.
-  assert.doesNotMatch(html, /cdn\.tailwindcss\.com|cdnjs\.cloudflare\.com/);
-  let bundle = '';
-  for (const f of js) bundle += await readFile(new URL('assets/' + f, dir), 'utf8');
-  assert.doesNotMatch(bundle, /cdn\.tailwindcss\.com|cdnjs\.cloudflare\.com/);
-  assert.match(bundle, /serviceWorker/);
-  assert.match(bundle, /register\(["'`]sw\.js["'`]\)/); // esbuild minify bisa jadi template literal
-  // Perilaku & fix Bobby yang harus selamat dari migrasi:
-  assert.match(html, /© 2026 Bobby Fajar Christian · Bagian dari semesta limaraya\.com/);
-  assert.match(html, /sosmed nggak lagi nganggep fotomu konten AI/);
-  assert.doesNotMatch(bundle, /lavf|ffmpeg/); // 39bea0f: signature false positive dihapus
-  // Identifier lokal di-minify esbuild, jadi yang diasersi adalah literal
-  // string yang selamat dari minify dan membuktikan logikanya ada:
-  assert.match(bundle, /Belum terverifikasi/); // getFileState jujur: Sudah bersih / Masih ada label / Belum terverifikasi (Langkah 1: "Label tersisa" -> "Masih ada label")
-  assert.match(bundle, /Masih ada label/);
-  assert.match(bundle, /tEXt/); // strip lossless Format=Asli (drop chunk tEXt/iTXt/zTXt/eXIf/jumb)
-  assert.match(bundle, /`TB`,`PB`/); // formatBytes lengkap (B/KB/MB/GB/TB/PB)
 });
 
-test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis + Simpan di top bar', async () => {
-  const html = await readFile(new URL('index.html',dir),'utf8');
-  // Home universal: H1 bukan lagi "Hapus label AI" — label removal cuma
-  // satu alat di antara yang lain (arah Bobby 08:49 WIB).
+test('Phase 2 layout: file-first + editor kanonis + Simpan di top bar', async () => {
+  const html = await readFile(new URL('index.html', dir), 'utf8');
   assert.match(html, /<h1[^>]*>Taruh foto\. Beres\./);
   assert.doesNotMatch(html, /Hapus label AI/);
-  assert.match(html, /Pilih alat, taruh file, simpan/);
-  // Perbesar sekarang AI (Real-ESRGAN) — copy "tanpa AI" sudah salah.
-  assert.match(html, /Hanya foto · AI/);
-  assert.doesNotMatch(html, /Foto dulu/);
+  assert.match(html, /Taruh foto atau video, kami bersihkan label AI-nya, lalu simpan/);
+  assert.doesNotMatch(html, /Pilih alat, taruh file, simpan/);
   assert.doesNotMatch(html, /tanpa AI/);
-  // Coba foto contoh: tombol + banner staged (file diantre, alat tidak jalan).
   assert.match(html, /id="sampleBtn"/);
   assert.match(html, /Coba foto contoh/);
-  assert.match(html, /id="sampleBanner"/);
-  // Kepala editor kanonis: filmstrip + canvas + status + versi + undo/compare.
+  assert.match(html, /id="queueHint"/);
+  assert.match(html, /id="resumeBtn"/);
+  // Kepala editor kanonis: filmstrip + canvas + status + versi + compare.
   assert.match(html, /id="editorHead"/);
   assert.match(html, /id="shellFilm"/);
   assert.match(html, /id="shellImg"/);
@@ -558,27 +322,30 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.match(html, /id="shellPill"/);
   assert.match(html, /id="shellStatus"/);
   assert.match(html, /id="shellVersions"/);
-  assert.doesNotMatch(html, /id="shellUndo"/); // satu undo: chip Versi saja (prinsip I)
+  assert.doesNotMatch(html, /id="shellUndo"/);
   assert.match(html, /id="shellCompare"/);
-  assert.match(html, /Lihat asli/); // compare jadi toggle (prinsip I)
-  // SATU tombol Simpan di top bar editor (kanan atas, nempel di hasil) —
-  // sticky bottom bar DIHAPUS Fase 2 (tidak satu pun tools referensi yang
-  // memakainya); tombol kembali pindah dari header ke top bar editor.
+  assert.match(html, /Lihat asli/);
+  // Baris aksi file di bawah kanvas (baru pivot): Buang file + Mulai ulang.
+  assert.match(html, /id="removeFileBtn"/);
+  assert.match(html, /Buang file ini/);
+  assert.match(html, /id="restartBtn"/);
+  assert.match(html, /Mulai ulang/);
+  // SATU tombol Simpan di top bar editor; sticky bottom bar dihapus.
   assert.match(html, /id="editorTopBar"/);
   assert.match(html, /id="primaryBtn"/);
   assert.match(html, /id="editorBackBtn"/);
   assert.doesNotMatch(html, /id="primaryBar"/);
   assert.doesNotMatch(html, /id="topBackBtn"/);
   assert.doesNotMatch(html, /id="topExportBtn"/);
-  // Bottom sheet generik (konfirmasi destruktif).
+  // Bottom sheet generik (konfirmasi destruktif) + tombol extra (guard draft meta).
   assert.match(html, /id="sheet"/);
   assert.match(html, /id="sheetScrim"/);
   assert.match(html, /id="sheetTitle"/);
   assert.match(html, /id="sheetConfirm"/);
   assert.match(html, /id="sheetCancel"/);
+  assert.match(html, /id="sheetExtra"/);
   // CSS: rail SATU baris scroll (bukan wrap) + fade + peek; canvas 55vh;
-  // top bar editor sticky (bukan fixed bawah); sheet fixed bawah.
-  // Sticky bottom bar + header situs saat editor aktif DIHAPUS.
+  // top bar editor sticky; sheet fixed bawah; header situs hilang saat editor.
   const css = await readFile(new URL('../src/style.css', dir), 'utf8');
   assert.match(css, /\.tool-bar\{display:flex;flex-wrap:nowrap/);
   assert.match(css, /\.tool-bar[^{]*\{[^}]*overflow-x:auto/);
@@ -589,42 +356,59 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.match(css, /body\.editor-on header\{display:none/);
   assert.doesNotMatch(css, /#primaryBar\{/);
   assert.match(css, /#sheet\{position:fixed/);
-  // Sumber: tidak ada alat default + tidak ada auto-pilih Bersihkan.
+  // Kelas baru pivot ada di CSS; kelas alat lama sudah disapu.
+  assert.match(css, /\.history-grid\{/);
+  assert.match(css, /\.history-card\{/);
+  assert.match(css, /\.meta-panel\{/);
+  assert.match(css, /\.meta-row\{/);
+  // Perbaikan §(e) WORKFLOW-REDESIGN.md: top bar solid opaque, bubble
+  // mascot di atas, stage 96px, padding cadangan editor, tanpa class tile.
+  assert.match(css, /\.editor-topbar\{[^}]*background:var\(--surface\)/);
+  assert.doesNotMatch(css, /\.editor-topbar\{[^}]*backdrop-filter/);
+  assert.match(css, /\.mascot-bubble\{[^}]*bottom:calc\(100% \+ 10px\)/);
+  assert.match(css, /\.mascot-bubble\{[^}]*max-width:200px/);
+  assert.match(css, /#mascotStage\{[^}]*bottom:calc\(96px/);
+  assert.match(css, /body\.editor-on main\{padding-bottom:calc\(120px/);
+  assert.match(css, /#queueHint\{/);
+  assert.match(css, /#resumeBtn\{/);
+  assert.doesNotMatch(css, /\.tool-picker\{|\.tool-card\{/);
+  assert.doesNotMatch(css, /\.dedup-group\{/);
+  assert.doesNotMatch(css, /\.ai-progress\{/);
+  assert.doesNotMatch(css, /\.card-progress\{/);
+  // Sumber: alat default = Bersihkan saat file masuk dari home (file-first);
+  // tidak ada lagi state "file menunggu alat dipilih".
   const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
   assert.match(appSrc, /var activeTool=null/);
-  assert.doesNotMatch(appSrc, /if\(!activeTool\) setActiveTool\(/);
-  assert.match(appSrc, /TIDAK ADA alat default/);
-  assert.match(appSrc, /function ensureSampleThumb/); // thumbnail contoh di bawah dropzone
+  assert.match(appSrc, /var lastTool=null/);
+  assert.match(appSrc, /if\(!activeTool\) setActiveTool\("clean"\)/);
+  assert.match(appSrc, /Default = "clean"/);
+  assert.match(appSrc, /lastTool \|\| "clean"/);
+  assert.match(appSrc, /queueHint/);
+  assert.match(appSrc, /resumeBtn/);
+  assert.doesNotMatch(appSrc, /pilih alat/);
+  assert.doesNotMatch(appSrc, /toolPicker|sampleBanner/);
+  assert.match(appSrc, /function ensureSampleThumb/);
   assert.match(appSrc, /function syncShell\(\)/);
   assert.match(appSrc, /function syncPrimary\(\)/);
   assert.match(appSrc, /function runPrimary\(\)/);
   assert.match(appSrc, /function openSheet\(/);
   assert.match(appSrc, /function closeSheet\(\)/);
   assert.match(appSrc, /function removeItem\(/);
-  assert.match(appSrc, /function selectItem\(/);
+  assert.match(appSrc, /function selectItem\(id\)\{ selectedId=id; clearShellResult\(\); syncShell\(\); syncPrimary\(\); updateStats\(\);/);
+  // Kotak hasil basi: selectItem / openMetaFor / clearAllItems (Mulai ulang)
+  // harus membersihkan #shellResult (hidden + kosong), bukan menampilkannya lagi.
+  assert.match(appSrc, /function clearShellResult\(\)\{ var r=document\.getElementById\("shellResult"\); if\(r\)\{ r\.classList\.add\("hidden"\); r\.innerHTML=""; \} \}/);
+  assert.match(appSrc, /async function openMetaFor\(item\)\{\n  clearShellResult\(\);/);
+  assert.match(appSrc, /function clearAllItems\(\)\{\n  clearShellResult\(\);/);
   assert.match(appSrc, /makeSampleFile/);
   assert.match(appSrc, /Simpan foto/);
-  assert.match(appSrc, /Simpan semua/); // tombol utama dua keadaan (prinsip C)
+  assert.match(appSrc, /Simpan semua/);
   assert.match(appSrc, /function autoRunTool\(tool, item\)/);
   assert.match(appSrc, /function updateToolStatus\(\)/);
-  // P0-05: status "Tidak ada jejak…" harus tampil bahkan saat file sudah
-  // punya versi Bersih — cek jejakEmptyMsg mendahului cabang cleanedBlob.
-  assert.match(appSrc, /if\(activeTool==="jejak" && jejakEmptyMsg\)\{ bar\.textContent=jejakEmptyMsg; return; \}/);
-  const statusFn = appSrc.slice(appSrc.indexOf("function updateToolStatus()"));
-  assert.ok(statusFn.indexOf('if(activeTool==="jejak" && jejakEmptyMsg)') < statusFn.indexOf("if(it.cleanedBlob){"));
-  // P0-08/P1-08: baris status dedup menunjukkan hasil pindai terakhir,
-  // bukan "Lagi memindai…" selamanya.
-  assert.match(appSrc, /var dedupLastStatus="";/);
-  assert.match(statusFn, /bar\.textContent=dedupLastStatus \|\| "Lagi memindai duplikat…";/);
-  // P0-07: ganti file terpilih (filmstrip) harus ikut mengubah status alat
-  // + ketersediaan chip foto-only — kalau tidak, video terpilih tapi chip
-  // erase tetap aktif dan status masih instruksi foto sebelumnya.
-  assert.match(appSrc, /function selectItem\(id\)\{ selectedId=id; syncShell\(\); syncPrimary\(\); updateStats\(\); \}/);
-  assert.match(statusFn, /bar\.textContent="Video dipilih — "/);
-  // P0-07 (lanjutan): tombol utama "Coret foto"/"Coret watermark" tidak
-  // boleh tampil saat video terpilih dengan alat foto-only — tidak ada yang
-  // bisa dijalankan, baris status yang menjelaskan.
+  // Foto-only: video terpilih dengan alat meta/watermark -> status jujur,
+  // tombol utama tidak tampil (bukan crash).
   assert.match(appSrc, /else if\(show && it\.kind==="video" && PHOTO_ONLY\.indexOf\(activeTool\)!==-1\)\{/);
+  assert.match(appSrc, /Video dipilih — /);
   // Foto contoh digenerate runtime (tanpa biner di repo): canvas + injeksi
   // chunk tEXt PNG dengan CRC32, label OpenAI DALL·E.
   const sampleSrc = await readFile(new URL('../src/sample.ts', dir), 'utf8');
@@ -633,7 +417,4 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.match(sampleSrc, /function injectTextChunks\(/);
   assert.match(sampleSrc, /OpenAI DALL·E/);
   assert.match(sampleSrc, /export async function makeSampleFile/);
-  // Label hasil per alat ada semua di TOOL_RESULT_LABEL (pengganti
-  // PRIMARY_VERB — tombol utama sekarang cuma "Simpan foto / Simpan semua").
-  assert.match(appSrc, /clean:"Bersih",erase:"Objek",watermark:"Watermark",background:"Latar",upscale:"Perbesar",jejak:"Jejak"/);
 });

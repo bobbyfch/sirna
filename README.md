@@ -4,6 +4,15 @@ Hapus label AI dari foto & video — 100% lokal di browser.
 
 Taruh file. Beres. Simpan.
 
+**Alur (file-first, 19 Nov 2026):** taruh foto atau video dulu — drop, pilih,
+paste, atau foto contoh — dari home; editor langsung terbuka dan Bersihkan
+Label AI jalan otomatis (tanpa pilih alat dulu). Ganti alat lewat 3 chip di
+rail editor (Edit Metadata / Hapus Watermark AI) tanpa upload ulang; kembali
+ke home dengan ‹ Back, lalu masuk lagi lewat "Buka editor" (antrean, hasil
+& versi tetap utuh) atau tombol "+ File" di header. Meta & watermark bekerja
+pada blob versi terpilih (biasanya "Bersih"); chip versi "Asli" adalah jalan
+kembali ke file asli.
+
 Sirna memindai dan membersihkan label/metadata AI (C2PA / Content Credentials,
 EXIF, XMP, IPTC, chunk teks PNG berisi prompt/seed) dari foto dan video hasil
 generator AI seperti ChatGPT/DALL·E, Gemini/Imagen, Midjourney, Stable Diffusion,
@@ -13,15 +22,15 @@ lainnya. File tidak pernah diunggah — semua proses berjalan di perangkatmu.
 > Jujur soal batas: watermark yang tertanam di piksel (mis. SynthID) tidak
 > dijamin hilang hanya dengan membersihkan metadata.
 
-## Fitur
+## Fitur (pivot 19 Nov 2026 — 3 alat, tanpa model)
 
-- **Deteksi** — memindai label AI dan menampilkan sumbernya (mis. ChatGPT, Gemini)
-- **Bersihkan** — menghapus metadata AI, sekali file atau batch
-- **Metadata** — melihat & menghapus EXIF (termasuk peringatan lokasi GPS)
-- **Konversi** — JPG / PNG / WebP
-- **Video** — memindai & membersihkan MP4/MOV tanpa re-encode (WebM hanya dipindai)
+- **Bersihkan Label AI** — memindai & menghapus label/metadata AI (C2PA / Content Credentials, EXIF, XMP, IPTC, chunk teks PNG berisi prompt/seed), sekali file atau batch; hasil dicek ulang (re-scan 0 label)
+- **Edit Metadata** — melihat, mengubah & menghapus field metadata foto (EXIF, PNG text, XMP/IPTC, GPS); "Hapus jejak" menghapus GPS/EXIF/IPTC/XMP/teks PNG & profil ICC sekali ketuk
+- **Hapus Watermark AI** — v1 = sparkle Gemini saja via reverse-alpha blending (port repo MIT GargantuaX/gemini-watermark-remover — lihat `src/revalpha.ts`); tanda lain → status jujur, tanpa coret manual (keputusan Bobby 19 Nov 2026 17:24 WIB)
+- **Terakhir (history lokal)** — hasil bersih tersimpan otomatis di IndexedDB perangkat (maks 20, FIFO, foto saja); buka lagi, unduh ulang, atau hapus — tidak pernah diunggah
+- **Video** — Bersihkan memindai & membersihkan MP4/MOV tanpa re-encode (WebM hanya dipindai); Edit Metadata & Hapus Watermark hanya untuk foto
 - **PWA** — bisa dipasang sebagai shortcut di HP
-- **100% lokal** — foto/videomu tidak pernah keluar dari perangkat
+- **100% lokal** — foto/videomu tidak pernah keluar dari perangkat; tanpa model, tanpa server, tanpa akun
 
 ## Menjalankan
 
@@ -40,7 +49,12 @@ npm run preview  # sajikan hasil build lokal
   di akhir body.
 - `src/` — TypeScript (tanpa framework JS):
   - `main.ts` — entry, urutan eksekusi dipertahankan (app → mascot → pwa → marquee)
-  - `app.ts` — deteksi / bersih / metadata / konversi / video + pengaturan
+  - `app.ts` — antrean file + 3 alat + history + pengaturan
+  - `history.ts` — history lokal IndexedDB (maks 20, FIFO, foto saja)
+  - `metaedit.ts` — Edit Metadata: daftar field, edit in-place, hapus field, panel
+  - `revalpha.ts` — reverse-alpha sparkle Gemini (port MIT, data alpha map repo)
+
+  - `watermark.ts` — deteksi tanda pojok/tepi + sambungan reverse-alpha
   - `mascot.ts` — gerak 3D + maskot Naya (pendamping proses)
   - `pwa.ts` — daftar service worker + tombol "Pasang Sirna di HP"
   - `marquee.ts` — pause marquee logo pas di luar layar
@@ -79,10 +93,8 @@ Cloudflare Pages dan bukan GitHub Actions deploy.
   saat seri — sama seperti dulu ketika Play CDN menyuntikkan `<style>`-nya di
   akhir `<head>`.
 - JSZip (npm, di-pin 3.10.1) dimuat malas via dynamic `import()` — chunk
-  terpisah, baru diunduh pas user neken tombol ZIP. Pola yang sama berlaku
-  buat model AI nanti (onnxruntime-web dsb.): JANGAN diimport statis — muat
-  per tool saat tool-nya dibuka, tampilkan progress, cache setelahnya.
-  Beban awal Sirna harus tetap ringan.
+  terpisah, baru diunduh pas user neken tombol ZIP. Beban awal Sirna harus
+  tetap ringan. Tanpa model AI: tidak ada runtime/model yang diunduh.
 - Service worker `public/sw.js` (cache `sirna-v3`) didaftarkan di root domain
   agar scope PWA mencakup seluruh situs (salinan asli di
   `public/assets/sw.js` dipertahankan untuk artefak Muse). Daftar precache

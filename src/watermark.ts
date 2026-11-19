@@ -1,19 +1,19 @@
-/* Hapus Watermark — deteksi otomatis + hapus pakai editor yang sama
-   kayak Hapus Objek (src/erase.ts). Alur: deteksi cari tanda di pojok &
-   tepi foto (mis. sparkle Gemini, badge "Made with AI"), tandain merah
-   sebagai mask awal, user bisa nambah/kurangin pakai kuas, lalu hapus
-   dengan Mi-GAN (28,1 MB, MIT — lihat src/erase.ts).
+/* Hapus Watermark v1 — GEMINI SPARKLE SAJA (keputusan Bobby 19 Nov 2026
+   17:24 WIB, menggantikan §8.3/§8.4 DESIGN.md: tanpa editor kuas, tanpa
+   coret manual, tanpa pengisi). Alur: NCC memastikan sparkle Gemini
+   (src/revalpha.ts, MIT) → balik alpha blending, piksel asli dipulihkan,
+   bukan ditebak. Tanda ketemu tapi BUKAN pola Gemini yang dikenal →
+   status jujur, tanpa tawaran coret. Tidak ketemu apa-apa → status jujur.
+   Doubao/Jimeng = tahap 2 opsional, bukan v1.
 
-   Deteksi murni (tanpa DOM, tanpa model): di grid kecil (sisi panjang
+   Deteksi generik (tanpa DOM, tanpa model): di grid kecil (sisi panjang
    maks 480) cari piksel yang kontras kuat terhadap latar sekitarnya
    (beda vs blur lokal — kebal terhadap watermark semi-transparan yang
    di-blend ke foto) ATAU tepi yang tajam, lalu kelompokkan jadi gumpalan
-   kecil di zona pojok/tepi. Foto biasa nggak ketemu apa-apa: langit/
-   awan itu besar & lembut (beda vs blur kecil, tepi lembut), dan objek
-   di tengah foto ada di luar zona. Mask awal selalu kelihatan & bisa
-   diubah user — deteksi salah bukan bencana, cuma coretan awal. */
+   kecil di zona pojok/tepi. Dipakai HANYA untuk membedakan "ada tanda
+   tapi bukan Gemini" dari "tidak ada tanda" — bukan untuk menghapus. */
 
-import { openEraser, type EraseSource, type EraseHooks, type EraseOptions } from "./erase";
+import { detectGeminiSparkle, removeSparkle } from "./revalpha";
 
 /* ImageData di browser memenuhi bentuk ini secara struktural; di Node
    (buat tuning) cukup kirim { data, width, height } biasa. */
@@ -375,17 +375,61 @@ export function detectWatermark(img: ImgLike): WatermarkDetect | null {
   return { mask, boxes, found: true, note };
 }
 
-/* Buka editor (yang sama kayak Hapus Objek) dengan mask awal hasil deteksi.
-   opts diteruskan ke openEraser (mis. showUseOriginal — Langkah 3). */
-export async function openWatermark(source: EraseSource, hooks: EraseHooks, opts: EraseOptions = {}): Promise<void> {
-  return openEraser(source, hooks, {
-    ...opts,
-    title: "Hapus Watermark",
-    initialMask: (img) => {
-      const d = detectWatermark(img);
-      return d ? { mask: d.mask, note: d.note } : null;
-    },
-    /* B3 (§4.3): tidak ketemu tanda otomatis — coret manual. */
-    noMaskNote: "Tidak ketemu tanda otomatis — coret manual bagian yang mau dihapus.",
+/* ── Jalur v1 (satu-satunya): sparkle Gemini via reverse-alpha ── */
+
+export type WatermarkOutcome =
+  | { kind: "sparkle"; blob: Blob; darkBg: boolean; note: string }
+  | { kind: "unknown"; boxes: WatermarkBox[]; note: string }
+  | { kind: "none"; note: string };
+
+async function blobToImageData(blob: Blob): Promise<ImageData> {
+  const bmp = await createImageBitmap(blob);
+  const c = document.createElement("canvas");
+  c.width = bmp.width; c.height = bmp.height;
+  const g = c.getContext("2d") as CanvasRenderingContext2D;
+  g.drawImage(bmp, 0, 0);
+  bmp.close();
+  return g.getImageData(0, 0, c.width, c.height);
+}
+
+function imageDataToBlob(img: ImageData, type: string): Promise<Blob> {
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  (c.getContext("2d") as CanvasRenderingContext2D).putImageData(img, 0, 0);
+  return new Promise((resolve, reject) => {
+    c.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Gagal menyimpan gambar hasil."))),
+      type === "image/jpeg" ? "image/jpeg" : type === "image/webp" ? "image/webp" : "image/png",
+      0.92,
+    );
   });
+}
+
+/**
+ * Jalankan Hapus Watermark v1 pada satu foto (otomatis, tanpa editor):
+ * - sparkle Gemini terkonfirmasi NCC → unblend → blob hasil.
+ * - tanda ketemu tapi bukan pola Gemini → kind "unknown" (status jujur).
+ * - tidak ketemu tanda → kind "none" (status jujur).
+ * Piksel di luar box sparkle byte-identical (unblend hanya di dalam box).
+ */
+export async function removeWatermark(blob: Blob): Promise<WatermarkOutcome> {
+  const img = await blobToImageData(blob);
+  const sparkle = detectGeminiSparkle(img);
+  if (sparkle) {
+    const { image } = removeSparkle(img, sparkle);
+    const out = await imageDataToBlob(image, blob.type);
+    const note = "Sparkle Gemini dihapus \u2713 Piksel di luar tanda tidak berubah." +
+      (sparkle.darkBg ? " Di latar gelap mungkin tersisa bayangan tipis." : "");
+    return { kind: "sparkle", blob: out, darkBg: sparkle.darkBg, note };
+  }
+  const d = detectWatermark(img);
+  if (d) {
+    const wheres = [...new Set(d.boxes.map((b) => b.where))].join(" & ");
+    return {
+      kind: "unknown",
+      boxes: d.boxes,
+      note: "Tanda ketemu tapi bukan pola Gemini yang dikenal.",
+    };
+  }
+  return { kind: "none", note: "Tidak ketemu tanda watermark di foto ini." };
 }

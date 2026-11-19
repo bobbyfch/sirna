@@ -3,8 +3,8 @@
    mengirim biner). Fotonya sengaja BERLABEL AI (tEXt "Software:
    OpenAI DALL·E") supaya alat Bersihkan langsung menemukan label saat
    dicoba. Dipakai tombol "Coba foto contoh" di home: file cuma
-   DIANTRE, tidak ada alat yang jalan otomatis — user tetap pilih alat
-   dulu (arah Bobby 19 Nov 2026 08:49 WIB). */
+   file contoh = upload biasa dari home; alat default Bersihkan jalan
+   otomatis (file-first, perintah Bobby 19 Nov 2026 19:14 WIB). */
 
 var CRC_TABLE: number[] | null = null;
 function crc32(bytes: Uint8Array): number {

@@ -1,8 +1,8 @@
-// Langkah 3: rantai Bersihkan -> Objek -> Watermark pada satu file +
-// tumpukan versi (kembali ke Asli/Bersih tanpa kehilangan versi baru) +
-// rel alat + "Mulai dari file asli" + Simpan/preview memakai versi aktif.
-// File 1: png-text.png (berlabel). File 2: wm-test.png (lingkaran merah
-// + sparkle + badge "Made with AI" — buat cek piksel per versi).
+// Langkah 3 pivot: rantai Bersihkan -> Watermark (reverse-alpha) pada
+// satu file + tumpukan versi (kembali ke Asli/Bersih tanpa kehilangan
+// versi baru) + Simpan/preview memakai versi aktif. File 1: png-text.png
+// (berlabel). File 2: wm-gemini.png (sparkle Gemini asli — buat cek
+// piksel per versi; v1 = sparkle saja, tanpa editor kuas).
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -33,21 +33,20 @@ const pageErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => pageErrors.push(String(e)));
 
-async function cardInfo(nth) {
-  return await page.evaluate((n) => {
-    const c = document.querySelectorAll("#list article")[n];
-    if (!c) return null;
-    const versions = c.querySelector(".version-row");
+// State file TERPILIH di shell editor (filmstrip = satu-satunya antrean).
+async function shellInfo() {
+  return await page.evaluate(() => {
+    const versions = document.getElementById("shellVersions");
     return {
-      pill: c.querySelector(".status-pill")?.textContent?.trim(),
+      pill: document.getElementById("shellPill")?.textContent?.trim(),
       versions: versions?.classList.contains("hidden") ? "(hidden)" : versions?.textContent?.replace(/\s+/g, " ").trim(),
       activeVersion: versions?.querySelector(".version-chip.active")?.textContent?.trim(),
-      cardRailAbsent: !c.querySelector(".tool-bar"), // rel kartu dihapus (prinsip E)
       primaryText: document.getElementById("primaryBtn")?.textContent?.trim(),
       primaryVisible: !document.getElementById("primaryBtn").classList.contains("hidden"),
-      resultHead: c.querySelector(".clean-head, .detect-head")?.textContent?.trim(),
+      resultHead: document.querySelector("#shellResult .clean-head, #shellResult .detect-head")?.textContent?.trim(),
+      resultBody: document.querySelector("#shellResult .clean-body")?.textContent?.trim(),
     };
-  }, nth);
+  });
 }
 // Pilih file ke-n (0-based) lewat filmstrip kepala editor.
 async function selectFile(nth) {
@@ -55,14 +54,11 @@ async function selectFile(nth) {
   await page.click(`#shellFilm button[data-shell-id="${id}"]`);
   await page.waitForTimeout(300);
 }
-async function previewPixel(nth, ix, iy) {
-  await page.locator("#list article").nth(nth).locator(".thumb-wrap img").click();
-  await page.waitForFunction(() => { const m = document.querySelector("#previewModal:not(.hidden) #previewBody img"); return !!m; }, { timeout: 10000 });
-  // Tunggu gambar preview benar-benar ter-decode sebelum disampel —
-  // kalau tidak, drawImage menggambar kanvas kosong (piksel [0,0,0]).
-  await page.waitForFunction(() => { const img = document.querySelector("#previewBody img"); return img && img.complete && img.naturalWidth > 0; }, { timeout: 10000 });
-  const px = await page.evaluate(([x, y]) => {
-    const img = document.querySelector("#previewBody img");
+// Sampel piksel gambar yang SEDANG tampil di kanvas shell (versi aktif).
+async function shellPixel(ix, iy) {
+  await page.waitForFunction(() => { const img = document.getElementById("shellImg"); return img && img.complete && img.naturalWidth > 0; }, { timeout: 10000 });
+  return await page.evaluate(([x, y]) => {
+    const img = document.getElementById("shellImg");
     const c = document.createElement("canvas");
     c.width = img.naturalWidth; c.height = img.naturalHeight;
     const g = c.getContext("2d");
@@ -70,118 +66,71 @@ async function previewPixel(nth, ix, iy) {
     const d = g.getImageData(x, y, 1, 1).data;
     return [d[0], d[1], d[2]];
   }, [ix, iy]);
-  await page.click("#previewClose");
-  await page.waitForTimeout(300);
-  return px;
-}
-async function paintCircle() {
-  // Box kanvas dibaca ulang per coretan: begitu mask >2%, peringatan
-  // mask besar muncul dan sheet modal recenters — box lama bikin coretan
-  // mendarat ~32px meleset dan menyisakan celah tak ter-mask di tengah
-  // coretan (piksel merah itu lalu jadi "benih" buat Telea, pusat
-  // lingkaran tetap merah). Pengguna nyata tidak kena ini (evtPos baca
-  // rect live per event); tes meniru jari yang mengikuti kanvas.
-  for (const y of [250, 270, 290, 310, 330, 350]) {
-    const box = await page.locator("#eraseCanvas").boundingBox();
-    const toPx = (ix, iy) => ({ x: box.x + (ix / 800) * box.width, y: box.y + (iy / 600) * box.height });
-    const a = toPx(335, y), b = toPx(465, y);
-    await page.mouse.move(a.x, a.y); await page.mouse.down();
-    for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 8, a.y, { steps: 2 });
-    await page.mouse.up(); await page.waitForTimeout(80);
-  }
 }
 
 try {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
-  await page.click('[data-tool="clean"]');
-  await page.waitForTimeout(600);
-  await page.setInputFiles("#fileInput", [F("matrix/png-text.png"), F("wm-test.png")]);
+  // File-first: upload langsung dari home -> auto-clean (tanpa pilih alat).
+  await page.setInputFiles("#fileInput", [F("matrix/png-text.png"), F("wm-gemini.png")]);
   await page.waitForFunction(() => {
     const b = document.getElementById("primaryBtn");
     return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan semua (2)");
   }, { timeout: 60000 });
   await page.waitForTimeout(500);
 
-  // (1) File 1: versi Asli·Bersih, tanpa rel kartu (prinsip E).
-  note("f1_afterClean", await cardInfo(0));
-  // (2) Kembali ke Asli -> pill "Ada label AI", tombol utama sembunyi (alat
-  // otomatis tanpa hasil = progres saja, prinsip C), toast C6.
-  await page.locator("#list article").nth(0).locator('button[data-act="version"][data-v="Asli"]').click();
+  // (1) File 1: versi Asli·Bersih.
+  await selectFile(0);
+  note("f1_afterClean", await shellInfo());
+  // (2) Kembali ke Asli -> pill "Ada label AI", toast C6; hasil
+  // Bersihkan tetap tersimpan (chip Bersih masih ada).
+  await page.click('#shellVersions button[data-v="Asli"]');
   await page.waitForTimeout(400);
-  note("f1_backAsli", await cardInfo(0));
+  note("f1_backAsli", await shellInfo());
   note("f1_backAsliToast", await page.locator("#toast").textContent());
   // (3) Kembali ke Bersih -> "Sudah bersih" lagi, Simpan tampil.
-  await page.locator("#list article").nth(0).locator('button[data-act="version"][data-v="Bersih"]').click();
+  await page.click('#shellVersions button[data-v="Bersih"]');
   await page.waitForTimeout(400);
-  note("f1_backBersih", await cardInfo(0));
+  note("f1_backBersih", await shellInfo());
 
-  // (4) File 2: pilih lewat filmstrip, Hapus Objek via rail kepala
-  // editor (langsung buka editor, prinsip B) -> coret lingkaran ->
-  // Instan -> Simpan hasil.
-  // Catatan: waitForSelector('#eraseModal:not(.hidden)') TIDAK bisa
-  // diandalkan di halaman ini — timeout padahal modal sudah terbuka &
-  // visible (diverifikasi via classList + bounding rect 1280x900 flex);
-  // pakai waitForFunction di semua penunggu modal di tes ini.
-  await selectFile(1);
-  await page.click('[data-tool-switch="erase"]');
-  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
-  await paintCircle();
-  await page.click("#eraseRun");
-  await page.waitForFunction(() => !document.getElementById("eraseResultBar").classList.contains("hidden"), { timeout: 60000 });
-  await page.click("#eraseSave");
-  await page.waitForFunction(() => document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
-  await page.waitForTimeout(500);
-  note("f2_afterObjek", await cardInfo(1));
-  // (5) Preview per versi: Bersih = lingkaran merah utuh; Objek = lingkaran hilang.
-  await page.locator("#list article").nth(1).locator('button[data-act="version"][data-v="Bersih"]').click();
-  await page.waitForTimeout(400);
-  note("f2_previewBersih_circle", await previewPixel(1, 400, 300));
-  await page.locator("#list article").nth(1).locator('button[data-act="version"][data-v="Objek"]').click();
-  await page.waitForTimeout(400);
-  note("f2_previewObjek_circle", await previewPixel(1, 400, 300));
-
-  // (6) File 2: Hapus Watermark via rail kepala editor -> deteksi
-  // otomatis -> Instan -> Simpan hasil.
+  // (4) File 2: pilih lewat filmstrip, Hapus Watermark via rail kepala
+  // editor -> auto-run v1: sparkle Gemini terdeteksi (NCC) -> reverse-alpha
+  // -> versi "Watermark" otomatis, TANPA modal kuas / tombol Hapus.
   await selectFile(1);
   await page.click('[data-tool-switch="watermark"]');
-  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
-  await page.waitForTimeout(800);
-  note("f2_wmOverlay", await page.evaluate(() => {
-    const o = document.getElementById("eraseOverlay");
-    const d = o.getContext("2d").getImageData(0, 0, o.width, o.height).data;
-    let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
-    return n;
-  }));
-  await page.click("#eraseRun");
-  await page.waitForFunction(() => !document.getElementById("eraseResultBar").classList.contains("hidden"), { timeout: 60000 });
-  await page.click("#eraseSave");
-  await page.waitForFunction(() => document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
+  await page.waitForFunction(() => {
+    const t = document.getElementById("shellResult")?.textContent || "";
+    return t.includes("Sparkle Gemini dihapus");
+  }, { timeout: 15000 });
+  note("f2_wmModalAbsent", await page.evaluate(() => !document.getElementById("eraseModal")));
+  note("f2_wmResult", await page.locator("#shellResult").textContent());
   await page.waitForTimeout(500);
-  note("f2_afterWatermark", await cardInfo(1));
-  // (7) Preview per versi: Bersih = badge putih utuh; Watermark = badge hilang.
-  await page.locator("#list article").nth(1).locator('button[data-act="version"][data-v="Bersih"]').click();
+  note("f2_afterWatermark", await shellInfo());
+  // (5) Piksel per versi di kanvas shell: Bersih = sparkle masih
+  // menempel (terang); Watermark = sparkle hilang (pulih ke asli).
+  await page.click('#shellVersions button[data-v="Bersih"]');
   await page.waitForTimeout(400);
-  note("f2_previewBersih_badge", await previewPixel(1, 30, 560));
-  await page.locator("#list article").nth(1).locator('button[data-act="version"][data-v="Watermark"]').click();
+  note("f2_pixelBersih_sparkle", await shellPixel(742, 545));
+  await page.click('#shellVersions button[data-v="Watermark"]');
   await page.waitForTimeout(400);
-  note("f2_previewWatermark_badge", await previewPixel(1, 30, 560));
+  note("f2_pixelWatermark_sparkle", await shellPixel(742, 545));
 
-  // (8) "Mulai dari file asli" (file 1): tombol tampil (sumber = hasil
-  // Bersihkan) -> klik -> editor buka ulang dari asli -> tombol hilang.
+  // (6) File 1 + watermark (v1): tidak ada sparkle -> status jujur
+  // "Tidak ketemu tanda watermark"; versi tetap Asli·Bersih (tidak ada
+  // chip Watermark baru). "Mulai dari file asli" tidak ada lagi — itu
+  // fitur editor kuas yang dicabut per keputusan Bobby 17:24.
   await selectFile(0);
-  await page.click('[data-tool-switch="erase"]');
-  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
-  note("f1_origBtnVisible", await page.evaluate(() => !document.getElementById("eraseUseOriginal").classList.contains("hidden")));
-  await page.click("#eraseUseOriginal");
-  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden") && document.getElementById("eraseUseOriginal").classList.contains("hidden"), { timeout: 10000 });
-  note("f1_origBtnHiddenAfter", true);
-  await page.click("#eraseClose");
+  await page.click('[data-tool-switch="watermark"]');
+  await page.waitForFunction(() => {
+    const t = document.getElementById("shellResult")?.textContent || "";
+    return t.includes("Tidak ketemu tanda watermark") || t.includes("bukan pola Gemini");
+  }, { timeout: 15000 });
+  note("f1_wmResult", await page.locator("#shellResult").textContent());
+  note("f1_versionsAfterWm", await shellInfo());
   await page.waitForTimeout(400);
 
-  // (9) Chip Bersihkan di rail kepala editor = pindah workspace ke
-  // Bersihkan (rel kartu sudah dihapus, prinsip E). Tidak ada klik chip
-  // erase dulu: klik itu kini auto-run dan membuka editor (prinsip A).
+  // (7) Chip Bersihkan di rail kepala editor = pindah workspace ke
+  // Bersihkan (auto-run, prinsip A).
   await page.click('[data-tool-switch="clean"]');
   await page.waitForTimeout(500);
   note("toolBarCleanSwitches", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
@@ -192,5 +141,6 @@ note("consoleErrors", consoleErrors.slice(0, 10));
 note("pageErrors", pageErrors.slice(0, 10));
 await browser.close();
 server.kill();
+if (log.some(([k]) => k === "ERROR")) process.exitCode = 1;
 writeFileSync(OUT, JSON.stringify(log, null, 2));
 console.log("DONE ->", OUT);

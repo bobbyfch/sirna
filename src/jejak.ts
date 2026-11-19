@@ -1,23 +1,19 @@
-/* Hapus Jejak — cari & hapus jejak privasi di dalam file foto, 100%
-   lokal, tanpa model, tanpa download. Jejak = metadata yang bisa
-   mengidentifikasi pemilik/waktu/lokasi: EXIF (kamera, waktu, GPS),
-   IPTC, XMP, teks PNG (prompt/seed), profil ICC, komentar JPEG.
-   Pindai murni atas byte file (tanpa DOM); hapusnya lewat hook onScrub
-   dari app.ts (strip lossless yang sama dengan Bersihkan + jalur canvas
-   kalau jejak masih kebaca) — lalu di-scan ulang, hasilnya jujur.
-   Nama file (mis. IMG_20261118_143201.jpg) DITAMPILKAN sebagai jejak
-   info — nama tidak diubah alat ini; ganti manual sebelum dibagikan. */
-
-import type { EraseSource, EraseHooks } from "./erase";
+/* Jejak privasi — library pindai (dipakai alat Edit Metadata,
+   src/metaedit.ts). 100% lokal, tanpa model, tanpa download. Jejak =
+   metadata yang bisa mengidentifikasi pemilik/waktu/lokasi: EXIF
+   (kamera, waktu, GPS), IPTC, XMP, teks PNG (prompt/seed), profil ICC,
+   komentar JPEG. Pindai murni atas byte file (tanpa DOM); hapusnya lewat
+   scrubTracesBlob di app.ts (strip lossless yang sama dengan Bersihkan +
+   jalur canvas kalau jejak masih kebaca) — lalu di-scan ulang, hasilnya
+   jujur. Nama file (mis. IMG_20261118_143201.jpg) DITAMPILKAN sebagai
+   jejak info — nama tidak diubah alat ini; ganti manual sebelum
+   dibagikan. Modal Hapus Jejak sudah dihapus (pivot 19 Nov 2026):
+   jejak dihapus dari dalam panel Edit Metadata. */
 
 export interface Trace {
   kind: string; // "exif" | "gps" | "iptc" | "xmp" | "pngtext" | "icc" | "time" | "comment" | "filename"
   label: string; // "GPS (lokasi)" — tampil di daftar
   detail: string; // "POCO F6 · 18 Nov 2026 14:32" — bukti, bukan klaim
-}
-
-export interface JejakHooks extends EraseHooks {
-  onScrub: (blob: Blob) => Promise<Blob>; // strip jejak (app.ts), hasil di-scan ulang di sini
 }
 
 /* ── Pindai jejak di dalam byte file ── */
@@ -174,128 +170,4 @@ export function filenameTrace(name: string): Trace | null {
     return { kind: "filename", label: "Nama file", detail: "“" + name + "” mengandung tanggal/kode — ganti manual sebelum dibagikan" };
   }
   return null;
-}
-
-/* ── Modal ── */
-function $(id: string): HTMLElement {
-  return document.getElementById(id) as HTMLElement;
-}
-
-export interface JejakOptions {
-  showUseOriginal?: boolean;
-}
-
-export async function openJejak(source: EraseSource, hooks: JejakHooks, opts: JejakOptions = {}): Promise<void> {
-  const modal = $("jejakModal");
-
-  let busy = false;
-  let exportBlob: Blob | null = null;
-  let blobTraces: Trace[] = [];
-
-  function setNote(t: string): void {
-    $("jejakNote").textContent = t;
-  }
-  function renderList(traces: Trace[], fileTrace: Trace | null): void {
-    const el = $("jejakList");
-    const rows = traces.map((t) =>
-      '<div class="jejak-row"><span class="jejak-ic" aria-hidden="true">!</span><div class="min-w-0"><b>' + esc(t.label) + '</b><span>' + esc(t.detail) + '</span></div></div>').join("");
-    const fileRow = fileTrace
-      ? '<div class="jejak-row jejak-file"><span class="jejak-ic" aria-hidden="true">i</span><div class="min-w-0"><b>' + esc(fileTrace.label) + '</b><span>' + esc(fileTrace.detail) + '</span></div></div>'
-      : "";
-    el.innerHTML = rows + fileRow ||
-      '<p class="jejak-empty">Tidak ada jejak di dalam file — sudah bersih.</p>';
-    if (rows + fileRow === "") el.innerHTML = '<p class="jejak-empty">Tidak ada jejak di dalam file — sudah bersih.</p>';
-  }
-  function esc(s: string): string {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-
-  /* ── Hapus jejak: jalan otomatis begitu jejak ketemu (prinsip A) ── */
-  async function run(): Promise<void> {
-    if (busy || blobTraces.length === 0) return;
-    busy = true;
-    ($("jejakResultBar") as HTMLElement).classList.add("hidden");
-    ($("jejakRetry") as HTMLButtonElement).classList.add("hidden");
-    setNote("Lagi ngitung…");
-    try {
-      const out = await hooks.onScrub(source.blob);
-      const after = await scanTraces(out);
-      exportBlob = out;
-      if (after.length === 0) {
-        blobTraces = [];
-        renderList([], filenameTrace(source.name));
-        setNote("Jejak dihapus ✓ Dicek ulang: 0 jejak tersisa di dalam file.");
-        ($("jejakResultBar") as HTMLElement).classList.remove("hidden");
-      } else {
-        blobTraces = after;
-        renderList(after, filenameTrace(source.name));
-        setNote("Masih ada " + after.length + " jejak: " + after.map((t) => t.label).join(", ") + ". Coba lagi.");
-        exportBlob = null;
-      }
-    } catch (e) {
-      const msg = String((e as Error).message || "Gagal").replace(/\.+$/, "");
-      hooks.onToast("Gagal hapus jejak: " + msg + ". Coba lagi.");
-      setNote("Gagal hapus jejak: " + msg + ". Coba lagi.");
-      ($("jejakRetry") as HTMLButtonElement).classList.remove("hidden");
-    }
-    busy = false;
-  }
-
-  /* ── Kontrol ── */
-  ($("jejakRetry") as HTMLButtonElement).onclick = () => {
-    void run();
-  };
-  $("jejakSave").onclick = () => {
-    if (!exportBlob) return;
-    hooks.onReplace(exportBlob);
-    close();
-  };
-  $("jejakUndoResult").onclick = () => {
-    exportBlob = null;
-    ($("jejakResultBar") as HTMLElement).classList.add("hidden");
-    setNote(blobTraces.length === 0 ? "Jejak dihapus ✓ Dicek ulang: 0 jejak tersisa di dalam file." : "Ketemu " + blobTraces.length + " jejak di dalam file ini.");
-    hooks.onToast("Hasil diurungkan — kembali ke sebelum dihapus.");
-  };
-  const origBtn = $("jejakUseOriginal");
-  origBtn.classList.toggle("hidden", !opts.showUseOriginal);
-  origBtn.onclick = () => {
-    if (!busy) {
-      close();
-      hooks.onUseOriginal?.();
-    }
-  };
-
-  function close(): void {
-    modal.classList.add("hidden");
-    document.body.style.overflow = "";
-  }
-  $("jejakClose").onclick = () => {
-    if (!busy) close();
-  };
-  modal.onclick = (e) => {
-    if (e.target === modal && !busy) close();
-  };
-
-  /* ── Buka: pindai dulu, baru tampil ── */
-  $("jejakTitle").textContent = "Hapus Jejak";
-  modal.setAttribute("aria-label", "Hapus Jejak");
-  const bmp = await createImageBitmap(source.blob);
-  const fw = bmp.width, fh = bmp.height;
-  bmp.close();
-  $("jejakSub").textContent =
-    source.name + " · " + fw + "×" + fh + " · diedit dari " + (source.sourceLabel || "Asli");
-  setNote("Lagi memindai jejak…");
-  blobTraces = await scanTraces(source.blob);
-  const fileTrace = filenameTrace(source.name);
-  renderList(blobTraces, fileTrace);
-  if (blobTraces.length === 0) {
-    setNote("Tidak ada jejak di dalam file — sudah bersih." + (fileTrace ? " Nama file masih mengandung tanggal/kode, ganti manual sebelum dibagikan." : ""));
-  } else {
-    setNote("Ketemu " + blobTraces.length + " jejak di dalam file ini — lagi dihapus…");
-  }
-  ($("jejakResultBar") as HTMLElement).classList.add("hidden");
-  modal.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
-  /* Jejak ketemu = langsung dihapus, tanpa ketuk lagi (prinsip A). */
-  if (blobTraces.length > 0) void run();
 }

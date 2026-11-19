@@ -4,10 +4,9 @@
    - Kemiringan dropzone / kartu pakai lerp biar halus (bukan nempel kaku
      ke pointer), cuma jalan di pointer halus (mouse / trackpad).
    - Maskot = pendamping proses: panggungnya (fixed, pojok kiri bawah)
-     cuma ditampilkan (kelas .show) selama ada kartu .is-processing,
-     dibaca lewat MutationObserver dari kelas yang udah dipasang alur
-     utama di kartu file (.is-processing / .is-done); pas beres dia
-     ngerayain sebentar lalu hilang lagi. Di luar proses: tak terlihat.
+     cuma ditampilkan (kelas .show) selama #procDock terlihat (dock
+     proses alur utama); pas beres dia ngerayain sebentar lalu hilang
+     lagi. Di luar proses: tak terlihat.
    - prefers-reduced-motion: semua parallax & reaksi dimatikan. */
 (function(){
   var stage=document.getElementById("mascotStage");
@@ -89,26 +88,6 @@
       });
       dz.addEventListener("pointerleave", function(){ dTX=0; dTY=0; });
     }
-    /* kartu file: miring tipis ngikutin pointer, reset pas pointer pindah kartu */
-    var list=document.getElementById("list"), tiltCard=null;
-    function resetCard(c){ if(c){ c.style.setProperty("--crx","0deg"); c.style.setProperty("--cry","0deg"); } }
-    if(list){
-      list.addEventListener("pointermove", function(e){
-        var card=e.target && (e.target as Element).closest ? ((e.target as Element).closest("#list .card") as HTMLElement) : null;
-        if(card!==tiltCard){ resetCard(tiltCard); tiltCard=card; }
-        if(!card) return;
-        var r=card.getBoundingClientRect();
-        var dx=(e.clientX-(r.left+r.width/2))/r.width;
-        var dy=(e.clientY-(r.top+r.height/2))/r.height;
-        card.style.setProperty("--cry", Math.max(-2.4, Math.min(2.4, dx*4.5)).toFixed(2)+"deg");
-        card.style.setProperty("--crx", Math.max(-2.4, Math.min(2.4, -dy*4.5)).toFixed(2)+"deg");
-      });
-      list.addEventListener("pointerleave", function(){ resetCard(tiltCard); tiltCard=null; });
-      /* animasi masuk selesai → lepas kelasnya biar transform tilt bisa jalan */
-      list.addEventListener("animationend", function(e){
-        if(e.animationName==="itemIn" && (e.target as Element).classList) (e.target as Element).classList.remove("item-enter");
-      });
-    }
     /* PERFORMA: loop lerp jalan SESUAI PERMINTAAN aja — dulu rAF ini muter
        60 fps SELAMANYA (termasuk pas dropzone disembunyiin / halaman idle),
        sekarang dia mulai pas pointer gerak di atas dropzone dan BERHENTI
@@ -151,11 +130,15 @@
     });
   }
 
-  /* — Status dari alur utama: maskot ngikutin progres tanpa ubah logika inti — */
-  var queue=document.getElementById("queueSection");
-  var listEl=document.getElementById("list");
+  /* — Status dari alur utama: maskot ngikutin progres tanpa ubah logika inti.
+     Sinyal proses = #procDock (dock bawah, ditampilkan alur utama selama
+     proses jalan, disembunyikan pas beres — lihat setProc/hideProc di
+     src/app.ts). Dulu sinyalnya kelas .is-processing di kartu #list;
+     kartu itu dicabut di pivot (DESIGN.md §9), jadi sinyalnya pindah
+     ke dock. — */
+  var procDock=document.getElementById("procDock");
   var workPhrases=["Lagi dibersihin…","Sikat… sikat…","Hampir kinclong…","Dikit lagi…","La la la…"], workSayIdx=0;
-  var lastDone=-1, syncQueued=false, hideTimer=null;
+  var wasWorking=false, syncQueued=false, hideTimer=null;
   /* Visibilitas panggung: MUNCUL cuma pas proses jalan; pas proses
      beres, rayain dulu sebentar (1,8 dtk — cukup buat pose celebrate
      + balon "Beres!") baru hilang lagi. */
@@ -169,24 +152,19 @@
   }
   function syncMascot(){
     syncQueued=false;
-    if(!listEl) return;
-    var working=listEl.querySelectorAll(".is-processing").length;
-    var done=listEl.querySelectorAll(".is-done").length;
+    var working=procDock && !procDock.classList.contains("hidden") ? 1 : 0;
     stage.classList.toggle("is-working", working>0);
     if(working>0){ showStage(); workSayIdx=(workSayIdx+1)%workPhrases.length; say(workPhrases[workSayIdx], 2000); }
-    if(lastDone>=0 && done>lastDone && working===0) celebrate();
-    if(working===0){
-      scheduleHide();
-    }
-    lastDone=done;
+    else if(wasWorking){ celebrate(); scheduleHide(); }
+    else if(!stage.classList.contains("is-celebrate")){ scheduleHide(); }
+    wasWorking=working>0;
   }
   function queueSync(){
     if(syncQueued) return;
     syncQueued=true;
     requestAnimationFrame(syncMascot);
   }
-  if(queue) new MutationObserver(queueSync).observe(queue, {attributes:true, attributeFilter:["class"]});
-  if(listEl) new MutationObserver(queueSync).observe(listEl, {childList:true, subtree:true, attributes:true, attributeFilter:["class"]});
+  if(procDock) new MutationObserver(queueSync).observe(procDock, {attributes:true, attributeFilter:["class"]});
   syncMascot();
 
   /* — Reveal pas di-scroll: footer aja.

@@ -1,9 +1,9 @@
-// Layout kanonis redesain (19 Nov 2026):
-// home = pemilih alat (tanpa default) -> "Coba foto contoh" cuma mengantre
-// (tidak ada alat yang jalan otomatis) -> pilih alat -> alat JALAN SENDIRI
-// -> editor kanonis (filmstrip + canvas + status + versi + rail scroll +
-// tombol utama sticky "Simpan foto") -> chaining lewat rail -> sheet
-// konfirmasi. + 390px tanpa overflow.
+// Layout kanonis file-first (19 Nov 2026, 3 alat tanpa model):
+// home = dropzone besar + contoh di bawahnya (tanpa pemilih alat) ->
+// upload dari home -> editor terbuka, Bersihkan JALAN SENDIRI ->
+// editor kanonis (filmstrip + canvas + status + versi + rail scroll +
+// tombol utama sticky "Simpan foto") -> chaining lewat rail -> Back ->
+// "Buka editor" -> sheet konfirmasi. + 390px tanpa overflow.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -38,15 +38,14 @@ async function waitFor(pg, fn, timeout = 30000) {
     await pg.waitForTimeout(100);
   }
 }
-/* Klik "Coba foto contoh": thumbnail DI BAWAH dropzone workspace (Fase 2)
-   — tombolnya cuma ada setelah alat dipilih (panel tampil, belum ada
-   file); klik = file contoh masuk + alat yang dipilih langsung jalan. */
-async function clickSample(pg){
+/* Klik "Coba foto contoh": thumbnail DI BAWAH dropzone home —
+   klik = file contoh masuk dari home + Bersihkan langsung jalan. */
+async function clickSample(pg) {
   await pg.click("#sampleBtn");
 }
 /* Simpan di top bar editor terlihat + bisa diketuk: tombolnya di dalam
    viewport, tidak tertutup toast / maskot / dock. */
-async function assertSaveTappable(pg, tag){
+async function assertSaveTappable(pg, tag) {
   const r = await pg.evaluate(() => {
     const b = document.getElementById("primaryBtn");
     if (!b || b.classList.contains("hidden")) return { visible: false };
@@ -72,46 +71,46 @@ try {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
 
-  // (1) Home: pemilih alat, 7 kartu (tile contoh KELUAR dari grid, Fase 2),
-  // TANPA alat aktif / default. Simpan di top bar sembunyi (belum ada
-  // hasil); contoh cuma ada di bawah dropzone workspace (panel sembunyi).
+  // (1) Home file-first: dropzone kelihatan di viewport tanpa scroll,
+  // TIDAK ADA #toolPicker di DOM, contoh tepat di bawah dropzone.
+  // Simpan di top bar sembunyi (belum ada hasil).
   note("h1", await page.locator("h1").textContent());
-  note("pickerCards", await page.evaluate(() => Array.from(document.querySelectorAll("#toolPicker .tool-card")).map((c) => c.dataset.tool).filter(Boolean).join(",")));
-  note("pickerTileCount", await page.evaluate(() => document.querySelectorAll("#toolPicker .tool-card").length));
+  note("toolPickerAbsent", await page.evaluate(() => !document.getElementById("toolPicker")));
+  note("dropzoneInHero", await page.evaluate(() => document.getElementById("dropZone").closest("#heroSection") !== null));
+  note("dropzoneVisibleNoScroll", await page.evaluate(() => { const r = document.getElementById("dropZone").getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; }));
+  note("sampleRowBelowDropzone", await page.evaluate(() => { const d = document.getElementById("dropZone").getBoundingClientRect(), s = document.getElementById("sampleRow").getBoundingClientRect(); return s.top >= d.bottom - 1; }));
   note("panelHidden", await page.evaluate(() => document.getElementById("panel-cleaner").classList.contains("hidden")));
   note("noActiveChip", await page.evaluate(() => document.querySelectorAll("[data-tool-switch].active").length));
   note("primaryHidden", await page.evaluate(() => document.getElementById("primaryBtn").classList.contains("hidden")));
   note("editorHeadHidden", await page.evaluate(() => document.getElementById("editorHead").classList.contains("hidden")));
-  note("sampleInPanel", await page.evaluate(() => document.getElementById("sampleBtn").closest("#panel-cleaner") !== null));
+  note("sampleInHero", await page.evaluate(() => document.getElementById("sampleBtn").closest("#heroSection") !== null));
   note("noStickyBottomBar", await page.evaluate(() => !document.getElementById("primaryBar")));
   note("siteHeaderVisible", await page.evaluate(() => getComputedStyle(document.querySelector("header")).display !== "none"));
+  note("historyVisibleHome", await page.evaluate(() => !document.getElementById("historySection").classList.contains("hidden")));
 
-  // (2) File TANPA alat (drop via input, tanpa pilih alat): file diantre,
-  // banner muncul, TIDAK ada alat jalan, panel tetap tersembunyi (kelas).
+  // (2) MIGRASI TOTAL — File dari home: editor TERBUKA, Bersihkan JALAN
+  // OTOMATIS, tombol utama "Simpan foto" muncul (dulu: file diantre +
+  // banner "pilih alat dulu", panel tetap tersembunyi).
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
-  await waitFor(page, () => !document.getElementById("sampleBanner").classList.contains("hidden"), 10000);
-  await page.waitForTimeout(400);
-  note("sampleBanner", await page.locator("#sampleBanner").textContent());
-  note("sampleToast", await page.locator("#toast").textContent());
-  note("panelStillHidden", await page.evaluate(() => document.getElementById("panel-cleaner").classList.contains("hidden")));
-  note("noActiveChipAfterSample", await page.evaluate(() => document.querySelectorAll("[data-tool-switch].active").length));
-  note("primaryStillHidden", await page.evaluate(() => document.getElementById("primaryBtn").classList.contains("hidden")));
-
-  // (3) Pilih Bersihkan: editor MENGGANTIKAN home (hero + grid hilang,
-  // header situs hilang, top bar editor tampil); alat JALAN SENDIRI
-  // (prinsip A) — tunggu tombol Simpan di top bar jadi "Simpan foto".
-  await page.click('[data-tool="clean"]');
   await waitFor(page, () => {
     const b = document.getElementById("primaryBtn");
     return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
   }, 30000);
   await page.waitForTimeout(400);
+  note("editorOpened", await page.evaluate(() => !document.getElementById("panel-cleaner").classList.contains("hidden") && document.getElementById("heroSection").classList.contains("hidden")));
+  note("cleanChipActive", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
+  note("primaryAfterClean", await page.evaluate(() => document.getElementById("primaryBtn").textContent.trim()));
+
+  // (3) Editor MENGGANTIKAN home (hero hilang, header situs hilang,
+  // top bar editor tampil); alat JALAN SENDIRI (prinsip A) — tombol
+  // Simpan di top bar sudah "Simpan foto" sejak langkah (2).
   note("heroHiddenInEditor", await page.evaluate(() => document.getElementById("heroSection").classList.contains("hidden")));
+  note("historyHiddenInEditor", await page.evaluate(() => document.getElementById("historySection").classList.contains("hidden")));
   note("siteHeaderHiddenInEditor", await page.evaluate(() => getComputedStyle(document.querySelector("header")).display === "none"));
   note("editorTopBarVisible", await page.evaluate(() => { const t = document.getElementById("editorTopBar"); const r = t.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < 80; }));
   note("editorTopBarSticky", await page.evaluate(() => getComputedStyle(document.getElementById("editorTopBar")).position === "sticky"));
   note("editorHeadVisible", await page.evaluate(() => !document.getElementById("editorHead").classList.contains("hidden")));
-  note("dropZoneHiddenWithFile", await page.evaluate(() => document.getElementById("dropZone").classList.contains("hidden")));
+  note("dropZoneHiddenWithFile", await page.evaluate(() => !document.getElementById("dropZone").offsetParent)); // dropzone ikut hilang bersama hero (editor-on)
   note("shellPillAfterAutoClean", await page.locator("#shellPill").textContent());
   note("shellStatusAfterAutoClean", await page.locator("#shellStatus").textContent());
   note("shellImgSize", await page.evaluate(() => { const i = document.getElementById("shellImg"); return [i.naturalWidth, i.naturalHeight]; }));
@@ -130,7 +129,6 @@ try {
   const dl = await dlPromise;
   note("downloadName", dl.suggestedFilename());
   await page.waitForTimeout(400);
-  note("cardPillAfterClean", await page.evaluate(() => document.querySelector("#list article .status-pill")?.textContent?.trim()));
   note("shellPillAfterClean", await page.locator("#shellPill").textContent());
   note("shellStatusAfterClean", await page.locator("#shellStatus").textContent());
   note("primaryLabelAfterClean", await page.locator("#primaryBtn").textContent());
@@ -153,26 +151,24 @@ try {
   // pill kembali "Ada label AI", hasil Bersihkan tetap tersimpan.
   await page.click('#shellVersions button[data-v="Asli"]');
   await page.waitForTimeout(500);
-  note("pillAfterVersionAsli", await page.evaluate(() => document.querySelector("#list article .status-pill")?.textContent?.trim()));
   note("shellPillAfterAsli", await page.locator("#shellPill").textContent());
   note("primaryLabelAfterAsli", await page.locator("#primaryBtn").textContent());
 
-  // (7) Chaining lewat rail: ganti ke Hapus Objek — editor langsung
-  // terbuka (prinsip B), foto & hasil Bersihkan ikut.
-  await page.click('[data-tool-switch="erase"]');
-  await waitFor(page, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
-  note("eraseModalAutoOpenOnSwitch", true);
-  await page.click("#eraseClose");
+  // (7) Chaining lewat rail: ganti ke Hapus Watermark — auto-run v1
+  // (tanpa modal kuas), foto & hasil Bersihkan ikut; tombol utama tetap
+  // "Simpan foto" karena hasil Bersihkan sudah ada.
+  await page.click('[data-tool-switch="watermark"]');
+  await waitFor(page, () => {
+    const t = document.getElementById("shellResult")?.textContent || "";
+    return t.includes("Tidak ketemu tanda watermark") || t.includes("bukan pola Gemini") || t.includes("Sparkle Gemini dihapus");
+  }, 10000);
+  note("wmModalAbsent", await page.evaluate(() => !document.getElementById("eraseModal")));
+  note("wmResult", await page.locator("#shellResult").textContent());
   await page.waitForTimeout(600);
-  note("primaryLabelErase", await page.locator("#primaryBtn").textContent());
+  note("primaryLabelWatermark", await page.locator("#primaryBtn").textContent());
   note("shellImgStillSame", await page.evaluate(() => { const i = document.getElementById("shellImg"); return [i.naturalWidth, i.naturalHeight]; }));
-  note("cardKeptAfterSwitch", await page.evaluate(() => document.querySelectorAll("#list article").length));
-  // Tombol utama "Coret foto" membuka editor lagi.
-  await page.click("#primaryBtn");
-  await waitFor(page, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
-  note("eraseModalFromPrimary", true);
-  await page.click("#eraseClose");
-  await page.waitForTimeout(400);
+  note("filmKeptAfterSwitch", await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb").length));
+  if ((await page.locator("#primaryBtn").textContent()).trim() !== "Simpan foto") throw new Error("primary harus tetap 'Simpan foto' setelah switch ke watermark (hasil Bersihkan ada)");
 
   // (8) Sheet konfirmasi: Batal = tidak jadi; Konfirmasi = mulai ulang.
   await page.click("#restartBtn");
@@ -182,29 +178,42 @@ try {
   await page.click("#sheetCancel");
   await page.waitForTimeout(400);
   note("sheetHiddenAfterCancel", await page.evaluate(() => document.getElementById("sheet").classList.contains("hidden")));
-  note("cardsKeptAfterCancel", await page.evaluate(() => document.querySelectorAll("#list article").length));
+  note("filmKeptAfterCancel", await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb").length));
   await page.click("#restartBtn");
   await page.waitForTimeout(400);
   await page.click("#sheetConfirm");
   await page.waitForTimeout(600);
   note("pickerAfterRestart", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
-  note("cardsAfterRestart", await page.evaluate(() => document.querySelectorAll("#list article").length));
+  note("filmAfterRestart", await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb").length));
+  if (await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb").length) !== 0) throw new Error("filmstrip masih menampilkan thumb basi setelah Mulai ulang");
 
-  // (9) Tombol "‹ Back" di top bar editor: pilih alat tanpa file ->
-  // kembali ke pemilih; header situs muncul lagi.
-  await page.click('[data-tool="erase"]');
-  await page.waitForTimeout(500);
-  note("editorBackVisibleNoFile", await page.evaluate(() => { const b = document.getElementById("editorBackBtn"); const r = b.getBoundingClientRect(); return r.width > 0 && r.height >= 44; }));
-  note("siteHeaderHiddenNoFile", await page.evaluate(() => getComputedStyle(document.querySelector("header")).display === "none"));
+  // (9) Tombol "‹ Back" di top bar editor (dengan file) -> home;
+  // #queueHint terlihat; header situs muncul lagi; klik "Buka editor"
+  // -> editor kembali dengan antrean utuh. (Tidak ada lagi jalur
+  // "pilih alat tanpa file".) Langkah (8) tadi me-restart antrean jadi
+  // kosong — upload 1 file dulu supaya editor terbuka lagi.
+  await page.setInputFiles("#fileInput", ["/home/hatch/workspace/sirna-vite/tests/fixtures/matrix/png-text.png"]);
+  await waitFor(page, () => { const p = document.getElementById("shellPill"); return p && p.textContent.trim() === "Sudah bersih"; }, 15000);
+  note("editorBackVisibleWithFile", await page.evaluate(() => { const b = document.getElementById("editorBackBtn"); const r = b.getBoundingClientRect(); return r.width > 0 && r.height >= 44; }));
+  note("siteHeaderHiddenWithFile", await page.evaluate(() => getComputedStyle(document.querySelector("header")).display === "none"));
   await page.click("#editorBackBtn");
   await page.waitForTimeout(500);
   note("pickerAfterTopBack", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
+  note("queueHintAfterBack", await page.evaluate(() => !document.getElementById("queueHint").classList.contains("hidden")));
+  note("queueHintTextAfterBack", await page.evaluate(() => document.getElementById("queueHintText")?.textContent?.trim()));
   note("siteHeaderBackAfterBack", await page.evaluate(() => getComputedStyle(document.querySelector("header")).display !== "none"));
-
-  // (10) Foto contoh dari bawah dropzone: pilih alat dulu, lalu klik
-  // thumbnail contoh -> alat langsung jalan (prinsip A), editor tampil.
-  await page.click('[data-tool="clean"]');
+  await page.click("#resumeBtn");
+  await page.waitForTimeout(500);
+  note("editorBackAfterResume", await page.evaluate(() => !document.getElementById("panel-cleaner").classList.contains("hidden")));
+  note("filmKeptAfterResume", await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb").length));
+  // Kembali ke home untuk langkah (10): restart dulu (antrean kosong).
+  await page.click("#restartBtn");
+  await page.waitForTimeout(400);
+  await page.click("#sheetConfirm");
   await page.waitForTimeout(600);
+
+  // (10) Foto contoh dari bawah dropzone home: klik thumbnail LANGSUNG
+  // (tanpa pilih alat) -> editor + auto-clean -> "Simpan foto".
   note("sampleRowVisible", await page.evaluate(() => { const r = document.getElementById("sampleRow"); return !r.classList.contains("hidden") && r.offsetParent !== null; }));
   note("sampleThumbLoaded", await page.evaluate(async () => { const img = document.getElementById("sampleThumbImg"); for (let i = 0; i < 30 && !img.src; i++) await new Promise((r) => setTimeout(r, 100)); return !!img.src && img.naturalWidth > 0; }));
   await clickSample(page);
@@ -214,7 +223,7 @@ try {
   }, 30000);
   await page.waitForTimeout(400);
   note("sampleAutoCleanPill", await page.locator("#shellPill").textContent());
-  note("sampleRowHiddenWithFile", await page.evaluate(() => document.getElementById("sampleRow").classList.contains("hidden")));
+  note("sampleRowHiddenWithFile", await page.evaluate(() => !document.getElementById("sampleRow").offsetParent)); // contoh ikut hilang bersama hero (editor-on)
   await assertSaveTappable(page, "desk1280_sample");
   await ctx.close();
 
@@ -226,8 +235,7 @@ try {
   await page2.goto(BASE, { waitUntil: "networkidle" });
   await page2.waitForTimeout(1000);
   note("m390_overflowHome", await page2.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth));
-  await page2.click('[data-tool="clean"]');
-  await page2.waitForTimeout(500);
+  // File-first 390px: upload langsung dari home membuka editor.
   await page2.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
   await waitFor(page2, () => {
     const b = document.getElementById("primaryBtn");
@@ -262,9 +270,9 @@ try {
 
   // (10) Redesain (prinsip E): rel kartu DIHAPUS — yang tersisa cuma
   // rail kepala editor (#toolBar). + tombol utama tidak terpotong
-  // gesture bar + editor terlihat setelah pilih alat. Screenshot (a)
-  // kartu file, (b) kepala editor — dilihat manual.
-  await page2.evaluate(() => document.querySelector("#list article").scrollIntoView({ block: "start" }));
+  // gesture bar + editor terlihat setelah upload. Screenshot (a)
+  // filmstrip, (b) kepala editor — dilihat manual.
+  await page2.evaluate(() => document.getElementById("shellFilm").scrollIntoView({ block: "start" }));
   await page2.waitForTimeout(600);
   await page2.screenshot({ path: "/home/hatch/workspace/sirna-p0-fix/card-390.png" });
   note("shotCard", "sirna-p0-fix/card-390.png");
@@ -273,8 +281,6 @@ try {
   await page2.screenshot({ path: "/home/hatch/workspace/sirna-p0-fix/editor-390.png" });
   note("shotEditor", "sirna-p0-fix/editor-390.png");
   // Hard assertions — gagal = throw, bukan cuma log.
-  // Simpan di top bar: tombol di baris atas (top < 80px), ≥44px, dan
-  // TIDAK ADA lagi sticky bottom bar (#primaryBar sudah tidak ada).
   const pBtn = await page2.locator("#primaryBtn").boundingBox();
   const vh = page2.viewportSize().height;
   note("p0_saveBtnTop", Math.round(pBtn.y));
@@ -291,12 +297,12 @@ try {
   note("p0_canvasBleed", canvasBleed);
   if (canvasBleed.left > 2 || Math.abs(canvasBleed.right - canvasBleed.vw) > 2) throw new Error("kanvas tidak full-bleed di 390px: " + JSON.stringify(canvasBleed));
   const railCheck = await page2.evaluate(() => {
-    const cardRail = document.querySelector("#list article .tool-bar");
+    const bars = Array.from(document.querySelectorAll(".tool-bar"));
     const bar = document.getElementById("toolBar");
     const chips = Array.from(bar.querySelectorAll(".tool-chip"));
     return {
-      cardRailPresent: !!cardRail,
-      oldRail: document.querySelectorAll("#list .tool-rail").length,
+      toolBarCount: bars.length, // SATU rail: cuma kepala editor (prinsip E)
+      oldRail: document.querySelectorAll(".tool-rail").length,
       toolBarChipCount: chips.length,
       chipMinHeight: Math.min(...chips.map((c) => Math.round(c.getBoundingClientRect().height))),
       allOpaque: chips.every((c) => { const bg = getComputedStyle(c).backgroundColor; return bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent"; }),
@@ -305,9 +311,9 @@ try {
     };
   });
   note("p0_cardRail", railCheck);
-  if (railCheck.cardRailPresent) throw new Error("card rail .tool-bar still present — harus dihapus (prinsip E)");
-  if (railCheck.oldRail) throw new Error("old .tool-rail still present in card");
-  if (railCheck.toolBarChipCount !== 7) throw new Error("toolBar harus 7 chip (7 alat; '‹ Semua alat' pindah jadi tombol Back di top bar), got " + railCheck.toolBarChipCount);
+  if (railCheck.toolBarCount !== 1) throw new Error("harus SATU .tool-bar (kepala editor), got " + railCheck.toolBarCount);
+  if (railCheck.oldRail) throw new Error("old .tool-rail still present");
+  if (railCheck.toolBarChipCount !== 3) throw new Error("toolBar harus 3 chip (pivot: clean/meta/watermark), got " + railCheck.toolBarChipCount);
   if (railCheck.chipMinHeight < 48) throw new Error("rail chip min-height < 48px: " + railCheck.chipMinHeight);
   if (!railCheck.allOpaque) throw new Error("a rail chip has transparent background");
   if (!railCheck.activeFilled) throw new Error("active rail chip is not filled");
@@ -325,10 +331,9 @@ try {
 
   // ── Konteks 3: desktop — layout TENGAH (arah Bobby 19 Nov 2026 11:52:
   // "jangan jadi sidebar, tetap grid di tengah"). TIDAK ADA sidebar;
-  // kolom tengah 1024px, grid pemilih 4×2 (7 tile — contoh pindah ke
-  // bawah dropzone), top bar editor dibatasi lebar kolom, toast +
-  // maskot menempel tepi kanan kolom. Screenshot home/kartu/editor di
-  // 1366×768, 1440×900, 1920×1080.
+  // kolom tengah 1024px, dropzone hero di home (tanpa pemilih alat),
+  // top bar editor dibatasi lebar kolom, toast menempel tepi kanan
+  // kolom. Screenshot home/kartu/editor di 1366×768, 1440×900, 1920×1080.
   mkdirSync("/home/hatch/workspace/sirna-desktop-audit", { recursive: true });
   for (const [w, h, tag] of [[1366, 768, "1366"], [1440, 900, "1440"], [1920, 1080, "1920"]]) {
     const ctxD = await browser.newContext({ viewport: { width: w, height: h }, ignoreHTTPSErrors: true, ...(proxyOpt ? { proxy: proxyOpt } : {}) });
@@ -337,28 +342,22 @@ try {
     pd.on("pageerror", (e) => pageErrors.push("desk" + tag + ": " + String(e)));
     await pd.goto(BASE, { waitUntil: "networkidle" });
     await pd.waitForTimeout(1000);
-    // (D1) home: TIDAK ADA sidebar; pemilih alat hero TAMPIL; grid 4
-    // kolom × 2 baris, 7 tile (tile contoh KELUAR dari grid — contoh
-    // tinggal di bawah dropzone workspace, Fase 2), tinggi kartu rata
-    // per baris; kolom tengah ~1024px sejajar header; tanpa overflow.
+    // (D1) home file-first: TIDAK ADA sidebar; TIDAK ADA pemilih alat;
+    // dropzone hero TAMPIL di viewport tanpa scroll, contoh tepat di
+    // bawah dropzone; kolom tengah ~1024px sejajar header; tanpa overflow.
     const dHome = await pd.evaluate(() => {
       const main = document.querySelector("main").getBoundingClientRect();
       const hd = document.querySelector("header>div").getBoundingClientRect();
-      const pk = document.getElementById("toolPicker");
-      const tiles = Array.from(document.querySelectorAll("#toolPicker .tool-card"));
-      const cols = getComputedStyle(pk).gridTemplateColumns.split(" ").length;
-      const byRow = {};
-      tiles.forEach((t) => { const y = Math.round(t.getBoundingClientRect().top); (byRow[y] = byRow[y] || []).push(Math.round(t.getBoundingClientRect().height)); });
-      const rowSpread = Math.max(...Object.values(byRow).map((hs) => Math.max(...hs) - Math.min(...hs)));
-      const lastRowCount = Object.values(byRow).pop().length;
+      const dz = document.getElementById("dropZone").getBoundingClientRect();
+      const sr = document.getElementById("sampleRow").getBoundingClientRect();
       return {
         vw: window.innerWidth,
         noSidebar: !document.getElementById("deskSidebar"),
-        pickerVisible: getComputedStyle(pk).display !== "none" && pk.getBoundingClientRect().width > 0,
-        tiles: tiles.length,
-        noSampleTile: !document.getElementById("sampleTile"),
-        sampleInPanel: document.getElementById("sampleBtn").closest("#panel-cleaner") !== null,
-        cols, rows: Object.keys(byRow).length, lastRowCount, rowSpread,
+        toolPickerAbsent: !document.getElementById("toolPicker"),
+        dropzoneVisible: dz.width > 0 && dz.top >= 0 && dz.bottom <= window.innerHeight,
+        dropzoneInHero: document.getElementById("dropZone").closest("#heroSection") !== null,
+        sampleBelowDropzone: sr.top >= dz.bottom - 1,
+        sampleInHero: document.getElementById("sampleBtn").closest("#heroSection") !== null,
         mainW: Math.round(main.width), mainLeft: Math.round(main.left), mainRight: Math.round(main.right),
         headerInnerW: Math.round(hd.width),
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -366,25 +365,20 @@ try {
     });
     note("desk" + tag + "_home", dHome);
     if (!dHome.noSidebar) throw new Error("sidebar masih ada @" + tag);
-    if (!dHome.pickerVisible) throw new Error("pemilih alat hero tidak tampil @" + tag);
-    if (dHome.tiles !== 7) throw new Error("grid pemilih harus 7 tile (tanpa tile contoh), got " + dHome.tiles + " @" + tag);
-    if (!dHome.noSampleTile) throw new Error("tile Coba foto contoh masih di grid @" + tag);
-    if (!dHome.sampleInPanel) throw new Error("contoh tidak di bawah dropzone workspace @" + tag);
-    if (dHome.cols !== 4) throw new Error("grid pemilih harus 4 kolom @" + tag + ", got " + dHome.cols);
-    if (dHome.rows !== 2) throw new Error("grid pemilih harus 2 baris @" + tag + ", got " + dHome.rows);
-    if (dHome.lastRowCount !== 3) throw new Error("baris terakhir grid harus 3 kartu @" + tag + ": " + dHome.lastRowCount + " kartu");
-    if (dHome.rowSpread > 1) throw new Error("tinggi kartu tidak rata dalam baris @" + tag + ": spread " + dHome.rowSpread);
+    if (!dHome.toolPickerAbsent) throw new Error("pemilih alat masih ada @" + tag);
+    if (!dHome.dropzoneVisible) throw new Error("dropzone hero tidak tampil di viewport @" + tag);
+    if (!dHome.dropzoneInHero) throw new Error("dropzone tidak di dalam hero @" + tag);
+    if (!dHome.sampleBelowDropzone) throw new Error("contoh tidak di bawah dropzone @" + tag);
+    if (!dHome.sampleInHero) throw new Error("contoh tidak di hero @" + tag);
     if (dHome.mainW < 900 || dHome.mainW > 1060) throw new Error("lebar kolom tengah tidak masuk akal @" + tag + ": " + dHome.mainW);
     if (Math.abs(dHome.mainLeft - (dHome.vw - dHome.mainRight)) > 2) throw new Error("kolom tengah tidak rata tengah @" + tag);
     if (Math.abs(dHome.headerInnerW - dHome.mainW) > 2) throw new Error("header tidak sejajar kolom konten @" + tag);
     if (dHome.overflow > 0) throw new Error("horizontal overflow home @" + tag + ": " + dHome.overflow);
     await pd.screenshot({ path: "/home/hatch/workspace/sirna-desktop-audit/desktop-home-" + tag + ".png" });
-    // (D2) pilih Bersihkan dulu lalu foto contoh: editor MENGGANTIKAN
-    // home (hero hilang), kanvas kelihatan di viewport; kartu file
-    // tetap terjangkau via scroll; toast TIDAK menutupi tombol Simpan
-    // di top bar; FAQ tersembunyi di mode editor.
-    await pd.click('[data-tool="clean"]');
-    await pd.waitForTimeout(600);
+    // (D2) foto contoh langsung dari home: editor MENGGANTIKAN home
+    // (hero hilang), kanvas kelihatan di viewport; filmstrip terjangkau
+    // via scroll; toast TIDAK menutupi tombol Simpan di top bar; FAQ
+    // tersembunyi di mode editor.
     await clickSample(pd);
     await waitFor(pd, () => {
       const b = document.getElementById("primaryBtn");
@@ -408,7 +402,7 @@ try {
         toastOverlapSave: tr ? !(tr.bottom <= br.top || tr.top >= br.bottom || tr.right <= br.left || tr.left >= br.right) : false,
         toastRightEdge: tr ? Math.round(tr.right) : -1,
         mainRight: Math.round(main.right),
-        cardCount: document.querySelectorAll("#list article").length,
+        filmCount: document.querySelectorAll("#shellFilm .shell-thumb").length,
         faqHidden: getComputedStyle(document.getElementById("faqSection")).display === "none",
         heroHidden: document.getElementById("heroSection").classList.contains("hidden"),
         panelShown: getComputedStyle(document.getElementById("panel-cleaner")).display !== "none",
@@ -419,21 +413,22 @@ try {
     if (!dCard.saveCenterHit) throw new Error("tombol Simpan tertutup " + dCard.saveHitTag + " @" + tag);
     if (dCard.toastOverlapSave) throw new Error("toast menutupi tombol Simpan @" + tag);
     if (dCard.toastRightEdge !== -1 && Math.abs((dCard.mainRight - 24) - dCard.toastRightEdge) > 4) throw new Error("toast tidak menempel tepi kanan kolom @" + tag + " (toastRight " + dCard.toastRightEdge + ", mainRight " + dCard.mainRight + ")");
-    if (dCard.cardCount !== 1) throw new Error("kartu file tidak ada setelah contoh @" + tag + ": " + dCard.cardCount);
+    if (dCard.filmCount !== 1) throw new Error("filmstrip tidak ada setelah contoh @" + tag + ": " + dCard.filmCount);
     if (!dCard.faqHidden) throw new Error("FAQ masih tampil di mode editor @" + tag);
     if (!dCard.heroHidden) throw new Error("hero masih tampil di mode editor @" + tag);
     if (!dCard.panelShown) throw new Error("panel workspace tidak tampil setelah upload @" + tag);
-    // Kartu file terjangkau: scroll ke kartu -> kelihatan.
-    await pd.evaluate(() => document.querySelector("#list article").scrollIntoView({ block: "center" }));
+    // Filmstrip terjangkau: scroll ke sana -> kelihatan.
+    await pd.evaluate(() => document.getElementById("shellFilm").scrollIntoView({ block: "center" }));
     await pd.waitForTimeout(400);
-    const cardSeen = await pd.evaluate(() => { const r = document.querySelector("#list article").getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; });
-    note("desk" + tag + "_cardReachable", cardSeen);
-    if (!cardSeen) throw new Error("kartu file tidak terjangkau via scroll @" + tag);
+    const filmSeen = await pd.evaluate(() => { const r = document.getElementById("shellFilm").getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; });
+    note("desk" + tag + "_filmReachable", filmSeen);
+    if (!filmSeen) throw new Error("filmstrip tidak terjangkau via scroll @" + tag);
     await pd.screenshot({ path: "/home/hatch/workspace/sirna-desktop-audit/desktop-card-" + tag + ".png" });
     // (D3) editor kanonis satu kolom tengah: top bar editor selebar
     // kolom (bukan selebar layar), Simpan di baris atas, pengaturan
-    // in-flow (bukan grid inspector), maskot menempel tepi kanan kolom
-    // di atas dock (bottomGap 120–150px, Fase 2).
+    // in-flow (bukan grid inspector). Maskot pivot cuma tampil saat
+    // proses jalan — setelah bersih dia sembunyi, jadi tidak diasersi
+    // di sini (lihat workflow: dock + mascot saat proses).
     await pd.evaluate(() => document.getElementById("editorHead").scrollIntoView({ block: "start" }));
     await pd.waitForTimeout(400);
     const dEd = await pd.evaluate(() => {
@@ -442,7 +437,6 @@ try {
       const btn = document.getElementById("primaryBtn").getBoundingClientRect();
       const pc = document.getElementById("panel-cleaner");
       const main = document.querySelector("main").getBoundingClientRect();
-      const m = document.getElementById("mascotStage").getBoundingClientRect();
       return {
         canvasVisible: img.width > 0 && img.height > 100,
         topBarW: Math.round(bar.width),
@@ -454,8 +448,6 @@ try {
         primaryLabel: document.getElementById("primaryBtn").textContent,
         panelDisplay: getComputedStyle(pc).display,
         settingsVisible: !document.getElementById("settingsCard").classList.contains("hidden"),
-        mascotRightEdge: Math.round(m.right),
-        mascotBottomGap: Math.round(window.innerHeight - m.bottom),
         mainRight: Math.round(main.right),
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
@@ -468,8 +460,6 @@ try {
     if (dEd.saveH < 44) throw new Error("Simpan < 44px @" + tag + ": " + dEd.saveH);
     if (dEd.panelDisplay === "grid") throw new Error("panel masih grid inspector @" + tag);
     if (!dEd.settingsVisible) throw new Error("pengaturan tidak tampil di editor Bersihkan @" + tag);
-    if (Math.abs((dEd.mainRight - 16) - dEd.mascotRightEdge) > 6) throw new Error("maskot tidak menempel tepi kanan kolom @" + tag + " (mascotRight " + dEd.mascotRightEdge + ", mainRight " + dEd.mainRight + ")");
-    if (dEd.mascotBottomGap < 120 || dEd.mascotBottomGap > 150) throw new Error("maskot tidak di atas dock @" + tag + " (bottomGap " + dEd.mascotBottomGap + ")");
     if (dEd.overflow > 0) throw new Error("horizontal overflow editor @" + tag + ": " + dEd.overflow);
     await pd.screenshot({ path: "/home/hatch/workspace/sirna-desktop-audit/desktop-editor-" + tag + ".png" });
     await ctxD.close();
@@ -481,5 +471,6 @@ note("consoleErrors", consoleErrors.slice(0, 10));
 note("pageErrors", pageErrors.slice(0, 10));
 await browser.close();
 server.kill();
+if (log.some(([k]) => k === "ERROR")) process.exitCode = 1;
 writeFileSync(OUT, JSON.stringify(log, null, 2));
 console.log("DONE ->", OUT);
