@@ -1300,7 +1300,7 @@ function useCleanProfile(profile:"label"|"privacy"|"deep"){
   if(batchActive){toast("Antrean masih berjalan. Selesaikan atau batalkan dulu.");return;}
   cleanProfile=profile;
   setDeepClean(profile==="deep");
-  $("[data-clean-profile]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.cleanProfile===profile?"true":"false"));
+  $$("[data-clean-profile]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.cleanProfile===profile?"true":"false"));
   try{localStorage.setItem("sirna-clean-profile",profile);}catch{}
   if(items.length&&activeTool==="clean") void cleanBatch([...items]);
 }
@@ -1308,7 +1308,7 @@ try{
   const p=localStorage.getItem("sirna-clean-profile");
   if(p==="privacy"||p==="deep"||p==="label"){cleanProfile=p;setDeepClean(p==="deep");}
 }catch{}
-$("[data-clean-profile]").forEach(b=>{
+$$("[data-clean-profile]").forEach(b=>{
   b.setAttribute("aria-pressed",b.dataset.cleanProfile===cleanProfile?"true":"false");
   b.addEventListener("click",()=>useCleanProfile(b.dataset.cleanProfile as "label"|"privacy"|"deep"));
 });
