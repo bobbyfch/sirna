@@ -10,7 +10,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import ts from 'typescript';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { decodePng } from './fixtures/png-io.mjs';
 
 // Node tidak punya ImageData global — polyfill minimal (removeSparkle
@@ -24,17 +25,15 @@ if (!('ImageData' in globalThis)) {
   };
 }
 
-// Transpile without relying on any workstation path or shared /tmp output.
+// Compile with the CLI checked out by Cloudflare Builds; no hard-coded cwd or /tmp location.
+const root = fileURLToPath(new URL('../', import.meta.url));
 const testDir = mkdtempSync(join(tmpdir(), 'sirna-watermark-'));
 writeFileSync(join(testDir, 'package.json'), '{"type":"module"}');
-const source = readFileSync(new URL('../src/revalpha.ts', import.meta.url), 'utf8');
-const emitted = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-  fileName: 'revalpha.ts', reportDiagnostics: true,
-});
-const errors = emitted.diagnostics?.filter(d => d.category === ts.DiagnosticCategory.Error) || [];
-assert.equal(errors.length, 0, `Transpile revalpha: ${errors.map(e => ts.flattenDiagnosticMessageText(e.messageText, '\\n')).join('; ')}`);
-writeFileSync(join(testDir, 'revalpha.js'), emitted.outputText);
+const compile = spawnSync(join(root, 'node_modules/.bin/tsc'),
+  ['src/revalpha.ts', '--ignoreConfig', '--module', 'esnext',
+   '--moduleResolution', 'bundler', '--target', 'es2022', '--outDir', testDir, '--skipLibCheck'],
+  { cwd: root, encoding: 'utf8' });
+assert.equal(compile.status, 0, 'Watermark test compilation failed:\n' + compile.stdout + compile.stderr);
 const { detectGeminiSparkle, removeSparkle, nccScore, getAlphaMap } =
   await import(pathToFileURL(join(testDir, 'revalpha.js')).href);
 
