@@ -23,7 +23,11 @@ export function ensureMetaFixtures() {
   entry(0,0x010f,2,make.length,start);
   entry(1,0x0110,2,model.length,start+make.length);
   entry(2,0x8825,4,1,start+make.length+model.length);
-  const tiff=Buffer.concat([Buffer.from([0x49,0x49,0x2a,0]),u32(8),ifd,make,model,u16(0),u32(0)]);
+  const gps=Buffer.alloc(2+12+4);
+  gps.writeUInt16LE(1,0); // GPS IFD with LatitudeRef = "N"
+  gps.writeUInt16LE(1,2); gps.writeUInt16LE(2,4);
+  gps.writeUInt32LE(2,6); gps[10]=0x4e; gps[11]=0;
+  const tiff=Buffer.concat([Buffer.from([0x49,0x49,0x2a,0]),u32(8),ifd,make,model,gps]);
   const payload=Buffer.concat([Buffer.from('Exif\0\0'),tiff]);
   const length=Buffer.alloc(2);length.writeUInt16BE(payload.length+2);
   writeFileSync(here+'/jejak-exif.jpg',Buffer.concat([
