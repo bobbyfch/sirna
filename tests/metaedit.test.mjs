@@ -4,18 +4,30 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import ts from 'typescript';
 import { listPngChunks, decodePng } from './fixtures/png-io.mjs';
 
-spawnSync('./node_modules/.bin/tsc', ['src/metaedit.ts', 'src/jejak.ts', '--ignoreConfig', '--module', 'nodenext', '--moduleResolution', 'nodenext', '--target', 'es2022', '--outDir', '/tmp/meta-ts-out', '--skipLibCheck'], { cwd: '/home/hatch/workspace/sirna-vite' });
-// tsc nodenext mempertahankan import "./jejak" tanpa ekstensi — tambahkan .js agar Node bisa resolve.
-import { writeFileSync } from 'node:fs';
-{
-  const p = '/tmp/meta-ts-out/metaedit.js';
-  writeFileSync(p, readFileSync(p, 'utf8').replace('from "./jejak"', 'from "./jejak.js"'));
+// Transpile inside an isolated ESM temp directory. Never assume a developer
+// workspace path: Cloudflare Builds checks out the repo elsewhere.
+const testDir = mkdtempSync(join(tmpdir(), 'sirna-meta-'));
+writeFileSync(join(testDir, 'package.json'), '{"type":"module"}');
+for (const name of ['jejak', 'metaedit']) {
+  const source = readFileSync(new URL(`../src/${name}.ts`, import.meta.url), 'utf8');
+  const emitted = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    fileName: `${name}.ts`, reportDiagnostics: true,
+  });
+  const errors = emitted.diagnostics?.filter(d => d.category === ts.DiagnosticCategory.Error) || [];
+  assert.equal(errors.length, 0, `Transpile ${name}: ${errors.map(e => ts.flattenDiagnosticMessageText(e.messageText, '\\n')).join('; ')}`);
+  writeFileSync(join(testDir, `${name}.js`),
+    emitted.outputText.replace(/from ["']\\.\\/jejak["']/g, 'from "./jejak.js"'));
 }
-const { listEditableFields, applyFieldEdits } = await import('/tmp/meta-ts-out/metaedit.js');
-const { scanTraces } = await import('/tmp/meta-ts-out/jejak.js');
+const { listEditableFields, applyFieldEdits } = await import(pathToFileURL(join(testDir, 'metaedit.js')).href);
+const { scanTraces } = await import(pathToFileURL(join(testDir, 'jejak.js')).href);
 
 const jpgBuf = () => readFileSync(new URL('./fixtures/jejak-exif.jpg', import.meta.url));
 const jpgBlob = () => new Blob([jpgBuf()], { type: 'image/jpeg' });

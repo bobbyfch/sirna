@@ -6,7 +6,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import ts from 'typescript';
 import { decodePng } from './fixtures/png-io.mjs';
 
 // Node tidak punya ImageData global — polyfill minimal (removeSparkle
@@ -20,8 +24,19 @@ if (!('ImageData' in globalThis)) {
   };
 }
 
-spawnSync('./node_modules/.bin/tsc', ['src/revalpha.ts', '--ignoreConfig', '--module', 'nodenext', '--moduleResolution', 'nodenext', '--target', 'es2022', '--outDir', '/tmp/revalpha-ts-out', '--skipLibCheck'], { cwd: '/home/hatch/workspace/sirna-vite' });
-const { detectGeminiSparkle, removeSparkle, nccScore, getAlphaMap } = await import('/tmp/revalpha-ts-out/revalpha.js');
+// Transpile without relying on any workstation path or shared /tmp output.
+const testDir = mkdtempSync(join(tmpdir(), 'sirna-watermark-'));
+writeFileSync(join(testDir, 'package.json'), '{"type":"module"}');
+const source = readFileSync(new URL('../src/revalpha.ts', import.meta.url), 'utf8');
+const emitted = ts.transpileModule(source, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  fileName: 'revalpha.ts', reportDiagnostics: true,
+});
+const errors = emitted.diagnostics?.filter(d => d.category === ts.DiagnosticCategory.Error) || [];
+assert.equal(errors.length, 0, `Transpile revalpha: ${errors.map(e => ts.flattenDiagnosticMessageText(e.messageText, '\\n')).join('; ')}`);
+writeFileSync(join(testDir, 'revalpha.js'), emitted.outputText);
+const { detectGeminiSparkle, removeSparkle, nccScore, getAlphaMap } =
+  await import(pathToFileURL(join(testDir, 'revalpha.js')).href);
 
 function toImgLike(png) {
   return { data: new Uint8ClampedArray(png.data), width: png.width, height: png.height };
