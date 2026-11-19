@@ -1391,7 +1391,7 @@ var dz=$("#dropZone"), fi=$("#fileInput"), foi=$("#folderInput"), vi=$("#videoIn
 fi.addEventListener("click",function(e){ e.stopPropagation(); });
 foi.addEventListener("click",function(e){ e.stopPropagation(); });
 vi.addEventListener("click",function(e){ e.stopPropagation(); });
-dz.addEventListener("click",function(e){ if((e.target as Element).closest("#folderBtn")||(e.target as Element).closest("#videoPickBtn")) return; if(e.target===fi||e.target===foi||e.target===vi) return; fi.click(); });
+dz.addEventListener("click",function(e){ if((e.target as Element).closest("#folderBtn")||(e.target as Element).closest("#videoPickBtn")||(e.target as Element).closest("#pickLabel")) return; if(e.target===fi||e.target===foi||e.target===vi) return; fi.click(); });
 dz.addEventListener("keydown",function(e){ if((e.target as Element).closest("#folderBtn")||(e.target as Element).closest("#videoPickBtn")) return; if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fi.click(); }});
 
 /* ── Deteksi kemampuan perangkat — tampilan menyesuaikan OTOMATIS ──
