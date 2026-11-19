@@ -962,3 +962,6 @@ html.dark #sheet{background:#1C1C1E}
 .meta-status{font-size:13.5px;line-height:1.5;min-height:1.2em;width:100%}
 .meta-clean{font-size:14px;color:var(--muted);line-height:1.55}
 .meta-scrub{margin-top:10px}
+
+/* Native widgets and browser chrome follow the selected appearance. */
+html.dark { color-scheme: dark; }
