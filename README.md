@@ -104,3 +104,18 @@ Cloudflare Pages dan bukan GitHub Actions deploy.
 - CSP di `public/_headers` tidak lagi mengizinkan origin eksternal (Tailwind
   + JSZip sudah dibundel); `'unsafe-inline'` masih perlu buat script tema
   inline + atribut `style`.
+
+## Studio 2026 — antarmuka dan pemeriksaan lokal
+
+- Beranda sederhana: masukkan satu atau banyak file → proses otomatis → lihat hasil dan simpan.
+- Inspector: format/resolusi/metadata yang dikenali, ringkasan jejak privasi, dan indikasi *wadah* C2PA secara lokal. **Tidak melakukan verifikasi sertifikat, signature, manifest, maupun provenance eksternal**; tidak adanya penanda bukan bukti bahwa konten bukan AI.
+- Tiga profil cleaning: Label & Metadata, Privasi Menyeluruh, Deep Clean. Proses ulang antrean ketika profil berubah. Deep dapat mengubah kualitas atau piksel gambar.
+- Setelah memproses: perbandingan ukuran, resolusi jika browser bisa decode, format, dan jumlah jejak yang masih terdeteksi. Pernyataan lossless dibuat hanya pada jalur yang memang menghapus chunk tanpa menggambar ulang.
+- Batch: antrean, hentikan setelah berkas aktif selesai, ulangi berkas gagal, dan unduh beberapa hasil sebagai ZIP.
+- Template metadata: simpan **aturan menghapus field saja** di penyimpanan lokal; preview dan terapkan secara eksplisit. Nilai EXIF/GPS tidak disimpan ke template.
+- HEIC/HEIF/TIFF dapat dipilih dan dicoba didekode oleh browser; **tidak semua browser mendukungnya**. Jika decode gagal, tampilkan alasan agar pengguna mengekspor dari galeri ke JPG/PNG dulu. Hindari mengganti format secara diam-diam.
+- Semua pemrosesan tetap browser-only, tanpa unggahan berkas ke backend. Pemindaian inspector menggunakan module Web Worker jika tersedia, dengan fallback pada browser yang tidak mendukungnya.
+
+UI mengikuti kontrak Apple-first pada AGENTS.md untuk hierarki, keterjangkauan sentuh, fokus keyboard, dark mode, reduced motion/transparency, dan progressive disclosure. Layer glass dipakai terbatas pada navigasi, bukan pada isi berkas.
+
+**Catatan:** menghapus metadata tertanam tidak menjamin aplikasi sosial tidak mengenali gambar AI; jejak asal-usul juga bisa berada di sistem eksternal.

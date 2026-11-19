@@ -745,7 +745,7 @@ async function cleanVideoItem(item){
       item.cleanedScan=item.scan; item.tools.clean="selesai";
       if(item.cleanedUrl) URL.revokeObjectURL(item.cleanedUrl);
       item.cleanedUrl=URL.createObjectURL(item.file);
-      finishClean(item,{head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran tetap '+formatBytes(item.file.size)+'. File ini aman diunggah.'});
+      finishClean(item,{head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran tetap '+formatBytes(item.file.size)+'. Berkas berhasil diproses; platform lain tetap bisa mendeteksi asal konten dengan metode berbeda.'});
       return;
     }
     var buf=await item.file.arrayBuffer();
@@ -774,7 +774,7 @@ async function cleanVideoItem(item){
       ? {head:"Hasil belum terverifikasi", body:'Ukuran tetap '+formatBytes(blob.size)+'.'}
       : vscan.hasAI
         ? {head:"Label masih ketemu", body:'Sisa: <b style="color:var(--red-text)">'+escapeHtml(vscan.found.join(", "))+'</b> · ukuran tetap '+formatBytes(blob.size)}
-        : {head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran tetap '+formatBytes(blob.size)+'. File ini aman diunggah.'};
+        : {head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran tetap '+formatBytes(blob.size)+'. Berkas berhasil diproses; platform lain tetap bisa mendeteksi asal konten dengan metode berbeda.'};
     finishClean(item,box);
   }catch(e){
     var reason=String((e&&e.message)||"Gagal").replace(/\.+$/,"");
@@ -893,8 +893,7 @@ async function cleanItem(item){
     if(cleanProfile==="privacy" && outFormat==="same"){
       blob=await scrubTracesBlob(item.file);
       outType=blob.type || outType;
-      pixelDataPreserved= blob.size>0 && (fileType==="image/jpeg"||fileType==="image/png")
-        && (await scanTraces(blob)).length===0 && blob.type===fileType;
+      pixelDataPreserved=false; // scrub may reencode via canvas; never claim unchanged pixels without proof
     }
     /* Jalur lossless: Format Asli + kualitas default (92) + bukan Deep Clean +
        PNG/JPEG → buang metadata tanpa sentuh piksel, ukuran nyaris tetap.
@@ -935,7 +934,7 @@ async function cleanItem(item){
        sebelum → sesudah; kalau sisa label, ada tombol Bersihkan dengan Deep. */
     var box= vscan.hasAI
       ? {head:"Label masih ketemu", body:'Sisa: <b style="color:var(--red-text)">'+escapeHtml(vscan.found.join(", "))+'</b>. Coba mode Deep — biasanya sisa label hilang di situ.', action:{label:"Bersihkan dengan Deep", act:"deepclean"}}
-      : {head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran '+formatBytes(item.file.size)+' → '+formatBytes(blob.size)+'. File ini aman diunggah.'};
+      : {head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran '+formatBytes(item.file.size)+' → '+formatBytes(blob.size)+'. Berkas berhasil diproses; platform lain tetap bisa mendeteksi asal konten dengan metode berbeda.'};
     finishClean(item,box);
   }catch(e){
     /* A6: alasan + "file aslimu aman" + tombol [Coba lagi]. */
