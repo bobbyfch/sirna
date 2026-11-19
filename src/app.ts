@@ -1216,7 +1216,7 @@ function inspectionFor(blob:Blob,name:string):Promise<Inspection>{
   let work:Promise<Inspection>;
   if(inspectWorker){
     const id=++inspectSequence;
-    work=new Promise((resolve,reject)=>{
+    work=new Promise<Inspection>((resolve,reject)=>{
       pendingInspections.set(id,{resolve,reject});
       try{inspectWorker!.postMessage({id,blob,name});}
       catch(e){pendingInspections.delete(id);reject(e);}

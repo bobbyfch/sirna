@@ -823,7 +823,7 @@ export function exportDeletionTemplate():DeletionRule[] {
   return [...cur.draft.values()].filter(e=>e.action==="delete").map(e=>{
     const f=cur!.fields.find(x=>x.id===e.id);
     return f?{kind:f.kind,group:f.group,label:f.label}:null;
-  }).filter((x):x is DeletionRule=>x!==null);
+  }).filter((x):x is {kind:MetaKind;group:string;label:string}=>x!==null);
 }
 export function loadDeletionTemplate(rules:unknown):number {
   if(!cur||!Array.isArray(rules))return 0;
