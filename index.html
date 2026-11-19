@@ -91,7 +91,7 @@
   </div>
 </header>
 
-<main class="max-w-3xl mx-auto px-4">
+<main class="max-w-6xl mx-auto px-4">
 
   <!-- Judul ringkas — TANPA maskot di keadaan awal: hero ramping biar
        dropzone langsung kelihatan. Naya cuma muncul pas proses, sebagai
@@ -99,8 +99,9 @@
        bawah, sesudah #procDock). -->
   <section class="relative pt-8 sm:pt-12 pb-6" id="heroSection">
     <div class="hero-glow" aria-hidden="true"></div>
-    <h1 class="rise rise-1 relative font-bold tracking-tight leading-[1.06] text-[34px] sm:text-[50px]">Taruh foto. Beres. <span class="grad-text">Simpan.</span></h1>
-    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Taruh foto atau video, kami bersihkan label AI-nya, lalu simpan. Semua di browser kamu, tanpa server.</p>
+    <span class="studio-kicker">Privasi, langsung di perangkatmu</span>
+    <h1 class="rise rise-1 relative">Lebih sedikit jejak.<br><span class="grad-text">Lebih banyak kendali.</span></h1>
+    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Periksa apa yang tersembunyi di dalam foto atau video, tentukan cara membersihkannya, lalu unduh hasilnya. File tidak dikirim ke server.</p>
     <!-- ═══ LAYAR A — HOME FILE-FIRST ═══
          File-first: taruh file dulu, alat default Bersihkan jalan
          otomatis; ganti alat lewat chip di editor. Dropzone adalah
@@ -111,8 +112,8 @@
     class="card rise rise-4 border-2 border-dashed p-7 sm:p-9 text-center cursor-pointer select-none mt-6" style="border-color:#C9CCC9">
     <div class="dz-inner-3d">
     <div class="w-14 h-14 mx-auto rounded-full grad-bg text-white grid place-items-center"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-upload"/></svg></div>
-    <h2 class="mt-4 font-semibold text-[21px] tracking-tight" id="dzTitle">Drop file di sini</h2>
-    <p class="mt-1 text-[15px]" style="color:var(--muted)" id="dzHint">Foto &amp; video · banyak sekaligus</p>
+    <h2 class="mt-4 font-semibold text-[21px] tracking-tight" id="dzTitle">Taruh berkasmu di sini</h2>
+    <p class="mt-1 text-[15px]" style="color:var(--muted)" id="dzHint">Seret ke sini, atau pilih satu maupun banyak file</p>
     <div class="dz-icons" aria-hidden="true">
       <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-image"/></svg></span>
       <span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-film"/></svg></span>
@@ -132,6 +133,11 @@
            jadi nggak ada lagi teks "belum didukung" yang ujungnya tetep buka picker file. -->
       <button type="button" id="folderBtn" class="btn-ic min-h-[44px] px-5 rounded-full font-semibold text-sm border" style="border-color:var(--line);display:none"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-folder"/></svg>Folder</button>
     </div>
+  </div>
+  <div class="studio-how" aria-label="Tiga langkah sederhana">
+    <article><span class="studio-step">01 / MASUKKAN</span><strong>Pilih file</strong><p>Bisa satu berkas, beberapa sekaligus, atau foto contoh.</p></article>
+    <article><span class="studio-step">02 / PERIKSA</span><strong>Lihat jejaknya</strong><p>Baca metadata, indikasi C2PA, dan perubahan sebelum menyimpan.</p></article>
+    <article><span class="studio-step">03 / SIMPAN</span><strong>Unduh hasil</strong><p>Proses berlangsung di browser. Berkas asli tetap kamu miliki.</p></article>
   </div>
   <!-- Coba foto contoh — thumbnail DI BAWAH dropzone (pola 6/6 tools
        referensi: contoh selalu deret thumbnail di bawah dropzone).
@@ -169,7 +175,7 @@
        Versi di bawah kanvas (satu undo, prinsip I) — tombol undo/redo
        kedua di top bar akan jadi jalur undo ganda. ═══ -->
   <div id="editorTopBar" class="editor-topbar">
-    <button type="button" id="editorBackBtn" class="ed-back" title="Semua alat" aria-label="Kembali ke semua alat">‹ Back</button>
+    <button type="button" id="editorBackBtn" class="ed-back" title="Kembali ke beranda" aria-label="Kembali ke beranda">‹ Kembali</button>
     <div class="tool-bar" id="toolBar" role="group" aria-label="Ganti alat">
       <button type="button" class="tool-chip" data-tool-switch="clean" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eraser"/></svg>Bersihkan</button>
       <button type="button" class="tool-chip" data-tool-switch="meta" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-database"/></svg>Edit Metadata</button>
@@ -183,7 +189,8 @@
        bawah halaman. Bukan sticky — antrean di bawah tetap bisa di-scroll
        & diklik tanpa tertutup. Satu foto satu sesi: ganti alat lewat rail,
        foto & hasil ikut. ═══ -->
-  <section id="editorHead" class="hidden" aria-label="Foto yang sedang diedit">
+  <section id="editorHead" class="hidden" aria-label="File yang sedang diproses">
+    <div class="studio-workbench"><div class="studio-canvas-column">
     <div id="shellFilm" class="shell-film" role="group" aria-label="Foto di antrean"></div>
     <div class="shell-canvas-wrap">
       <img id="shellImg" alt="Foto yang sedang diedit">
@@ -192,11 +199,23 @@
         <button type="button" id="shellCompare" class="shell-chip-btn" aria-pressed="false" aria-label="Lihat foto asli">Lihat asli</button>
       </div>
     </div>
+    </div><div class="studio-detail-column">
     <div class="shell-status">
       <span id="shellPill" class="status-pill shrink-0 pill-plain"></span>
       <p id="shellStatus" class="shell-status-text"></p>
     </div>
     <div class="tool-status" id="toolStatus" role="status"></div>
+    <section class="studio-inspector" aria-labelledby="inspectorHeading">
+      <span class="studio-section-label">Inspector / on device</span>
+      <h3 id="inspectorHeading">Di dalam file ini</h3>
+      <p>Lihat metadata dan provenance sebelum membagikan berkas. Ini pemeriksaan, bukan jaminan anonim.</p>
+      <div id="inspectorContent" class="studio-inspector-state" role="status" aria-live="polite">Menunggu file…</div>
+      <details id="credentialsDetail"><summary>Content Credentials</summary><p id="credentialsContent">Belum diperiksa.</p></details>
+      <details id="tracesDetail"><summary>Detail metadata</summary><div id="traceList" class="studio-trace-list"></div></details>
+    </section>
+    <section id="integrityPanel" class="studio-integrity" aria-label="Pemeriksaan hasil" hidden>
+      <h4>Pemeriksaan hasil</h4><ul id="integrityList"></ul>
+    </section>
     <div id="shellVersions" class="version-row hidden"></div>
     <div id="shellBadges" class="flex flex-wrap gap-1.5 mt-2.5"></div>
     <div id="shellDetect"></div>
@@ -204,12 +223,23 @@
     <div class="shell-file-actions">
       <button type="button" id="removeFileBtn" class="btn-remove">Buang file ini</button>
       <button type="button" id="restartBtn" class="btn-ic min-h-[40px] px-3.5 rounded-full border font-semibold text-[13px]" style="border-color:var(--line);color:var(--muted)" title="Buang semua file dan kembali ke home" aria-label="Mulai ulang — buang semua file"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-rotate"/></svg>Mulai ulang</button>
-    </div>
+    </div></div>
   </section>
+
+  <div class="studio-batch" id="batchControls" aria-label="Proses beberapa file">
+    <p id="batchSummary">Hasil file dan antrean akan ditampilkan di sini.</p>
+    <div><button type="button" id="batchRetry">Coba lagi yang gagal</button> <button type="button" id="batchCancel">Batalkan sisa antrean</button></div>
+  </div>
 
   <!-- Pengaturan — satu kartu ringkas, selalu kelihatan -->
   <div class="card mt-4 p-4 sm:p-5" id="settingsCard">
-    <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-sparkles"/></svg></span>Pengaturan</div>
+    <div class="studio-preset-header"><div><span class="studio-section-label">Aturan pembersihan</span><h3>Pilih hasil yang kamu butuhkan</h3><p>Preset mengatur cara pemrosesan, bukan mengganti file asli. Kamu tetap bisa mengubahnya sebelum mengunduh.</p></div></div>
+    <div class="studio-preset-options" id="presetBar" role="group" aria-label="Pilih profil pembersihan">
+      <button type="button" data-clean-profile="label" aria-pressed="true"><strong>Label & metadata</strong><small>Hapus label tertanam. Usahakan tanpa encode ulang.</small></button>
+      <button type="button" data-clean-profile="privacy" aria-pressed="false"><strong>Privasi menyeluruh</strong><small>Hapus jejak pribadi dan cek hasilnya ulang.</small></button>
+      <button type="button" data-clean-profile="deep" aria-pressed="false"><strong>Deep clean</strong><small>Gambar ulang agar lebih menyeluruh; piksel bisa berubah.</small></button>
+    </div>
+    <details id="advancedSettings"><summary>Pengaturan lanjutan: format, kualitas, nama</summary>
     <div class="flex flex-col gap-4 mt-4">
       <div class="grid grid-cols-2 gap-4">
         <div>
@@ -250,10 +280,12 @@
         </div>
       </div>
     </div>
+    </details>
   </div>
 
   <!-- Panel Edit Metadata (muncul hanya saat alat meta aktif) -->
-  <div id="metaPanel" class="hidden mt-4"></div>
+  <div id="metaTemplateBar" class="studio-template-bar hidden" aria-label="Template metadata"><span class="studio-title">Aturan metadata saya</span><button type="button" id="metaSaveTemplate">Simpan pilihan hapus</button><button type="button" id="metaLoadTemplate">Gunakan aturan</button><button type="button" id="metaDeleteTemplate">Hapus aturan</button></div>
+   <div id="metaPanel" class="hidden mt-4"></div>
 
 
   </div><!-- /panel-cleaner -->
@@ -312,7 +344,7 @@
   <!-- Input ini detail implementasi: user berinteraksi lewat dropzone & tombol Pilih Folder yang
        kelihatan, jadi input dikeluarkan dari accessibility tree (aria-hidden + tabindex -1)
        biar nggak kebaca sebagai kontrol tak-terlihat. Klik programatiknya tetap jalan normal. -->
-  <input type="file" id="fileInput" class="sr-file-input" accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/quicktime,video/webm" multiple aria-hidden="true" tabindex="-1">
+  <input type="file" id="fileInput" class="sr-file-input" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,image/tiff,.heic,.heif,.tif,.tiff,video/mp4,video/quicktime,video/webm" multiple aria-hidden="true" tabindex="-1">
   <input type="file" id="folderInput" class="sr-file-input" webkitdirectory directory multiple aria-hidden="true" tabindex="-1">
   <!-- Input video khusus HP: accept SATU kategori "video/*" (lihat catatan di tombol Pilih Video) -->
   <input type="file" id="videoInput" class="sr-file-input" accept="video/*" multiple aria-hidden="true" tabindex="-1">
