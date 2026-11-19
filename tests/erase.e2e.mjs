@@ -87,7 +87,7 @@ try {
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForFunction(() => {
     const b = document.getElementById("primaryBtn");
-    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
   }, { timeout: 30000 });
   note("cleanDone", "primary Simpan foto visible");
   await page.waitForTimeout(500);
@@ -247,7 +247,7 @@ await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForFunction(() => {
   const b = document.getElementById("primaryBtn");
-  return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
 }, { timeout: 30000 });
 await p2.click('[data-tool-switch="erase"]');
 await p2.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });

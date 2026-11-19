@@ -37,7 +37,7 @@
 
 
 </head>
-<body class="bg-[#F5F5F7] text-[#1D1D1F] dark:bg-black dark:text-[#F5F5F7] antialiased pb-28">
+<body class="bg-[#F5F5F7] text-[#1D1D1F] dark:bg-black dark:text-[#F5F5F7] antialiased pb-8">
 <!-- Icon pack (Lucide-style, stroke) — dipanggil via <svg class="ic"><use href="#i-…"/></svg> -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <defs>
@@ -80,7 +80,6 @@
       <span class="hidden lg:block text-[12.5px] font-medium truncate" style="color:var(--muted)">sirna.limaraya.com</span>
     </div>
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-      <button type="button" id="topBackBtn" class="hidden w-10 h-10 shrink-0 grid place-items-center rounded-full border bg-white dark:bg-[#1C1C1E]" style="border-color:var(--line)" title="Semua alat" aria-label="Kembali ke semua alat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="w-5 h-5"><path d="m15 18-6-6 6-6"/></svg></button>
       <span class="hidden md:flex items-center gap-1.5 text-xs font-medium" style="color:var(--muted)"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg>100% lokal</span>
       <button type="button" id="themeBtn" aria-label="Ganti ke mode gelap" aria-pressed="false" title="Mode terang / gelap" class="w-10 h-10 shrink-0 grid place-items-center rounded-full border bg-white dark:bg-[#1C1C1E]" style="border-color:var(--line)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="icon-moon w-5 h-5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -143,23 +142,6 @@
         <span class="tool-card-text"><b>Hapus Duplikat</b><span>Cari foto yang sama/mirip</span><i>Banyak file · pilih yang disimpan</i></span>
         <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
       </button>
-      <!-- Tile ke-8 (desktop ≥1024px): "Coba foto contoh" — grid 4×2 jadi
-           seimbang, tidak ada kartu yatim. Di HP tile ini display:none;
-           yang tampil tetap tombol pill #sampleBtn di bawah grid. Tanpa
-           data-tool supaya tidak ikut handler kartu pemilih; klik-nya
-           di-wire terpisah ke loadSamplePhoto yang sama. -->
-      <button type="button" class="tool-card" id="sampleTile" aria-label="Coba foto contoh">
-        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg></span>
-        <span class="tool-card-text"><b>Coba foto contoh</b><span>Foto berlabel AI</span><i>Buat nyoba alat apa pun</i></span>
-        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
-      </button>
-    </div>
-    <!-- Coba foto contoh: file dimuat & diantre, TAPI tidak ada alat yang
-         jalan otomatis — user tetap pilih alat dulu di atas (arah Bobby
-         19 Nov 2026 08:49 WIB: tidak ada alat default / pre-select). -->
-    <div class="rise rise-2 mt-4 flex flex-wrap items-center gap-2" id="sampleRow">
-      <button type="button" id="sampleBtn" class="btn-ic min-h-[48px] px-5 rounded-full font-semibold text-sm border" style="border-color:var(--line)"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-image"/></svg>Coba foto contoh</button>
-      <span class="text-[13.5px]" style="color:var(--muted)">Foto berlabel AI — buat nyoba alat apa pun.</span>
     </div>
     <div id="sampleBanner" class="hidden mt-3 px-4 py-3 rounded-2xl text-[14px] font-semibold" role="status" style="background:var(--fill);color:var(--label)"></div>
   </section>
@@ -169,23 +151,35 @@
        (wrap, bukan scroll tersembunyi) tanpa kehilangan file/hasil.
        Panel tersembunyi (class hidden) sampai alat dipilih. -->
   <div class="tool-panel hidden" id="panel-cleaner">
-  <!-- Baris ganti alat + stepper alat ini (3–4 langkah, §2.4) -->
-  <div class="tool-bar" id="toolBar" role="group" aria-label="Ganti alat">
-    <button type="button" class="tool-chip" data-tool-switch="" aria-pressed="false">‹ Semua alat</button>
-    <button type="button" class="tool-chip" data-tool-switch="clean" aria-pressed="false">Bersihkan</button>
-    <button type="button" class="tool-chip" data-tool-switch="erase" aria-pressed="false">Hapus Objek</button>
-    <button type="button" class="tool-chip" data-tool-switch="watermark" aria-pressed="false">Hapus Watermark</button>
-    <button type="button" class="tool-chip" data-tool-switch="background" aria-pressed="false">Hapus Latar</button>
-    <button type="button" class="tool-chip" data-tool-switch="upscale" aria-pressed="false">Perbesar</button>
-    <button type="button" class="tool-chip" data-tool-switch="jejak" aria-pressed="false">Hapus Jejak</button>
-    <button type="button" class="tool-chip" data-tool-switch="dedup" aria-pressed="false">Hapus Duplikat</button>
+  <!-- ═══ TOP BAR EDITOR (layout kanonis, pola clipdrop/magicstudio):
+       satu baris — kiri "‹ Back" (kembali ke pemilih alat), tengah rail
+       alat yang dipadatkan (7 chip ikon+label, bisa di-scroll), kanan
+       SATU tombol Simpan yang nempel di hasil. Bar ini sticky di atas
+       (menggantikan header situs yang disembunyikan saat editor aktif)
+       dan SELALU kelihatan tanpa scroll. Tidak ada lagi sticky bottom
+       bar untuk Simpan — tidak satu pun tools referensi yang memakainya.
+       Undo/redo terpisah TIDAK ditambahkan: undo Sirna adalah chip
+       Versi di bawah kanvas (satu undo, prinsip I) — tombol undo/redo
+       kedua di top bar akan jadi jalur undo ganda. ═══ -->
+  <div id="editorTopBar" class="editor-topbar">
+    <button type="button" id="editorBackBtn" class="ed-back" title="Semua alat" aria-label="Kembali ke semua alat">‹ Back</button>
+    <div class="tool-bar" id="toolBar" role="group" aria-label="Ganti alat">
+      <button type="button" class="tool-chip" data-tool-switch="clean" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eraser"/></svg>Bersihkan</button>
+      <button type="button" class="tool-chip" data-tool-switch="erase" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-sparkles"/></svg>Hapus Objek</button>
+      <button type="button" class="tool-chip" data-tool-switch="watermark" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-tag"/></svg>Hapus Watermark</button>
+      <button type="button" class="tool-chip" data-tool-switch="background" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-layers"/></svg>Hapus Latar</button>
+      <button type="button" class="tool-chip" data-tool-switch="upscale" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-expand"/></svg>Perbesar</button>
+      <button type="button" class="tool-chip" data-tool-switch="jejak" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg>Hapus Jejak</button>
+      <button type="button" class="tool-chip" data-tool-switch="dedup" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-repeat"/></svg>Hapus Duplikat</button>
+    </div>
+    <button type="button" id="primaryBtn" class="btn-ic ed-save grad-bg text-white font-bold text-[15px] hidden"></button>
   </div>
-  <div class="tool-status" id="toolStatus" role="status"></div>
   <!-- ═══ KEPALA EDITOR (kanonis, P0-1): foto terpilih di atas (maks 55vh),
-       status + versi di bawahnya, lalu rail alat. Bukan sticky — antrean
-       di bawah tetap bisa di-scroll & diklik tanpa tertutup (kepala yang
-       sticky menutupi tombol kartu di layar kecil). Satu foto satu sesi:
-       ganti alat lewat rail, foto & hasil ikut. ═══ -->
+       status + versi di bawahnya. Status satu baris (#toolStatus) pindah
+       ke sini — menempel tepat di bawah kanvas, bukan bar terpisah di
+       bawah halaman. Bukan sticky — antrean di bawah tetap bisa di-scroll
+       & diklik tanpa tertutup. Satu foto satu sesi: ganti alat lewat rail,
+       foto & hasil ikut. ═══ -->
   <section id="editorHead" class="hidden" aria-label="Foto yang sedang diedit">
     <div id="shellFilm" class="shell-film" role="group" aria-label="Foto di antrean"></div>
     <div class="shell-canvas-wrap">
@@ -199,6 +193,7 @@
       <span id="shellPill" class="status-pill shrink-0 pill-plain"></span>
       <p id="shellStatus" class="shell-status-text"></p>
     </div>
+    <div class="tool-status" id="toolStatus" role="status"></div>
     <div id="shellVersions" class="version-row hidden"></div>
   </section>
   <!-- 1 · Drop -->
@@ -227,6 +222,22 @@
            jadi nggak ada lagi teks "belum didukung" yang ujungnya tetep buka picker file. -->
       <button type="button" id="folderBtn" class="btn-ic min-h-[44px] px-5 rounded-full font-semibold text-sm border" style="border-color:var(--line);display:none"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-folder"/></svg>Folder</button>
     </div>
+  </div>
+  <!-- Coba foto contoh — thumbnail DI BAWAH dropzone (pola 6/6 tools
+       referensi: contoh selalu deret thumbnail di bawah dropzone, tidak
+       pernah di dalam grid alat). Foto contoh digenerate runtime
+       (src/sample.ts); thumbnail-nya diisi malas oleh ensureSampleThumb
+       di src/app.ts saat baris ini pertama tampil, dan file yang sama
+       dipakai ulang saat tombol diketuk — tanpa generate dua kali.
+       Baris ini cuma tampil sebelum ada file (dropzone sembunyi begitu
+       file masuk); alat sudah dipilih dulu, jadi foto contoh langsung
+       menjalankan alat itu (prinsip A: file + alat lengkap = jalan). -->
+  <div id="sampleRow" class="sample-row">
+    <span class="sample-label">Tidak ada foto? Coba salah satu ini:</span>
+    <button type="button" id="sampleBtn" class="sample-thumb" aria-label="Coba foto contoh">
+      <img id="sampleThumbImg" alt="Foto contoh — senja di bukit">
+      <span>Coba foto contoh</span>
+    </button>
   </div>
   <!-- PENTING: input file WAJIB di luar #dropZone. Dulu input ada di dalam dropzone,
        jadi klik programatik folderInput.click() ikut naik (bubbling) ke handler klik
@@ -294,6 +305,14 @@
         <button type="button" id="addMoreBtn" class="icon-btn" title="Tambah file" aria-label="Tambah file" style="background:var(--accent);color:#fff"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </div>
     </div>
+    <!-- Batch bar — satu baris, satu aksi utama. Dulu fixed di bawah
+         (sticky bottom kedua setelah tombol utama); sekarang in-flow di
+         dalam antrean, tepat di bawah judul daftar — tanpa sticky bottom
+         sama sekali di editor (pola tools referensi). -->
+    <div id="batchBar" class="batch-strip hidden">
+      <span id="batchStats" class="text-sm font-semibold mr-auto truncate"></span>
+      <button type="button" id="clearBtn" class="icon-btn shrink-0" style="color:var(--muted)" title="Hapus semua" aria-label="Hapus semua"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button>
+    </div>
     <div id="dedupView" class="hidden mt-3" aria-label="Duplikat">
       <div class="card p-4 sm:p-5">
         <div>
@@ -345,15 +364,6 @@
   </footer>
 </main>
 
-<!-- Bar utama sticky (P0-1): SATU tombol, kata kerja alat aktif, 16px di
-     atas safe-area. Muncul kalau workspace buka + ada foto + alat aktif.
-     Naik di atas batch bar (ZIP) kalau bar itu tampil. -->
-<div id="primaryBar" class="hidden" style="padding-bottom:max(28px, calc(16px + env(safe-area-inset-bottom)))">
-  <div class="max-w-3xl mx-auto px-4">
-    <button type="button" id="primaryBtn" class="btn-ic w-full min-h-[54px] px-6 rounded-full grad-bg text-white font-bold text-[16px] shadow-lg"></button>
-  </div>
-</div>
-
 <!-- Bottom sheet generik (P1): konfirmasi & alur sekunder, maks 1 level. -->
 <div id="sheetScrim" class="hidden" aria-hidden="true"></div>
 <div id="sheet" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
@@ -363,14 +373,6 @@
   <div class="sheet-actions">
     <button type="button" id="sheetCancel" class="erase-btn">Batal</button>
     <button type="button" id="sheetConfirm" class="erase-btn primary"></button>
-  </div>
-</div>
-
-<!-- Batch bar — satu baris, satu aksi utama -->
-<div id="batchBar" class="hidden bg-white/95 dark:bg-[#141517]/95 backdrop-blur border-t" style="border-color:var(--line);padding-bottom:env(safe-area-inset-bottom)">
-  <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
-    <span id="batchStats" class="text-sm font-semibold mr-auto truncate"></span>
-    <button type="button" id="clearBtn" class="icon-btn shrink-0" style="color:var(--muted)" title="Hapus semua" aria-label="Hapus semua"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button>
   </div>
 </div>
 

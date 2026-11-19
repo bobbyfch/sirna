@@ -36,7 +36,6 @@
   details summary::-webkit-details-marker{display:none}
   details[open ] .faq-arrow{transform:rotate(45deg)}
   .faq-arrow{transition:transform .15s ease}
-  #batchBar{position:fixed;bottom:0;left:0;right:0;z-index:40}
   #previewModal{position:fixed;inset:0;z-index:50;overflow:auto}
   #toast{position:fixed;left:50%;transform:translateX(-50%);z-index:60;pointer-events:none;transition:opacity .25s ease, translate .25s ease}
   img,video{max-width:100%}
@@ -283,9 +282,9 @@
   .brand-chip{background:rgba(120,120,128,.08);border-color:transparent;color:var(--label);font-weight:600}
   .dark .brand-chip{background:rgba(120,120,128,.16);color:var(--label)}
   .brand-logo{border-radius:8px}
-  /* bar bawah & toast: material kaca */
-  #batchBar{background:rgba(251,251,253,.82);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%)}
-  html.dark #batchBar{background:rgba(28,28,30,.82)}
+  /* strip batch in-flow + toast: material kaca */
+  .batch-strip{background:rgba(251,251,253,.82);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%)}
+  html.dark .batch-strip{background:rgba(28,28,30,.82)}
   #toast{background:rgba(28,28,30,.92);color:#fff;border-radius:980px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 8px 28px rgba(0,0,0,.22)}
   html.dark #toast{background:rgba(245,245,247,.95);color:#1D1D1F}
   /* kotak info & sel nilai */
@@ -375,7 +374,7 @@
      halus (maks. ±10° di maskot, ±3° di kartu), pegas cubic-bezier,
      tanpa glow / gradasi baru. Semua animasi mati total di
      prefers-reduced-motion (aturan global di atas + blok di bawah). */
-  body,.card,header,#batchBar{transition:background-color .45s ease,border-color .45s ease}
+  body,.card,header{transition:background-color .45s ease,border-color .45s ease}
   /* — Maskot 3D — */
   .mascot-stage{position:relative;display:flex;flex-direction:column;align-items:center;margin:2px auto 14px;transition:transform .65s cubic-bezier(.34,1.4,.64,1),margin .65s cubic-bezier(.34,1.4,.64,1);animation:mascotIn .8s cubic-bezier(.22,1,.36,1) backwards}
   @keyframes mascotIn{from{opacity:0;transform:translateY(16px) scale(.82)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -451,8 +450,6 @@
   @keyframes modalFade{from{opacity:0}to{opacity:1}}
   #previewModal:not(.hidden) #previewBody>*{animation:pop3d .45s cubic-bezier(.34,1.4,.64,1) both}
   @keyframes pop3d{from{opacity:0;transform:perspective(900px) rotateX(6deg) scale(.92) translateY(14px)}to{opacity:1;transform:perspective(900px) rotateX(0) scale(1) translateY(0)}}
-  #batchBar:not(.hidden){animation:barUp .5s cubic-bezier(.22,1,.36,1) both}
-  @keyframes barUp{from{transform:perspective(900px) rotateX(10deg) translateY(110%);opacity:.4}to{transform:perspective(900px) rotateX(0) translateY(0);opacity:1}}
   #toast:not(.hidden){animation:toastPop .42s cubic-bezier(.34,1.56,.64,1) both}
   @keyframes toastPop{from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.82)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
   .grad-bg{transition:transform .18s cubic-bezier(.34,1.56,.64,1),opacity .2s ease}
@@ -494,9 +491,6 @@
      workspace meniru strip langkah editor (aktif = biru, selesai = hijau). */
   .tool-picker{display:grid;grid-template-columns:1fr;gap:10px;margin:22px 0 0;max-width:560px}
   @media (min-width:640px){.tool-picker{grid-template-columns:1fr 1fr}}
-  /* Tile "Coba foto contoh" cuma tampil di desktop (≥1024px, jadi kartu
-     ke-8 grid 4×2). Di HP yang tampil tetap tombol pill #sampleBtn. */
-  #sampleTile{display:none}
   .tool-card{display:flex;align-items:center;gap:12px;text-align:left;min-height:76px;padding:14px 16px;border-radius:18px;background:var(--surface);border:1px solid var(--line);color:var(--label);cursor:pointer}
   .tool-card:active{opacity:.7}
   .tool-card .icon-tile{width:46px;height:46px;border-radius:15px}
@@ -632,7 +626,7 @@
   /* logo: ukuran tetap dari CSS sendiri, nggak bergantung utility class */
   .logo-mark{width:32px;height:32px;border-radius:9px}
   /* — Panggung proses Naya: tersembunyi total di luar momen proses — */
-  #mascotStage{position:fixed;left:12px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:46;margin:0;opacity:0;visibility:hidden;transform:translateY(18px) scale(.92);pointer-events:none;transition:opacity .35s ease,transform .45s cubic-bezier(.34,1.4,.64,1),visibility 0s linear .45s;animation:none}
+  #mascotStage{position:fixed;left:12px;bottom:calc(140px + env(safe-area-inset-bottom));z-index:46;margin:0;opacity:0;visibility:hidden;transform:translateY(18px) scale(.92);pointer-events:none;transition:opacity .35s ease,transform .45s cubic-bezier(.34,1.4,.64,1),visibility 0s linear .45s;animation:none}
   #mascotStage.show{opacity:1;visibility:visible;transform:translateY(0) scale(1);pointer-events:auto;transition:opacity .3s ease,transform .45s cubic-bezier(.34,1.4,.64,1)}
   #mascotStage .mascot-scene{width:84px}
   #mascotStage .mascot-shadow{width:56px;height:10px;margin-top:-8px}
@@ -741,12 +735,12 @@
     box-shadow:var(--glass-hi), 0 4px 12px -6px rgba(0,113,227,.35);
   }
   /* — Permukaan melayang lain ikut kaca — */
-  #batchBar{
+  .batch-strip{
     background:linear-gradient(180deg,rgba(255,255,255,.68),rgba(255,255,255,.48)) !important;
     backdrop-filter:blur(16px) saturate(170%);-webkit-backdrop-filter:blur(16px) saturate(170%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 -10px 28px -18px rgba(0,113,227,.4);
   }
-  html.dark #batchBar{
+  html.dark .batch-strip{
     background:linear-gradient(180deg,rgba(30,36,44,.66),rgba(16,20,26,.5)) !important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
   }
@@ -831,12 +825,12 @@
     .card,.dark .card{background:var(--surface)}
     header{background:#FBFBFD !important}
     html.dark header{background:#101216 !important}
-    #batchBar{background:#fff !important}
-    html.dark #batchBar{background:#141517 !important}
+    .batch-strip{background:#fff !important}
+    html.dark .batch-strip{background:#141517 !important}
     .icon-tile,.icon-btn,.brand-chip,.mascot-bubble{background:var(--surface)}
   }
   @media (prefers-reduced-transparency: reduce){
-    .card,header,#batchBar,#procDock,#toast,.mascot-bubble,.icon-tile,.icon-btn,.brand-chip{backdrop-filter:none;-webkit-backdrop-filter:none}
+    .card,header,.batch-strip,#procDock,#toast,.mascot-bubble,.icon-tile,.icon-btn,.brand-chip{backdrop-filter:none;-webkit-backdrop-filter:none}
     .card{background:var(--surface)}
   }
   /* ═══ PERFORMA — animasi & render cuma pas kelihatan ═══
@@ -959,7 +953,7 @@
    punya .tool-bar di kepala editor. */
 .tool-bar{display:flex;flex-wrap:nowrap;gap:8px;margin:4px -16px 12px;padding:2px 16px 8px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 32px),transparent 100%);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 32px),transparent 100%)}
 .tool-bar::-webkit-scrollbar{display:none}
-.tool-chip{flex:0 0 auto;scroll-snap-align:start;min-height:48px;display:inline-flex;align-items:center;gap:6px}
+.tool-chip{flex:0 0 auto;scroll-snap-align:center;min-height:48px;display:inline-flex;align-items:center;gap:6px}
 .tool-chip .ic{flex-shrink:0}
 
 /* ═══ Layout kanonis Phase 2 (19 Nov 2026) — arah Bobby 08:49 WIB:
@@ -970,9 +964,8 @@
    alat di kanan. Semua chip ≥48px (P0-4, geometri jempol). */
 .tool-bar{display:flex;flex-wrap:nowrap;gap:8px;margin:4px -16px 12px;padding:2px 16px 8px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 32px),transparent 100%);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 32px),transparent 100%)}
 .tool-bar::-webkit-scrollbar{display:none}
-.tool-chip{flex:0 0 auto;scroll-snap-align:start;min-height:48px}
+.tool-chip{flex:0 0 auto;scroll-snap-align:center;min-height:48px}
 /* Kepala editor: filmstrip + canvas (maks 55vh) + status + versi. */
-#editorHead{margin:0 0 14px}
 .shell-film{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;scrollbar-width:none}
 .shell-film::-webkit-scrollbar{display:none}
 .shell-thumb{flex:0 0 auto;width:56px;height:56px;border-radius:14px;overflow:hidden;border:2px solid transparent;padding:0;background:var(--fill);cursor:pointer}
@@ -986,13 +979,10 @@
 .shell-status{display:flex;align-items:center;gap:10px;margin-top:10px;min-width:0}
 .shell-status-text{font-size:13.5px;line-height:1.4;color:var(--muted);margin:0;min-width:0;overflow-wrap:anywhere}
 #editorHead .version-row{margin-top:8px}
-/* Tombol utama sticky (P0-1): satu tombol, kata kerja alat aktif, 16px di
-   atas safe-area; kaca cair seperti batch bar. Naik di atas bar ZIP
-   (.above-batch) kalau bar itu tampil. */
-#primaryBar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(251,251,253,.82);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-top:1px solid var(--line)}
-html.dark #primaryBar{background:rgba(28,28,30,.82)}
-#primaryBar.above-batch{bottom:max(97px, calc(69px + env(safe-area-inset-bottom)))}
-body.has-primary main{padding-bottom:120px}
+/* Tombol Simpan DULU sticky di bawah (#primaryBar) — DIHAPUS Fase 2
+   (19 Nov 2026): Simpan pindah ke top bar editor (#primaryBtn di
+   #editorTopBar). Tidak ada lagi sticky bottom bar; tidak ada lagi
+   body.has-primary / .above-batch. */
 /* Bottom sheet generik (P1): konfirmasi & alur sekunder, maks 1 level. */
 #sheetScrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:70}
 #sheet{position:fixed;left:0;right:0;bottom:0;z-index:71;background:var(--surface,#fff);border-radius:24px 24px 0 0;padding:10px 20px calc(20px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
@@ -1006,6 +996,50 @@ html.dark #sheet{background:#1C1C1E}
 /* Geometri jempol (P0-4): target ketuk sekunder di kartu minimal 44px. */
 .version-chip{min-height:44px}
 
+/* ═══ Layout kanonis — editor fullscreen (Fase 2, 19 Nov 2026) ═══
+     Editor MENGGANTIKAN home (pola clipdrop / cleanup.pictures /
+     magicstudio): begitu alat dipilih, hero + grid pemilih hilang,
+     header situs hilang, dan yang tampil adalah top bar editor + kanvas
+     di tengah + kartu alat tepat di bawah kanvas. Tidak ada sidebar
+     (0/6 tools referensi yang memakainya), tidak ada sticky bottom bar
+     (0/6 yang memakainya). */
+  body.editor-on header{display:none}
+  body.editor-on #brandWrap,body.editor-on #faqSection,body.editor-on footer{display:none}
+  /* Top bar editor: satu baris, sticky di atas. Kiri Back, tengah rail
+     alat (scroll horizontal + fade), kanan Simpan. */
+  .editor-topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:8px;margin:0 -16px;padding:8px 12px;background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.42));backdrop-filter:blur(16px) saturate(170%);-webkit-backdrop-filter:blur(16px) saturate(170%);border-bottom:1px solid var(--line)}
+  html.dark .editor-topbar{background:linear-gradient(180deg,rgba(26,32,40,.62),rgba(14,18,24,.45))}
+  .ed-back{flex:0 0 auto;min-height:44px;padding:0 14px;border-radius:980px;background:var(--fill);color:var(--label);font-size:14px;font-weight:600;white-space:nowrap}
+  .ed-back:active{opacity:.6}
+  .ed-save{flex:0 0 auto;min-height:44px;padding:0 18px;border-radius:980px;white-space:nowrap}
+  .editor-topbar .tool-bar{flex:1 1 auto;min-width:0;margin:0;padding:2px 0}
+  /* Tanpa alat aktif panel cuma antrean di bawah pemilih (desktop
+     has-files) — top bar disembunyikan, dropzone + antrean saja. */
+  #panel-cleaner:not(.is-editor) #editorTopBar{display:none}
+  /* Kanvas di tengah, selebar ~600–800px desktop (55vh yang sudah ada
+     bikin foto 4:3 tampil ~660px di 1440×900, ~790px di 1920×1080);
+     mobile full-bleed: kanvas keluar dari padding kolom. */
+  #editorHead{margin:0 auto 14px;max-width:800px;scroll-margin-top:70px}
+  @media (max-width:767px){
+    .shell-canvas-wrap{margin-left:-16px;margin-right:-16px;border-radius:0}
+  }
+  /* Status satu baris menempel tepat di bawah kanvas (di dalam kepala
+     editor), bukan bar terpisah di bawah halaman. */
+  #editorHead .tool-status{margin:10px 0 0}
+  @media (min-width:1024px){
+    #settingsCard{max-width:800px;margin-left:auto;margin-right:auto}
+    #dedupView{max-width:800px;margin-left:auto;margin-right:auto}
+    .editor-topbar{margin:0 -24px;padding:8px 24px}
+  }
+  /* Contoh jadi thumbnail di bawah dropzone (pola 6/6 tools). */
+  .sample-row{margin-top:14px;text-align:center}
+  .sample-label{display:block;font-size:13.5px;color:var(--muted);margin-bottom:8px}
+  .sample-thumb{display:inline-flex;flex-direction:column;align-items:center;gap:6px;padding:0;background:none;border:0;cursor:pointer}
+  .sample-thumb img{width:96px;height:72px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:var(--fill);display:block}
+  .sample-thumb span{font-size:13px;font-weight:600;color:var(--label)}
+  .sample-thumb:active{opacity:.7}
+  /* Batch bar in-flow: strip di dalam antrean, bukan fixed bawah. */
+  .batch-strip{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
 /* ═══ DESKTOP TENGAH (≥1024px) — tren hari ini: centered grid, tanpa
    sidebar (arah Bobby 19 Nov 2026 11:52 WIB: "jangan jadi sidebar, tetap
    grid di tengah"). Instruksi eksplisit pemilik mengalahkan bagian
@@ -1016,13 +1050,11 @@ html.dark #sheet{background:#1C1C1E}
   /* — Kolom tengah 1024px, sejajar header (max-w-5xl) — bukan kolom HP
      560px mengambang, bukan selebar layar. — */
   main{max-width:1024px;padding-left:24px;padding-right:24px}
-  /* — Grid pemilih alat: 4 kolom × 2 baris = 8 tile (7 alat + Coba foto
-     contoh sebagai tile ke-8). Tidak ada kartu yatim; tinggi rata karena
+  /* — Grid pemilih alat: 4 kolom × 2 baris = 7 tile (tanpa tile contoh;
+     contoh pindah jadi thumbnail di bawah dropzone). Tinggi rata karena
      grid stretch + min-height yang sama. — */
   .tool-picker{max-width:none;grid-template-columns:repeat(4,1fr);gap:12px}
   .tool-card{min-height:96px}
-  #sampleTile{display:flex}
-  #sampleRow{display:none}
   /* — Workspace tampil di desktop begitu ada file (tanpa alat aktif pun):
      panel tampil walau kelas hidden masih nempel — kelas itu dipakai JS
      buat state HP. Aturan ini khusus desktop; HARUS di @layer base:
@@ -1032,23 +1064,14 @@ html.dark #sheet{background:#1C1C1E}
   @layer base{
     body.has-files #panel-cleaner{display:block !important}
   }
-  /* — Toast: menempel tepi kanan KOLOM TENGAH (bukan tepi viewport), di
-     atas bar utama — tidak menutupi judul/konten di tengah. — */
+  /* — Toast: menempel tepi kanan KOLOM TENGAH (bukan tepi viewport),
+     di atas konten — tidak menutupi judul/konten di tengah. — */
   #toast{left:auto;right:calc(50% - 512px + 24px);transform:none;max-width:420px}
   #toast:not(.hidden){animation:toastPopDesk .42s cubic-bezier(.34,1.56,.64,1) both}
-  /* — Tombol utama: bar bawah DIBATASI lebar kolom tengah (bukan selebar
-     layar, bukan pil melayang). Margin auto = rata tengah tanpa transform
-     (aman dari animasi yang menimpa transform). Padding bawah inline
-     (min 28px) tetap berlaku — tombol tidak ketutup gesture bar. — */
-  #primaryBar{left:0;right:0;margin:0 auto;width:min(1024px,calc(100vw - 32px));border-radius:20px 20px 0 0;border:1px solid var(--line);border-bottom:0}
-  #primaryBar>div{max-width:none;margin:0;padding:0 24px}
-  /* — Batch bar: bar bawah yang sama, dibatasi lebar kolom tengah. — */
-  #batchBar{left:0;right:0;margin:0 auto;width:min(1024px,calc(100vw - 32px));border-radius:20px 20px 0 0;border:1px solid var(--line);border-bottom:0}
-  #batchBar>div{max-width:none;padding-left:24px;padding-right:24px}
-  /* — Maskot: menempel tepi kanan KOLOM TENGAH, di atas toast + bar
-     utama — bukan di tepi viewport, bukan di ruang kosong. Balon dibalik
-     ke kiri supaya tetap di atas workspace. — */
-  #mascotStage{left:auto;right:calc(50% - 512px + 16px);bottom:170px}
+  /* — Maskot: menempel tepi kanan KOLOM TENGAH, di atas dock progres —
+     bukan di tepi viewport, bukan di ruang kosong. Balon dibalik ke kiri
+     supaya tetap di atas workspace. — */
+  #mascotStage{left:auto;right:calc(50% - 512px + 16px);bottom:132px}
   #mascotStage .mascot-bubble{left:auto;right:calc(100% - 8px);border-radius:14px 14px 4px 14px;transform-origin:bottom right}
   /* — Hover (pointer halus): chip + kartu alat. — */
   @media (hover:hover){

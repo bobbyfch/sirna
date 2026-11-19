@@ -240,7 +240,13 @@ test('Step 2: pemilih alat + workspace per alat + stepper per alat', async () =>
   assert.match(bundle, /Tambah 1 file lagi/);
   assert.doesNotMatch(bundle, /"Deteksi","Hapus","Simpan"/);
   assert.match(bundle, /file siap — pilih alat dulu di atas\./); // toast pasca-upload tanpa alat: file diantre, alat tidak jalan
-  assert.match(bundle, /Foto contoh dimuat ✓ — pilih alat di atas\./);
+  // Foto contoh TIDAK LAGI diantre tanpa alat (Fase 2): tombolnya ada di
+  // bawah dropzone workspace, jadi alat sudah dipilih dan foto contoh
+  // langsung menjalankan alat itu — toast "Foto contoh dimuat" dihapus.
+  assert.doesNotMatch(bundle, /Foto contoh dimuat/);
+  assert.ok(html.indexOf('id="dropZone"') < html.indexOf('id="sampleRow"')); // contoh = thumbnail di bawah dropzone
+  assert.match(html, /id="sampleThumbImg"/);
+  assert.match(src, /function ensureSampleThumb/);
 });
 test('Step 3: tumpukan versi + rel alat di kartu', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
@@ -529,7 +535,7 @@ test('Vite build output: bundled JS/CSS, no CDN, preserved fixes', async () => {
   assert.match(bundle, /`TB`,`PB`/); // formatBytes lengkap (B/KB/MB/GB/TB/PB)
 });
 
-test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis + tombol utama sticky', async () => {
+test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis + Simpan di top bar', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
   // Home universal: H1 bukan lagi "Hapus label AI" — label removal cuma
   // satu alat di antara yang lain (arah Bobby 08:49 WIB).
@@ -555,11 +561,14 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.doesNotMatch(html, /id="shellUndo"/); // satu undo: chip Versi saja (prinsip I)
   assert.match(html, /id="shellCompare"/);
   assert.match(html, /Lihat asli/); // compare jadi toggle (prinsip I)
-  // Tombol utama sticky + tombol topbar (kembali). Export top bar DIHAPUS —
-  // satu jalur simpan lewat tombol utama (prinsip C).
-  assert.match(html, /id="primaryBar"/);
+  // SATU tombol Simpan di top bar editor (kanan atas, nempel di hasil) —
+  // sticky bottom bar DIHAPUS Fase 2 (tidak satu pun tools referensi yang
+  // memakainya); tombol kembali pindah dari header ke top bar editor.
+  assert.match(html, /id="editorTopBar"/);
   assert.match(html, /id="primaryBtn"/);
-  assert.match(html, /id="topBackBtn"/);
+  assert.match(html, /id="editorBackBtn"/);
+  assert.doesNotMatch(html, /id="primaryBar"/);
+  assert.doesNotMatch(html, /id="topBackBtn"/);
   assert.doesNotMatch(html, /id="topExportBtn"/);
   // Bottom sheet generik (konfirmasi destruktif).
   assert.match(html, /id="sheet"/);
@@ -568,21 +577,24 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.match(html, /id="sheetConfirm"/);
   assert.match(html, /id="sheetCancel"/);
   // CSS: rail SATU baris scroll (bukan wrap) + fade + peek; canvas 55vh;
-  // primary bar fixed; sheet fixed bawah.
+  // top bar editor sticky (bukan fixed bawah); sheet fixed bawah.
+  // Sticky bottom bar + header situs saat editor aktif DIHAPUS.
   const css = await readFile(new URL('../src/style.css', dir), 'utf8');
   assert.match(css, /\.tool-bar\{display:flex;flex-wrap:nowrap/);
   assert.match(css, /\.tool-bar[^{]*\{[^}]*overflow-x:auto/);
   assert.match(css, /mask-image:linear-gradient\(90deg/);
   assert.match(css, /scroll-snap-type:x/);
   assert.match(css, /\.shell-canvas-wrap img[^{]*\{[^}]*max-height:55vh/);
-  assert.match(css, /#primaryBar\{position:fixed/);
+  assert.match(css, /\.editor-topbar\{position:sticky/);
+  assert.match(css, /body\.editor-on header\{display:none/);
+  assert.doesNotMatch(css, /#primaryBar\{/);
   assert.match(css, /#sheet\{position:fixed/);
   // Sumber: tidak ada alat default + tidak ada auto-pilih Bersihkan.
   const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
   assert.match(appSrc, /var activeTool=null/);
   assert.doesNotMatch(appSrc, /if\(!activeTool\) setActiveTool\(/);
   assert.match(appSrc, /TIDAK ADA alat default/);
-  assert.match(appSrc, /Foto contoh dimuat/);
+  assert.match(appSrc, /function ensureSampleThumb/); // thumbnail contoh di bawah dropzone
   assert.match(appSrc, /function syncShell\(\)/);
   assert.match(appSrc, /function syncPrimary\(\)/);
   assert.match(appSrc, /function runPrimary\(\)/);

@@ -54,7 +54,7 @@ async function cardState(nth) {
 async function waitSave(n, timeout = 60000) {
   await page.waitForFunction((k) => {
     const b = document.getElementById("primaryBtn");
-    if (!b || document.getElementById("primaryBar").classList.contains("hidden")) return false;
+    if (!b || b.classList.contains("hidden")) return false;
     return k >= 2 ? b.textContent.includes("Simpan semua (" + k + ")") : b.textContent.includes("Simpan foto");
   }, n, { timeout });
 }

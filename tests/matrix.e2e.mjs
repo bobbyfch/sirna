@@ -51,7 +51,7 @@ try {
   // sudah dihapus (prinsip C).
   await page.waitForFunction((n) => {
     const b = document.getElementById("primaryBtn");
-    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan semua (" + n + ")");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan semua (" + n + ")");
   }, FILES.length, { timeout: 120000 });
   await page.waitForTimeout(500);
   const states = await page.evaluate(() => {

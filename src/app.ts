@@ -102,11 +102,42 @@ function setActiveTool(tool){
   });
   var hero=$("#heroSection"), panel=$("#panel-cleaner");
   if(hero) hero.classList.toggle("hidden", !!activeTool);
-  if(panel) panel.classList.toggle("hidden", !activeTool);
+  if(panel){
+    panel.classList.toggle("hidden", !activeTool);
+    /* Editor fullscreen menggantikan home (layout kanonis): top bar
+       editor tampil + header situs disembunyikan (body.editor-on).
+       Tanpa alat aktif panel cuma "antrean di bawah pemilih" (desktop
+       has-files) — top bar disembunyikan, dropzone + antrean saja. */
+    panel.classList.toggle("is-editor", !!activeTool);
+  }
+  document.body.classList.toggle("editor-on", !!activeTool);
+  scrollActiveChipIntoView();
   var dv=$("#dedupView");
   if(dv) dv.classList.toggle("hidden", activeTool!=="dedup");
   updateStats();
   if(activeTool && selectedItem()) void autoRunTool(activeTool, selectedItem());
+}
+/* Rail auto-scroll: chip aktif selalu dibawa ke tengah rail setiap alat
+   berubah — di 390px rail cuma ~157px lebar, tanpa ini chip aktif (mis.
+   Dedup, chip ke-7) sepenuhnya di luar layar dan pengguna tidak tahu alat
+   apa yang sedang aktif. scrollLeft dihitung dari posisi chip relatif ke
+   rail (bukan scrollIntoView) supaya halaman tidak ikut bergeser vertikal;
+   smooth kecuali prefers-reduced-motion. Dipanggil dari setActiveTool,
+   satu-satunya jalur ganti alat (kartu pemilih, chip rail, Back, restart). */
+function scrollActiveChipIntoView(){
+  if(!activeTool) return;
+  var bar=$("#toolBar");
+  if(!bar) return;
+  var chip=bar.querySelector('[data-tool-switch="'+activeTool+'"]');
+  if(!chip) return;
+  var barRect=bar.getBoundingClientRect(), chipRect=chip.getBoundingClientRect();
+  var target=bar.scrollLeft + (chipRect.left - barRect.left) + chipRect.width/2 - bar.clientWidth/2;
+  var reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* scroll-snap-align chip = center (CSS): titik snap tiap chip SAMA
+     dengan posisi tengahnya, jadi snap tidak lagi menarik scroll
+     programatik ke tepi kiri — pemusatan dan snap saling menguatkan,
+     termasuk saat pengguna menggeser rail manual. */
+  bar.scrollTo({left: target, behavior: reduce?"auto":"smooth"});
 }
 /* Alat jalan otomatis begitu (file + alat) lengkap — dipanggil dari
    setActiveTool (alat dipilih sesudah file ada) dan handleFiles (file
@@ -153,11 +184,14 @@ async function cleanBatch(list){
   else toast("Tidak ada yang bisa dibersihkan.");
 }
 
-/* ── Kepala editor + tombol utama (layout kanonis P0-1) ──
+/* ── Kepala editor + tombol Simpan di top bar (layout kanonis) ──
    syncShell: filmstrip, canvas (maks 55vh), pill + bukti, chip versi,
-   tombol Urungkan / Tahan-lihat-asli. syncPrimary: satu tombol utama
-   sticky dengan kata kerja alat aktif. Keduanya dipanggil dari
-   updateStats() — satu titik sinkronisasi sesudah hampir semua mutasi. */
+   tombol Urungkan / Tahan-lihat-asli. syncPrimary: SATU tombol Simpan
+   di top bar editor (kanan atas, nempel di hasil, selalu kelihatan
+   tanpa scroll) — PINDAH dari sticky bottom bar, bukan tambah: tidak
+   ada lagi #primaryBar, tidak ada dua jalur simpan. Keduanya dipanggil
+   dari updateStats() — satu titik sinkronisasi sesudah hampir semua
+   mutasi. */
 var shellComparing=false;
 function shellEvidence(item, st){
   var cur=item.cleanedBlob||item.file;
@@ -210,26 +244,24 @@ function syncShell(){
   var un=$("#shellCompare");
   if(un){ un.setAttribute("aria-pressed", shellComparing?"true":"false"); }
 }
-/* Tombol utama cuma punya DUA keadaan (prinsip C):
+/* Tombol Simpan di top bar editor cuma punya DUA keadaan (prinsip C):
    (a) belum ada hasil — alat otomatis tidak punya tombol jalan (progres
        saja yang tampil); alat manual (coret) menawarkan buka editor;
        dedup <2 file menawarkan tambah file.
    (b) ada hasil — "Simpan foto" (1 file) / "Simpan semua" (batch, ZIP).
-   Kata kerja alat tidak pernah lagi dipakai sebagai tombol utama. */
+   Kata kerja alat tidak pernah lagi dipakai sebagai tombol utama.
+   Tombolnya sendiri (bukan bar) yang disembunyikan kalau tidak ada yang
+   bisa dilakukan — top bar tetap tampil selama editor aktif. */
 function cleanedItems(){ return items.filter(function(i){return i.cleanedBlob}); }
 function syncPrimary(){
-  var bar=$("#primaryBar"); if(!bar) return;
+  var btn=$("#primaryBtn") as HTMLButtonElement; if(!btn) return;
   var it=selectedItem();
   var show= !!activeTool && !!it;
-  var btn=$("#primaryBtn"); if(!btn) return;
   if(activeTool==="dedup"){
     var imgCount=items.filter(function(i){return i.kind==="image"}).length;
     show= show && imgCount<2;
     if(show) btn.textContent="Tambah 1 file lagi";
-    bar.classList.toggle("hidden", !show);
-    document.body.classList.toggle("has-primary", show);
-    var back=$("#topBackBtn"); if(back) back.classList.toggle("hidden", !activeTool);
-    bar.classList.toggle("above-batch", !document.getElementById("batchBar").classList.contains("hidden"));
+    btn.classList.toggle("hidden", !show);
     return;
   }
   if(show && it.cleanedBlob){
@@ -247,11 +279,7 @@ function syncPrimary(){
   } else {
     show=false;
   }
-  bar.classList.toggle("hidden", !show);
-  document.body.classList.toggle("has-primary", show);
-  var back2=$("#topBackBtn"); if(back2) back2.classList.toggle("hidden", !activeTool);
-  /* Naik di atas bar ZIP kalau bar itu tampil (keduanya fixed bawah). */
-  bar.classList.toggle("above-batch", !document.getElementById("batchBar").classList.contains("hidden"));
+  btn.classList.toggle("hidden", !show);
 }
 async function runPrimary(){
   var it=selectedItem();
@@ -334,8 +362,8 @@ function updateToolStatus(){
      memeriksa dan tidak menemukan apa-apa. */
   if(activeTool==="jejak" && jejakEmptyMsg){ bar.textContent=jejakEmptyMsg; return; }
   if(it.cleanedBlob){
-    if(toolHasResult(it,activeTool)) bar.textContent="Sudah beres ✓ — simpan dari tombol di bawah.";
-    else bar.textContent="Sudah bersih ✓ — simpan dari tombol di bawah.";
+    if(toolHasResult(it,activeTool)) bar.textContent="Sudah beres ✓ — simpan dari tombol Simpan di atas.";
+    else bar.textContent="Sudah bersih ✓ — simpan dari tombol Simpan di atas.";
     return;
   }
   if(activeTool==="clean"){
@@ -450,20 +478,13 @@ function setProc(item,label,wait){
   var l=document.getElementById("prog-label-"+item.id); if(l) l.textContent=label;
 }
 function hideProc(item){ var p=document.getElementById("prog-"+item.id); if(p) p.classList.add("hidden"); }
-/* Dock bawah nempel di atas batch bar kalo batch bar lagi tampil */
+/* Dock bawah melayang di atas gesture bar: tidak ada lagi bar bawah
+   (tombol utama pindah ke top bar editor, batch bar jadi in-flow), jadi
+   lantai dock tetap — 42px di atas bawah, cukup di atas gesture bar
+   Android (env() = 0 di Chrome POCO F6). */
 function syncDockBottom(){
   var dock=document.getElementById("procDock"); if(!dock) return;
-  var bar=document.getElementById("batchBar");
-  var barUp= bar && !bar.classList.contains("hidden");
-  var prim=document.getElementById("primaryBar");
-  var primUp= prim && !prim.classList.contains("hidden");
-  /* Dock duduk di atas tumpukan bar bawah: batch 69px, primary ~82px
-     (tombol 54px + padding bawah min 28px — naik 12px dari 70px lama
-     sejak fix gesture bar 19 Nov 2026). Tanpa bar di bawahnya, dock
-     adalah elemen paling bawah: lantai 42px biar nggak ketutup gesture
-     bar Android (env() = 0 di Chrome POCO F6). */
-  var base= primUp ? (barUp ? 168 : 96) : (barUp ? 86 : 14);
-  dock.style.bottom= base===14 ? "max(42px, calc(14px + env(safe-area-inset-bottom)))" : "calc("+base+"px + env(safe-area-inset-bottom))";
+  dock.style.bottom="max(42px, calc(14px + env(safe-area-inset-bottom)))";
 }
 function formatBytes(b){ if(b===0) return "0 B"; var k=1024,s=["B","KB","MB","GB","TB","PB"],i=Math.min(s.length-1,Math.floor(Math.log(b)/Math.log(k))); return (b/Math.pow(k,i)).toFixed(i?1:0)+" "+s[i]; }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]}); }
@@ -587,7 +608,7 @@ async function scanImageFile(file){
    alat dipilih dulu lalu file masuk, atau file masuk dulu lalu alat
    dipilih (setActiveTool → autoRunTool). Tanpa alat dipilih, file cuma
    diantre + di-scan — user pilih alat dulu (arah Bobby 19 Nov 2026). */
-async function handleFiles(fileList: FileList | File[], opts?: {sample?: boolean}){
+async function handleFiles(fileList: FileList | File[]){
   var files=Array.from(fileList).filter(isMediaFile);
   if(!files.length){ toast("Format tidak didukung."); return; }
   var created=[];
@@ -607,7 +628,9 @@ async function handleFiles(fileList: FileList | File[], opts?: {sample?: boolean
   /* TANPA alat aktif: file cuma diantre + di-scan — TIDAK ada alat yang
      jalan otomatis dan TIDAK ada alat yang terpilih (arah Bobby 19 Nov
      2026 08:49 WIB). Banner di home nunjukin file sudah siap; user pilih
-     alat dulu. Berlaku buat foto contoh, paste & drop di home. */
+     alat dulu. Berlaku buat paste & drop di home. (Foto contoh tidak
+     lagi lewat sini: tombolnya ada di bawah dropzone workspace, jadi
+     alat sudah dipilih dan foto contoh langsung menjalankan alat itu.) */
   if(!activeTool){
     if(created.length) selectItem(created[0].id);
     batchRunning=false; updateStats();
@@ -622,13 +645,13 @@ async function handleFiles(fileList: FileList | File[], opts?: {sample?: boolean
       var p=$("#toolPicker");
       if(p) p.scrollIntoView({behavior:"smooth",block:"start"});
     }
-    toast(opts && opts.sample ? "Foto contoh dimuat ✓ — pilih alat di atas." : created.length+" file siap — pilih alat dulu di atas.");
+    toast(created.length+" file siap — pilih alat dulu di atas.");
     return;
   }
-  /* Langsung bawa user ke kepala editor: foto + status + tombol utama —
-     BUKAN kartu di bawah. Dulu scroll-nya ke kartu pertama, jadi user
-     menatap kartu sementara tombol utama bilang alat lain — persis yang
-     terlihat di screenshot POCO F6. */
+  /* Langsung bawa user ke kepala editor: foto + status + tombol Simpan
+     di top bar — BUKAN kartu di bawah. Dulu scroll-nya ke kartu pertama,
+     jadi user menatap kartu sementara tombol utama bilang alat lain —
+     persis yang terlihat di screenshot POCO F6. */
   if(created.length) selectItem(created[0].id);
   var eh=$("#editorHead");
   if(eh){
@@ -664,9 +687,9 @@ function renderItem(item){
       '<div class="hidden" id="result-'+item.id+'"></div>'+
       '<div class="version-row hidden" id="versions-'+item.id+'"></div>'+
       /* Satu jalur simpan (prinsip C): tombol Simpan per kartu DIHAPUS —
-         simpan cuma lewat tombol utama di bawah. Yang tersisa di kartu
-         cuma "Bersihkan ulang" (teks jelas, bukan ikon rotate) buat
-         mengulang Bersihkan pakai pengaturan sekarang. */
+         simpan cuma lewat tombol Simpan di top bar editor. Yang tersisa
+         di kartu cuma "Bersihkan ulang" (teks jelas, bukan ikon rotate)
+         buat mengulang Bersihkan pakai pengaturan sekarang. */
       '<div class="act-primary">'+
         '<button type="button" class="hidden min-h-[50px] px-5 font-semibold text-[15px] btn-ic" style="background:var(--fill);color:var(--label)" data-act="reclean" data-id="'+item.id+'" title="Bersihkan ulang pakai pengaturan sekarang">Bersihkan ulang</button>'+
       '</div>'+
@@ -1371,6 +1394,12 @@ function updateStats(){
   var sc=document.getElementById("settingsCard"); if(sc) sc.classList.toggle("hidden", activeTool!=="clean");
   var bw=document.getElementById("brandWrap"); if(bw) bw.classList.toggle("hidden", items.length>0);
   document.body.classList.toggle("has-files", items.length>0);
+  /* Dropzone = hero SEBELUM ada file: begitu file masuk, dropzone +
+     contoh di bawahnya sembunyi dan editor (kanvas) yang tampil — tidak
+     menumpuk. Balik lagi begitu antrean kosong (semua file dibuang). */
+  var dzEl=document.getElementById("dropZone"); if(dzEl) dzEl.classList.toggle("hidden", items.length>0);
+  var srEl=document.getElementById("sampleRow"); if(srEl) srEl.classList.toggle("hidden", items.length>0);
+  if(items.length===0) ensureSampleThumb();
   updateToolStatus();
   syncToolAvailability();
   syncDockBottom();
@@ -1558,9 +1587,9 @@ function removeItem(it){
   updateStats();
 }
 
-/* ── Tombol utama sticky + tombol topbar + kepala editor ── */
+/* ── Tombol Simpan di top bar editor + tombol kembali ── */
 $("#primaryBtn").addEventListener("click",function(){ runPrimary(); });
-$("#topBackBtn").addEventListener("click",function(){ setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"}); });
+$("#editorBackBtn").addEventListener("click",function(){ setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"}); });
 $("#shellFilm").addEventListener("click",function(e){
   var b=(e.target as Element).closest("button[data-shell-id]") as HTMLButtonElement; if(!b) return;
   selectItem(parseInt(b.dataset.shellId,10));
@@ -1583,23 +1612,39 @@ $("#shellVersions").addEventListener("click",function(e){
   });
 })();
 
-/* ── Coba foto contoh (home): file digenerate runtime, diantre, lalu user
-   tetap pilih alat dulu — tidak ada alat yang jalan otomatis. Dua tombol
-   memanggil logika yang sama: pill #sampleBtn (HP) + tile #sampleTile
-   (kartu ke-8 grid desktop ≥1024px). ── */
+/* ── Coba foto contoh (di bawah dropzone workspace): file digenerate
+   runtime, lalu alat yang sudah dipilih LANGSUNG jalan (prinsip A:
+   file + alat lengkap = jalan) — tidak lagi diantre tanpa alat.
+   File contoh di-cache sekali per sesi: thumbnail di bawah dropzone
+   memakai file yang sama, jadi generate cuma sekali. ── */
+var sampleFileCache: File | null = null;
+async function getSampleFile(): Promise<File> {
+  if(sampleFileCache) return sampleFileCache;
+  var sm=await import("./sample");
+  sampleFileCache=await sm.makeSampleFile();
+  return sampleFileCache;
+}
+/* Thumbnail contoh diisi malas saat barisnya pertama kali kelihatan
+   (workspace alat terbuka, belum ada file). Gagal generate = tombol
+   tetap jalan tanpa gambar (loadSamplePhoto generate ulang). */
+var sampleThumbReady=false;
+async function ensureSampleThumb(){
+  var row=$("#sampleRow"); if(!row || !row.offsetParent) return;
+  if(sampleThumbReady) return; sampleThumbReady=true;
+  try{
+    var file=await getSampleFile();
+    var img=$("#sampleThumbImg") as HTMLImageElement; if(img) img.src=URL.createObjectURL(file);
+  }catch(e){ /* tanpa thumbnail pun tombol tetap jalan */ }
+}
 async function loadSamplePhoto(){
   var btn=$("#sampleBtn") as HTMLButtonElement; if(btn) btn.disabled=true;
-  var tile=$("#sampleTile") as HTMLButtonElement; if(tile) tile.disabled=true;
   try{
-    var sm=await import("./sample");
-    var file=await sm.makeSampleFile();
-    await handleFiles([file], {sample:true});
+    var file=await getSampleFile();
+    await handleFiles([file]);
   }catch(e){ toast("Foto contoh gagal dibuat. Coba lagi."); }
   if(btn) btn.disabled=false;
-  if(tile) tile.disabled=false;
 }
 $("#sampleBtn").addEventListener("click", loadSamplePhoto);
-$("#sampleTile").addEventListener("click", loadSamplePhoto);
 /* Tombol "+ File" di topbar: belum pilih alat → scroll ke pemilih alat;
    udah ada file → langsung buka picker file (sama kayak "+ Tambah").
    Belum pilih alat & belum ada file → anchor default scroll ke dropzone

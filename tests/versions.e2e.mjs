@@ -44,7 +44,7 @@ async function cardInfo(nth) {
       activeVersion: versions?.querySelector(".version-chip.active")?.textContent?.trim(),
       cardRailAbsent: !c.querySelector(".tool-bar"), // rel kartu dihapus (prinsip E)
       primaryText: document.getElementById("primaryBtn")?.textContent?.trim(),
-      primaryVisible: !document.getElementById("primaryBar").classList.contains("hidden"),
+      primaryVisible: !document.getElementById("primaryBtn").classList.contains("hidden"),
       resultHead: c.querySelector(".clean-head, .detect-head")?.textContent?.trim(),
     };
   }, nth);
@@ -99,7 +99,7 @@ try {
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png"), F("wm-test.png")]);
   await page.waitForFunction(() => {
     const b = document.getElementById("primaryBtn");
-    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan semua (2)");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan semua (2)");
   }, { timeout: 60000 });
   await page.waitForTimeout(500);
 

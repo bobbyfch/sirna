@@ -87,7 +87,7 @@ try {
   await page.setInputFiles("#fileInput", [F("wm-test.png")]);
   await waitFor(page, () => {
     const b = document.getElementById("primaryBtn");
-    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
   }, 30000);
   await page.waitForTimeout(400);
 
@@ -185,7 +185,7 @@ try {
   await page2.setInputFiles("#fileInput", [F("wm-test.png")]);
   await waitFor(page2, () => {
     const b = document.getElementById("primaryBtn");
-    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
   }, 30000);
   await page2.waitForTimeout(400);
   await page2.click('[data-tool-switch="erase"]');

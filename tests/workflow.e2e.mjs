@@ -39,7 +39,7 @@ async function primaryText() {
   return await page.evaluate(() => document.getElementById("primaryBtn")?.textContent?.trim() || "");
 }
 async function primaryVisible() {
-  return await page.evaluate(() => !document.getElementById("primaryBar").classList.contains("hidden"));
+  return await page.evaluate(() => !document.getElementById("primaryBtn").classList.contains("hidden"));
 }
 async function cardPill(nth) {
   return await page.evaluate((n) => document.querySelectorAll("#list article .status-pill")[n]?.textContent?.trim(), nth);
@@ -64,7 +64,7 @@ try {
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
   await page.waitForFunction(() => {
     const b = document.getElementById("primaryBtn");
-    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+    return b && !b.classList.contains("hidden") && b.textContent.includes("Simpan foto");
   }, { timeout: 60000 });
   await page.waitForTimeout(400);
   note("cleanPill", await cardPill(0));
@@ -84,7 +84,11 @@ try {
   note("pillAfterSwitch", await cardPill(0));
   note("primaryAfterSwitchErase", await primaryText());
   // (5) Balik ke pemilih -> pilih Bersihkan lagi -> kartu masih ada.
-  await page.click('[data-tool-switch=""]');
+  // Tombol Back di top bar editor (#editorBackBtn); chip "‹ Semua alat"
+  // [data-tool-switch=""] sudah dihapus saat redesain layout — selector
+  // usang itu dulu timeout 30 dtk dan ditelan try/catch, sehingga
+  // langkah 5–6 tidak pernah dieksekusi.
+  await page.click("#editorBackBtn");
   await page.waitForTimeout(600);
   note("pickerAgain", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
   await page.click('[data-tool="clean"]');
@@ -170,5 +174,9 @@ note("consoleErrors390", consoleErrors2.slice(0, 10));
 await ctx2.close();
 server2.kill();
 await browser.close();
+// Jangan telan kegagalan diam-diam: kalau ada ERROR/ERROR390 di log,
+// langkah workflow ada yang tidak tereksekusi — skrip harus exit 1,
+// bukan DONE dengan exit 0.
+if (log.some(([k]) => k === "ERROR" || k === "ERROR390")) process.exitCode = 1;
 writeFileSync(OUT, JSON.stringify(log, null, 2));
 console.log("DONE ->", OUT);
