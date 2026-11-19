@@ -16,6 +16,10 @@ export interface DedupEntry {
 
 export interface DedupGroup {
   entries: DedupEntry[];
+  /** true kalau semua pasangan foto sama persis (jarak Hamming 0). */
+  exact: boolean;
+  /** Jarak Hamming terbesar antar pasangan dalam grup (0 = sama persis). */
+  maxDist: number;
 }
 
 /* ── pHash ── */
@@ -117,7 +121,18 @@ export function groupDuplicates(entries: DedupEntry[], maxDist = 8): DedupGroup[
   });
   return [...map.values()]
     .filter((g) => g.length > 1)
-    .map((entries) => ({ entries }))
+    .map((entries) => {
+      /* Alasan grup (prinsip H): jarak Hamming antar pasangan — 0 di
+         semua pasangan = foto yang sama persis; ada yang >0 = mirip
+         (beda ukuran/kualitas/edit ringan). */
+      let maxD = 0;
+      for (let i = 0; i < entries.length; i++) {
+        for (let j = i + 1; j < entries.length; j++) {
+          maxD = Math.max(maxD, hamming(entries[i].hash, entries[j].hash));
+        }
+      }
+      return { entries, exact: maxD === 0, maxDist: maxD };
+    })
     .sort((a, b) => b.entries.length - a.entries.length);
 }
 
@@ -147,7 +162,8 @@ export function renderDedupGroups(
         '</label>';
     }).join("");
     return '<section class="dedup-group" data-g="' + gi + '">' +
-      '<h3 class="dedup-group-title">Grup ' + (gi + 1) + ' — ' + g.entries.length + ' file mirip</h3>' +
+      '<h3 class="dedup-group-title">Grup ' + (gi + 1) + ' — ' + g.entries.length + ' file ' + (g.exact ? "sama" : "mirip") + '</h3>' +
+      '<p class="dedup-reason">' + (g.exact ? "Foto yang sama persis." : "Mirip — beda ukuran/kualitas.") + ' Yang pertama diunggah disimpan — ketuk foto lain untuk menggantinya.</p>' +
       '<div class="dedup-row">' + items + '</div>' +
       '<button type="button" class="dedup-remove grad-bg" data-g="' + gi + '">Hapus ' + (g.entries.length - 1) + ' duplikat di grup ini</button>' +
       '</section>';

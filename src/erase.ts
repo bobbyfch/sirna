@@ -8,7 +8,7 @@
    model tidak bisa diunduh (offline), dengan teks status yang jujur. */
 
 import { inpaintTelea, dilateMask } from "./telea";
-import { ensureEngine, runAi, cancelAiJobs, MODELS, formatMB, type DownloadProgress } from "./models";
+import { ensureEngine, runAi, cancelAiJobs, type DownloadProgress } from "./models";
 
 const MAX_WORK = 2048; // sisi panjang maks. kanvas kerja editor
 
@@ -117,7 +117,6 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
     renderOverlay();
     updateMaskWarn();
     updateRunState();
-    updateEraseSteps();
   }
   function renderDisplay(): void {
     dctx.putImageData(current, 0, 0);
@@ -137,7 +136,7 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
   function updateModelProgress(p: DownloadProgress, label: string): void {
     const pct = p.total > 0 ? Math.min(100, Math.round((p.loaded / p.total) * 100)) : 0;
     ($("eraseModelBar") as HTMLElement).style.width = pct + "%";
-    $("eraseModelText").textContent = p.fromCache ? "Model sudah di HP — lagi disiapkan…" : label + " " + pct + "% (" + formatMB(p.loaded) + " / " + formatMB(p.total || MODELS.migan.size) + ")";
+    $("eraseModelText").textContent = p.fromCache ? "Model sudah di HP — lagi disiapkan…" : label + " " + pct + "%";
   }
   function hideModelProgress(): void {
     ($("eraseModelProgress") as HTMLElement).classList.add("hidden");
@@ -161,20 +160,6 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
     const b = $("eraseRun") as HTMLButtonElement;
     if (!busy) b.disabled = !painted || !mask.some((v) => v);
   }
-  /* Strip langkah: 1 Coret → 2 Hapus → 3 Simpan.
-     Sorot langkah aktif: belum coret = langkah 1; sudah coret = langkah 2;
-     hasil muncul = langkah 3. */
-  function updateEraseSteps(): void {
-    const steps = document.querySelectorAll("#eraseSteps .erase-step");
-    const resultShown = !($("eraseResultBar") as HTMLElement).classList.contains("hidden");
-    steps.forEach((s, i) => {
-      const done = i === 0 ? painted : resultShown;
-      const active = i === 0 ? !painted : i === 1 ? painted && !resultShown : resultShown;
-      s.classList.toggle("done", !!done);
-      s.classList.toggle("active", !!active);
-    });
-  }
-
   /* ── Melukis mask ── */
   let painting = false, lastX = 0, lastY = 0, rafPending = false;
   function evtPos(e: PointerEvent): [number, number] {
@@ -196,7 +181,7 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
       requestAnimationFrame(() => { rafPending = false; mask = readMask(); renderOverlay(); });
     }
   }
-  display.addEventListener("pointerdown", (e) => {
+  display.onpointerdown = (e) => {
     if (busy) return;
     e.preventDefault();
     display.setPointerCapture(e.pointerId);
@@ -206,31 +191,30 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
     [lastX, lastY] = evtPos(e);
     strokeTo(lastX, lastY);
     $("eraseResultBar").classList.add("hidden");
-  });
-  display.addEventListener("pointermove", (e) => {
+  };
+  display.onpointermove = (e) => {
     if (!painting || busy) return;
     e.preventDefault();
     const [x, y] = evtPos(e);
     strokeTo(x, y);
-  });
-  function endStroke(): void { painting = false; mask = readMask(); renderOverlay(); updateMaskWarn(); updateRunState(); updateEraseSteps(); }
-  display.addEventListener("pointerup", endStroke);
-  display.addEventListener("pointercancel", endStroke);
+  };
+  function endStroke(): void { painting = false; mask = readMask(); renderOverlay(); updateMaskWarn(); updateRunState(); }
+  display.onpointerup = endStroke;
+  display.onpointercancel = endStroke;
 
   /* ── Toolbar ── */
   const brushInput = $("eraseBrush") as HTMLInputElement;
-  brushInput.addEventListener("input", () => {
+  brushInput.oninput = () => {
     brush = parseInt(brushInput.value, 10) || 48;
     $("eraseBrushVal").textContent = brush + " px";
-  });
-  $("eraseUndo").addEventListener("click", () => {
+  };
+  ($("eraseUndo") as HTMLButtonElement).onclick = () => {
     const prev = undoStack.pop();
     if (!prev) { hooks.onToast("Nggak ada yang bisa diurungkan."); return; }
     applyMask(prev);
     updateRunState();
-    updateEraseSteps();
-  });
-  $("eraseClear").addEventListener("click", () => {
+  };
+  ($("eraseClear") as HTMLButtonElement).onclick = () => {
     undoStack.push(mask.slice());
     mask = new Uint8Array(ww * wh);
     mctx.clearRect(0, 0, ww, wh);
@@ -238,17 +222,18 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
     setNote("");
     updateMaskWarn();
     updateRunState();
-    updateEraseSteps();
-  });
-  // Bandingkan: tahan buat lihat gambar sebelum run terakhir (atau asli
-  // kalau belum pernah Hapus di sesi ini).
-  const cmp = $("eraseCompare");
-  function cmpShow(e: Event): void { e.preventDefault(); dctx.putImageData(compareBase, 0, 0); octx.clearRect(0, 0, ww, wh); }
-  function cmpHide(): void { renderDisplay(); renderOverlay(); }
-  cmp.addEventListener("pointerdown", cmpShow);
-  cmp.addEventListener("pointerup", cmpHide);
-  cmp.addEventListener("pointerleave", cmpHide);
-  cmp.addEventListener("pointercancel", cmpHide);
+  };
+  // Bandingkan: toggle "Lihat asli" — ketuk sekali buat lihat gambar
+  // sebelum run terakhir (atau asli kalau belum pernah Hapus di sesi
+  // ini), ketuk lagi buat balik ke hasil.
+  const cmp = $("eraseCompare") as HTMLButtonElement;
+  let comparing = false;
+  cmp.onclick = () => {
+    comparing = !comparing;
+    cmp.setAttribute("aria-pressed", comparing ? "true" : "false");
+    if (comparing) { dctx.putImageData(compareBase, 0, 0); octx.clearRect(0, 0, ww, wh); }
+    else { renderDisplay(); renderOverlay(); }
+  };
 
   /* ── Composite-back: hasil kerja ditempel ke ukuran penuh, luar mask
      tetap byte-identical dengan file asli. Mask yang dipakai run
@@ -292,7 +277,7 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
     eraseAbort?.abort();
     cancelAiJobs();
   };
-  $("eraseRun").addEventListener("click", async () => {
+  ($("eraseRun") as HTMLButtonElement).onclick = async () => {
     if (busy) return;
     if (!painted || !mask.some((v) => v)) { hooks.onToast("Coret dulu area yang mau dihapus."); return; }
     busy = true;
@@ -311,9 +296,9 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
       let usedTelea = false;
       let result: ImageData;
       try {
-        showModelProgress("Lagi unduh model Mi-GAN…");
+        showModelProgress("Lagi unduh model…");
         await ensureEngine("migan", {
-          onDownload: (p) => updateModelProgress(p, "Lagi unduh model Mi-GAN"),
+          onDownload: (p) => updateModelProgress(p, "Lagi unduh model"),
           signal: abort.signal,
         });
         hideModelProgress();
@@ -354,7 +339,6 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
       ($("eraseResultBar") as HTMLElement).classList.remove("hidden");
       updateMaskWarn();
       updateRunState();
-      updateEraseSteps();
     } catch (e) {
       /* B17: gagal hapus — alasan + saran. */
       if ((e as Error).message === "Dibatalkan") {
@@ -369,11 +353,11 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
     busy = false;
     setRunLabel("Hapus", false);
     updateRunState();
-  });
+  };
 
   /* Urungkan hasil: kembali ke gambar + coretan sebelum Hapus terakhir.
      Berbeda dengan "Urungkan" (coretan): ini membatalkan HASIL run. */
-  $("eraseUndoResult").addEventListener("click", () => {
+  ($("eraseUndoResult") as HTMLButtonElement).onclick = () => {
     if (!preRun) return;
     current = new ImageData(new Uint8ClampedArray(preRun.image.data), ww, wh);
     compareBase = sessionOriginal;
@@ -387,35 +371,20 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
     setNote("");
     updateMaskWarn();
     updateRunState();
-    updateEraseSteps();
     hooks.onToast("Hasil diurungkan — kembali ke sebelum dihapus.");
-  });
+  };
 
-  $("eraseSave").addEventListener("click", () => {
+  ($("eraseSave") as HTMLButtonElement).onclick = () => {
     if (!exportBlob) return;
     hooks.onReplace(exportBlob);
     close();
-  });
-  $("eraseDownload").addEventListener("click", () => {
-    if (!exportBlob) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(exportBlob);
-    a.download = source.suggestName;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000);
-    hooks.onToast("Mengunduh " + source.suggestName);
-  });
+  };
   function close(): void {
     modal.classList.add("hidden");
     document.body.style.overflow = "";
   }
-  $("eraseClose").addEventListener("click", () => { if (!busy) close(); });
-  modal.addEventListener("click", (e) => { if (e.target === modal && !busy) close(); });
-  document.addEventListener("keydown", function esc(e) {
-    if (e.key === "Escape" && !modal.classList.contains("hidden") && !busy) { close(); document.removeEventListener("keydown", esc); }
-  });
+  ($("eraseClose") as HTMLButtonElement).onclick = () => { if (!busy) close(); };
+  modal.onclick = (e) => { if (e.target === modal && !busy) close(); };
 
   /* ── Buka ── */
   /* Judul selalu diatur (bukan cuma kalau opts.title ada) — kalau tidak,
@@ -452,7 +421,6 @@ export async function openEraser(source: EraseSource, hooks: EraseHooks, opts: E
   renderDisplay();
   renderOverlay();
   updateRunState();
-  updateEraseSteps();
   updateMaskWarn();
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";

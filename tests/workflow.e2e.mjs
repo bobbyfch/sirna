@@ -1,7 +1,8 @@
-// Alur Langkah 2 (tool-first): pemilih alat -> workspace Bersihkan ->
-// upload -> bersih -> ganti alat (file & hasil tetap) -> balik ke pemilih
-// -> workspace Hapus Objek -> upload cuma antre (TANPA auto-clean) ->
-// buka editor dari kartu. + 390px tanpa overflow, 0 error konsol.
+// Alur redesain (tool-first + auto-run): pemilih alat -> workspace
+// Bersihkan -> upload -> alat jalan sendiri -> Sudah bersih -> ganti
+// alat (file & hasil tetap, alat baru langsung jalan/buka editor) ->
+// balik ke pemilih -> workspace Hapus Objek -> upload langsung buka
+// editor (coretan = input). + 390px tanpa overflow, 0 error konsol.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -31,11 +32,14 @@ const consoleErrors = [];
 const pageErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => pageErrors.push(String(e)));
-async function stepperText() {
-  return await page.evaluate(() => {
-    const bar = document.getElementById("toolStepper");
-    return Array.from(bar.querySelectorAll(".ws-step")).map((s) => (s.classList.contains("done") ? "✓" : s.classList.contains("active") ? ">" : "·") + s.textContent.trim()).join(" ");
-  });
+async function toolStatusText() {
+  return await page.evaluate(() => document.getElementById("toolStatus")?.textContent?.trim() || "");
+}
+async function primaryText() {
+  return await page.evaluate(() => document.getElementById("primaryBtn")?.textContent?.trim() || "");
+}
+async function primaryVisible() {
+  return await page.evaluate(() => !document.getElementById("primaryBar").classList.contains("hidden"));
 }
 async function cardPill(nth) {
   return await page.evaluate((n) => document.querySelectorAll("#list article .status-pill")[n]?.textContent?.trim(), nth);
@@ -48,28 +52,37 @@ try {
   note("pickerVisible", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
   note("pickerCards", await page.evaluate(() => Array.from(document.querySelectorAll("#toolPicker .tool-card")).map((c) => c.dataset.tool).filter(Boolean).join(",")));
   note("panelHidden", await page.evaluate(() => document.getElementById("panel-cleaner").classList.contains("hidden")));
-  // (2) Pilih Bersihkan -> workspace muncul, stepper Bersihkan, pengaturan tampil.
+  // (2) Pilih Bersihkan -> workspace muncul, baris status, pengaturan tampil.
   await page.click('[data-tool="clean"]');
   await page.waitForTimeout(600);
   note("panelVisible", await page.evaluate(() => !document.getElementById("panel-cleaner").classList.contains("hidden")));
   note("heroHidden", await page.evaluate(() => document.getElementById("heroSection").classList.contains("hidden")));
-  note("stepperClean", await stepperText());
+  note("toolStatusClean", await toolStatusText());
   note("settingsVisible", await page.evaluate(() => !document.getElementById("settingsCard").classList.contains("hidden")));
   note("cleanChipActive", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
-  // (3) Upload file berlabel -> auto-clean (janji Bersihkan) -> Sudah bersih.
+  // (3) Upload file berlabel -> alat jalan sendiri -> tombol utama "Simpan foto".
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
-  await page.waitForFunction(() => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, { timeout: 60000 });
+  await page.waitForFunction(() => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, { timeout: 60000 });
   await page.waitForTimeout(400);
   note("cleanPill", await cardPill(0));
-  note("stepperCleanDone", await stepperText());
+  note("toolStatusCleanDone", await toolStatusText());
+  note("primaryAfterClean", await primaryText());
   // Pengaturan TETAP tampil walau file sudah masuk (dulu hilang).
   note("settingsStillVisible", await page.evaluate(() => !document.getElementById("settingsCard").classList.contains("hidden")));
-  // (4) Ganti alat ke Hapus Objek via chip -> stepper berubah, file & hasil tetap.
+  // (4) Ganti alat ke Hapus Objek via chip -> editor langsung terbuka
+  // (coretan = input, prinsip B); tutup -> file & hasil Bersihkan tetap.
   await page.click('[data-tool-switch="erase"]');
+  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 15000 });
+  note("eraseModalAutoOpenOnSwitch", await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden")));
+  await page.click("#eraseClose");
   await page.waitForTimeout(600);
-  note("stepperErase", await stepperText());
+  note("toolStatusErase", await toolStatusText());
   note("settingsHiddenErase", await page.evaluate(() => document.getElementById("settingsCard").classList.contains("hidden")));
   note("pillAfterSwitch", await cardPill(0));
+  note("primaryAfterSwitchErase", await primaryText());
   // (5) Balik ke pemilih -> pilih Bersihkan lagi -> kartu masih ada.
   await page.click('[data-tool-switch=""]');
   await page.waitForTimeout(600);
@@ -78,8 +91,9 @@ try {
   await page.waitForTimeout(600);
   note("cardKept", await page.evaluate(() => document.querySelectorAll("#list article").length));
   note("pillKept", await cardPill(0));
-  // (6) Mulai ulang -> balik ke pemilih. Pilih Hapus Objek -> upload cuma
-  // antre (TANPA auto-clean): pill tetap "Ada label AI", tombol Simpan sembunyi.
+  // (6) Mulai ulang -> balik ke pemilih. Pilih Hapus Objek -> upload
+  // langsung buka editor (prinsip B): pill tetap "Ada label AI" sampai
+  // dicoret, tombol utama jadi "Coret foto" (bukan "Simpan").
   await page.click("#restartBtn");
   await page.waitForTimeout(400);
   await page.click("#sheetConfirm"); // konfirmasi sheet (Phase 2)
@@ -87,18 +101,20 @@ try {
   note("pickerAfterRestart", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
   await page.click('[data-tool="erase"]');
   await page.waitForTimeout(600);
-  note("stepperEraseEmpty", await stepperText());
+  note("toolStatusEraseEmpty", await toolStatusText());
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
-  await page.waitForTimeout(2000);
+  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 15000 });
+  note("eraseModalAutoOpenOnUpload", await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden")));
+  await page.click("#eraseClose");
+  await page.waitForTimeout(600);
   note("eraseQueuePill", await cardPill(0));
-  note("eraseSaveHidden", await page.evaluate(() => document.querySelector('button[data-act="save"]')?.classList.contains("hidden")));
+  note("primaryEraseNoResult", await primaryText());
   note("dockHidden", await page.evaluate(() => document.getElementById("procDock").classList.contains("hidden")));
-  note("stepperEraseQueued", await stepperText());
+  note("toolStatusEraseQueued", await toolStatusText());
   note("eraseToast", await page.locator("#toast").textContent());
-  // Buka editor dari baris alat kartu -> modal muncul -> tutup.
-  await page.click('#list article [data-tool-switch="erase"]');
+  // Tombol utama "Coret foto" -> editor terbuka lagi -> tutup.
   await page.click("#primaryBtn");
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 15000 });
   note("eraseModalOpen", await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden")));
   await page.click("#eraseClose");
   await page.waitForTimeout(400);

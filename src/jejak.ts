@@ -187,7 +187,6 @@ export interface JejakOptions {
 
 export async function openJejak(source: EraseSource, hooks: JejakHooks, opts: JejakOptions = {}): Promise<void> {
   const modal = $("jejakModal");
-  const runBtn = $("jejakRun") as HTMLButtonElement;
 
   let busy = false;
   let exportBlob: Blob | null = null;
@@ -195,10 +194,6 @@ export async function openJejak(source: EraseSource, hooks: JejakHooks, opts: Je
 
   function setNote(t: string): void {
     $("jejakNote").textContent = t;
-  }
-  function setRunLabel(t: string, disabled: boolean): void {
-    runBtn.textContent = t;
-    runBtn.disabled = disabled;
   }
   function renderList(traces: Trace[], fileTrace: Trace | null): void {
     const el = $("jejakList");
@@ -215,12 +210,12 @@ export async function openJejak(source: EraseSource, hooks: JejakHooks, opts: Je
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  /* ── Hapus jejak ── */
+  /* ── Hapus jejak: jalan otomatis begitu jejak ketemu (prinsip A) ── */
   async function run(): Promise<void> {
     if (busy || blobTraces.length === 0) return;
     busy = true;
-    setRunLabel("Lagi mikir…", true);
     ($("jejakResultBar") as HTMLElement).classList.add("hidden");
+    ($("jejakRetry") as HTMLButtonElement).classList.add("hidden");
     setNote("Lagi ngitung…");
     try {
       const out = await hooks.onScrub(source.blob);
@@ -241,13 +236,13 @@ export async function openJejak(source: EraseSource, hooks: JejakHooks, opts: Je
       const msg = String((e as Error).message || "Gagal").replace(/\.+$/, "");
       hooks.onToast("Gagal hapus jejak: " + msg + ". Coba lagi.");
       setNote("Gagal hapus jejak: " + msg + ". Coba lagi.");
+      ($("jejakRetry") as HTMLButtonElement).classList.remove("hidden");
     }
     busy = false;
-    setRunLabel("Hapus jejak", blobTraces.length === 0);
   }
 
   /* ── Kontrol ── */
-  runBtn.onclick = () => {
+  ($("jejakRetry") as HTMLButtonElement).onclick = () => {
     void run();
   };
   $("jejakSave").onclick = () => {
@@ -260,20 +255,6 @@ export async function openJejak(source: EraseSource, hooks: JejakHooks, opts: Je
     ($("jejakResultBar") as HTMLElement).classList.add("hidden");
     setNote(blobTraces.length === 0 ? "Jejak dihapus ✓ Dicek ulang: 0 jejak tersisa di dalam file." : "Ketemu " + blobTraces.length + " jejak di dalam file ini.");
     hooks.onToast("Hasil diurungkan — kembali ke sebelum dihapus.");
-  };
-  $("jejakDownload").onclick = () => {
-    if (!exportBlob) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(exportBlob);
-    a.download = source.suggestName;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      a.remove();
-      URL.revokeObjectURL(a.href);
-    }, 2000);
-    hooks.onToast("Mengunduh " + a.download);
   };
   const origBtn = $("jejakUseOriginal");
   origBtn.classList.toggle("hidden", !opts.showUseOriginal);
@@ -309,12 +290,12 @@ export async function openJejak(source: EraseSource, hooks: JejakHooks, opts: Je
   renderList(blobTraces, fileTrace);
   if (blobTraces.length === 0) {
     setNote("Tidak ada jejak di dalam file — sudah bersih." + (fileTrace ? " Nama file masih mengandung tanggal/kode, ganti manual sebelum dibagikan." : ""));
-    setRunLabel("Hapus jejak", true);
   } else {
-    setNote("Ketemu " + blobTraces.length + " jejak di dalam file ini. Satu ketukan menghapus semuanya.");
-    setRunLabel("Hapus jejak", false);
+    setNote("Ketemu " + blobTraces.length + " jejak di dalam file ini — lagi dihapus…");
   }
   ($("jejakResultBar") as HTMLElement).classList.add("hidden");
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  /* Jejak ketemu = langsung dihapus, tanpa ketuk lagi (prinsip A). */
+  if (blobTraces.length > 0) void run();
 }

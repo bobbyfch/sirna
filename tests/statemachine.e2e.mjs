@@ -44,13 +44,19 @@ async function cardState(nth) {
       detectBody: c.querySelector("#detect-" + id + " .clean-body")?.textContent?.trim() || "",
       resultHead: c.querySelector("#result-" + id + " .clean-head, #result-" + id + " .detect-head")?.textContent?.trim() || "",
       resultBody: c.querySelector("#result-" + id + " .clean-body")?.textContent?.trim() || c.querySelector("#result-" + id + " .error-box")?.textContent?.trim() || "",
-      hasDeepBtn: !!c.querySelector('button[data-act="deepclean"]'),
+      deepBtnLabel: c.querySelector('button[data-act="deepclean"]')?.textContent?.trim() || "", // "Bersihkan dengan Deep" (prinsip K, dulu "Coba Deep Clean")
       hasRetryBtn: !!c.querySelector('button[data-act="reclean"]:not(.hidden)') && !!c.querySelector("#result-" + id + ' button[data-act="reclean"]'),
     };
   }, nth);
 }
+// Tunggu tombol utama jadi "Simpan foto" (1 file) / "Simpan semua (n)"
+// — tombol Simpan per kartu sudah dihapus (prinsip C).
 async function waitSave(n, timeout = 60000) {
-  await page.waitForFunction((k) => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= k, n, { timeout });
+  await page.waitForFunction((k) => {
+    const b = document.getElementById("primaryBtn");
+    if (!b || document.getElementById("primaryBar").classList.contains("hidden")) return false;
+    return k >= 2 ? b.textContent.includes("Simpan semua (" + k + ")") : b.textContent.includes("Simpan foto");
+  }, n, { timeout });
 }
 
 try {

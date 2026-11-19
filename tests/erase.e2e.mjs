@@ -85,13 +85,15 @@ try {
   await page.click('[data-tool="clean"]');
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", TEST_IMG);
-  await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-  note("cleanDone", "save button visible");
+  await page.waitForFunction(() => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, { timeout: 30000 });
+  note("cleanDone", "primary Simpan foto visible");
   await page.waitForTimeout(500);
 
-  // Buka editor Hapus Objek (chip rel kartu + tombol utama).
-  await page.click('#list [data-tool-switch="erase"]');
-  await page.click("#primaryBtn");
+  // Buka editor Hapus Objek (chip rail kepala editor langsung membuka).
+  await page.click('[data-tool-switch="erase"]');
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   const modalVisible = await page.evaluate(() => !document.getElementById("eraseModal").classList.contains("hidden"));
   note("editorOpen", modalVisible);
@@ -103,8 +105,12 @@ try {
   // ngisi coretan dari piksel sekitarnya, jadi garis tipis di tengah objek besar
   // bakal keisi warna objeknya lagi. Itu perilaku benar, bukan bug).
   // 6 garis horizontal (y=250..350, spasi 20 < lebar kuas 48) menutup lingkaran.
-  const toPx = (ix, iy) => ({ x: canvasBox.x + (ix / 800) * canvasBox.width, y: canvasBox.y + (iy / 600) * canvasBox.height });
+  // Box kanvas dibaca ulang per garis: begitu mask >2%, peringatan mask
+  // besar muncul dan sheet modal recenters — box lama bikin coretan
+  // mendarat ~32px meleset (celah tak ter-mask di tengah coretan).
   async function paintLine(x1, y1, x2, y2) {
+    const box = await page.locator("#eraseCanvas").boundingBox();
+    const toPx = (ix, iy) => ({ x: box.x + (ix / 800) * box.width, y: box.y + (iy / 600) * box.height });
     const a = toPx(x1, y1), b = toPx(x2, y2);
     await page.mouse.move(a.x, a.y);
     await page.mouse.down();
@@ -174,15 +180,6 @@ try {
   note("afterInstant", after);
   note("noteText", await page.locator("#eraseNote").textContent());
 
-  // Unduh hasil (download event) -> file valid.
-  const dl = page.waitForEvent("download", { timeout: 30000 });
-  await page.click("#eraseDownload");
-  const download = await dl;
-  const dlPath = "/tmp/erase-downloaded" + (download.suggestedFilename().endsWith(".png") ? ".png" : ".bin");
-  await download.saveAs(dlPath);
-  const buf = readFileSync(dlPath);
-  note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
-
   // Simpan hasil -> kartu harus update (teks "Objek dihapus").
   await page.click("#eraseSave");
   await page.waitForTimeout(800);
@@ -190,14 +187,28 @@ try {
   note("cardMentionsErase", /Objek dihapus/.test(cardText));
   note("editorClosedAfterSave", await page.evaluate(() => document.getElementById("eraseModal").classList.contains("hidden")));
 
+  // Unduh hasil lewat SATU jalur simpan: tombol utama "Simpan foto"
+  // (tombol "Unduh" di editor sudah dihapus, prinsip C).
+  const dl = page.waitForEvent("download", { timeout: 30000 });
+  await page.click("#primaryBtn");
+  const download = await dl;
+  const dlPath = "/tmp/erase-downloaded" + (download.suggestedFilename().endsWith(".png") ? ".png" : ".bin");
+  await download.saveAs(dlPath);
+  const buf = readFileSync(dlPath);
+  note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
+
   // Buka lagi, coret BESAR (>2% foto): peringatan mask muncul, TANPA
   // tombol pindah mode AI (revert: tidak ada lagi "Pakai Cepat AI").
-  await page.click('#list [data-tool-switch="erase"]');
-  await page.click("#primaryBtn");
+  // Editor dibuka ulang dari versi "Asli" dulu — hasil erase masih
+  // tersimpan, tapi tidak sedang ditampilkan (toolHasResult = versi aktif).
+  await page.click('#shellVersions button[data-v="Asli"]');
+  await page.waitForTimeout(400);
+  await page.click('[data-tool-switch="erase"]');
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   const box3 = await page.locator("#eraseCanvas").boundingBox();
-  const toPx3 = (ix, iy) => ({ x: box3.x + (ix / 800) * box3.width, y: box3.y + (iy / 600) * box3.height });
   async function paintLine3(x1, y1, x2, y2) {
+    const box = await page.locator("#eraseCanvas").boundingBox();
+    const toPx3 = (ix, iy) => ({ x: box.x + (ix / 800) * box.width, y: box.y + (iy / 600) * box.height });
     const a = toPx3(x1, y1), b = toPx3(x2, y2);
     await page.mouse.move(a.x, a.y);
     await page.mouse.down();
@@ -234,9 +245,11 @@ note("overflow390", overflow);
 await p2.click('[data-tool="clean"]');
 await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", TEST_IMG);
-await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-await p2.click('#list [data-tool-switch="erase"]');
-await p2.click("#primaryBtn");
+await p2.waitForFunction(() => {
+  const b = document.getElementById("primaryBtn");
+  return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+}, { timeout: 30000 });
+await p2.click('[data-tool-switch="erase"]');
 await p2.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, modalSw: document.getElementById("eraseModal").scrollWidth }));

@@ -38,7 +38,7 @@
   .faq-arrow{transition:transform .15s ease}
   #batchBar{position:fixed;bottom:0;left:0;right:0;z-index:40}
   #previewModal{position:fixed;inset:0;z-index:50;overflow:auto}
-  #toast{position:fixed;left:50%;transform:translateX(-50%);z-index:60;transition:opacity .25s ease, translate .25s ease}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);z-index:60;pointer-events:none;transition:opacity .25s ease, translate .25s ease}
   img,video{max-width:100%}
   /* ——— Anti melebar ke samping (HP): halaman nggak boleh bisa digeser horizontal.
      overflow-x:clip di body nggak bikin scroll container baru, jadi header sticky tetap jalan.
@@ -509,6 +509,18 @@
   .tool-chip{min-height:44px;padding:0 16px;border-radius:980px;border:1px solid var(--line);background:var(--surface);color:var(--label);font-size:14px;font-weight:600;cursor:pointer}
   .tool-chip:active{opacity:.7}
   .tool-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tool-chip.is-disabled,.tool-card.is-disabled{opacity:.45;cursor:not-allowed}
+  .tool-chip.is-disabled:active,.tool-card.is-disabled:active{opacity:.7}
+  /* Baris status jujur pengganti stepper (prinsip F): satu kalimat,
+     di bawah rail, bukan angka langkah palsu. */
+  .tool-status{font-size:14px;line-height:1.5;color:var(--muted);margin:2px 0 16px;min-height:1.2em}
+  .tool-status:empty{display:none}
+  /* Deskripsi satu baris tiap opsi pengaturan (prinsip K). */
+  .set-desc{font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:4px}
+  /* Status dedup + alasan grup (prinsip H). */
+  .dedup-status{font-size:14px;line-height:1.55;color:var(--label);margin:8px 0}
+  .dedup-status:empty{display:none}
+  .dedup-reason{font-size:13px;line-height:1.5;color:var(--muted);margin:2px 0 10px}
   .ws-steps{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0 16px}
   .ws-step{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
   .ws-step b{width:20px;height:20px;border-radius:50%;background:var(--fill);color:var(--muted);display:grid;place-items:center;font-size:11px;font-weight:800;flex-shrink:0}
@@ -856,7 +868,7 @@
 }
 .erase-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
 .erase-title{font-size:19px;font-weight:700;letter-spacing:-.01em}
-.erase-sub{font-size:13px;color:var(--muted);margin-top:2px;word-break:break-all}
+.erase-sub{font-size:13px;color:var(--muted);margin-top:2px;overflow-wrap:break-word;word-break:normal}
 .erase-stage{display:grid;place-items:center;border-radius:16px;background:#000;min-height:120px}
 .erase-canvas-box{position:relative;display:inline-block;line-height:0;max-width:100%}
 .erase-canvas-box canvas{display:block;max-width:100%;max-height:52vh;width:auto;height:auto}
@@ -884,7 +896,7 @@
 .ai-progress-row .erase-btn{flex-shrink:0;min-height:40px}
 /* strip langkah editor: 1 Coret → 2 Hapus → 3 Simpan.
    Langkah aktif = biru, selesai = hijau dengan centang. */
-.erase-orig{display:block;min-height:44px;margin:0 0 8px;padding:0;background:none;border:0;color:var(--muted);font-size:13.5px;font-weight:600;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.erase-orig{display:inline-flex;align-items:center;min-height:44px;margin:0 0 8px;padding:0 16px;background:var(--surface);border:1px solid var(--line);border-radius:980px;color:var(--label);font-size:13.5px;font-weight:600;text-align:left;cursor:pointer}
 .erase-orig:active{opacity:.6}
 .erase-steps{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
 .erase-step{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
@@ -1022,7 +1034,7 @@ html.dark #sheet{background:#1C1C1E}
   }
   /* — Toast: menempel tepi kanan KOLOM TENGAH (bukan tepi viewport), di
      atas bar utama — tidak menutupi judul/konten di tengah. — */
-  #toast{left:auto;right:calc(50% - 512px + 24px);bottom:96px !important;transform:none;max-width:420px}
+  #toast{left:auto;right:calc(50% - 512px + 24px);transform:none;max-width:420px}
   #toast:not(.hidden){animation:toastPopDesk .42s cubic-bezier(.34,1.56,.64,1) both}
   /* — Tombol utama: bar bawah DIBATASI lebar kolom tengah (bukan selebar
      layar, bukan pil melayang). Margin auto = rata tengah tanpa transform

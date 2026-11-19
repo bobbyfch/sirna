@@ -16,7 +16,7 @@
 
 import type { EraseSource, EraseHooks } from "./erase";
 import { lanczosUpscale, type Upscale } from "./lanczos";
-import { ensureEngine, runAi, cancelAiJobs, MODELS, formatMB, type DownloadProgress, type AiProgress } from "./models";
+import { ensureEngine, runAi, cancelAiJobs, type DownloadProgress, type AiProgress } from "./models";
 
 function canvasOf(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement("canvas");
@@ -69,7 +69,6 @@ const WORK_MAX_3X = 768; // 3x: lebih kecil dulu biar waktu tiling masuk akal
 export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: UpscaleOptions = {}): Promise<void> {
   const modal = $("upModal");
   const preview = $("upPreview") as HTMLImageElement;
-  const runBtn = $("upRun") as HTMLButtonElement;
 
   const work = await blobToImageData(source.blob, WORK_MAX_2X);
   const outType = source.type === "image/jpeg" ? "image/jpeg"
@@ -91,10 +90,6 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
   function setNote(t: string): void {
     $("upNote").textContent = t;
   }
-  function setRunLabel(t: string, disabled: boolean): void {
-    runBtn.textContent = t;
-    runBtn.disabled = disabled;
-  }
   function showOriginal(): void {
     if (origUrl) preview.src = origUrl;
   }
@@ -109,7 +104,7 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
   function updateModelProgress(p: DownloadProgress, label: string): void {
     const pct = p.total > 0 ? Math.min(100, Math.round((p.loaded / p.total) * 100)) : 0;
     ($("upModelBar") as HTMLElement).style.width = pct + "%";
-    $("upModelText").textContent = p.fromCache ? "Model sudah di HP — lagi disiapkan…" : label + " " + pct + "% (" + formatMB(p.loaded) + " / " + formatMB(p.total || MODELS.esrgan.size) + ")";
+    $("upModelText").textContent = p.fromCache ? "Model sudah di HP — lagi disiapkan…" : label + " " + pct + "%";
   }
   function updateTileProgress(p: AiProgress): void {
     const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
@@ -124,9 +119,9 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
   async function run(): Promise<void> {
     if (busy) return;
     busy = true;
-    setRunLabel("Lagi perbesar…", true);
     ($("upResultBar") as HTMLElement).classList.add("hidden");
     ($("upCompare") as HTMLElement).classList.add("hidden");
+    ($("upRetry") as HTMLButtonElement).classList.add("hidden");
     setNote("");
     abort = new AbortController();
     try {
@@ -135,9 +130,9 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
       let out: ImageData;
       let usedLanczos = false;
       try {
-        showModelProgress("Lagi unduh model Real-ESRGAN…");
+        showModelProgress("Lagi unduh model…");
         await ensureEngine("esrgan", {
-          onDownload: (p) => updateModelProgress(p, "Lagi unduh model Real-ESRGAN"),
+          onDownload: (p) => updateModelProgress(p, "Lagi unduh model"),
           signal: abort.signal,
         });
         setNote("Lagi memperbesar pakai AI…");
@@ -162,7 +157,7 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
       const ms = Date.now() - t0;
       setNote("Diperbesar " + scale + "× ✓ " + input.width + "×" + input.height + " → " + out.width + "×" + out.height +
         " (" + (ms / 1000).toFixed(1) + " dtk)" + (usedLanczos ? " — mode offline (interpolasi)." : " — AI.") +
-        " Tahan tombol di bawah buat bandingkan dengan aslinya.");
+        " Ketuk \"Lihat asli\" di bawah buat bandingkan.");
       ($("upResultBar") as HTMLElement).classList.remove("hidden");
       ($("upCompare") as HTMLElement).classList.remove("hidden");
     } catch (e) {
@@ -173,12 +168,12 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
         const msg = String((e as Error).message || "Gagal").replace(/\.+$/, "");
         hooks.onToast("Gagal memperbesar: " + msg + ". Coba lagi.");
         setNote("Gagal memperbesar: " + msg + ". Coba lagi.");
+        ($("upRetry") as HTMLButtonElement).classList.remove("hidden");
       }
     }
     hideModelProgress();
     abort = null;
     busy = false;
-    setRunLabel("Perbesar", false);
   }
 
   /* ── Kontrol ── */
@@ -186,24 +181,30 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
     abort?.abort();
     cancelAiJobs();
   };
-  document.querySelectorAll("[data-up-scale]").forEach((b) =>
-    b.addEventListener("click", () => {
+  /* Segmented control: mengetuk 2×/3× LANGSUNG menjalankan (prinsip B).
+     Assignment (.onclick), bukan addEventListener — modal dibuka berulang. */
+  document.querySelectorAll("[data-up-scale]").forEach((b) => {
+    (b as HTMLButtonElement).onclick = () => {
       if (busy) return;
       scale = (Number((b as HTMLElement).dataset.upScale) || 2) as Upscale;
       document.querySelectorAll("[data-up-scale]").forEach((x) =>
         x.setAttribute("aria-pressed", (x as HTMLElement).dataset.upScale === String(scale) ? "true" : "false"));
       $("upWarn3").classList.toggle("hidden", scale !== 3);
-      if (scale === 3) setNote("3× diproses dari 4× lalu diperkecil (Lanczos) — tetap tajam. Foto di atas 768 px diproses di 768 px dulu.");
-      else setNote("Dihitung AI di HP kamu (Real-ESRGAN x4v3, 4,6 MB — download sekali, tersimpan di HP).");
-    }));
-  runBtn.onclick = () => {
+      void run();
+    };
+  });
+  ($("upRetry") as HTMLButtonElement).onclick = () => {
     void run();
   };
-  const cmp = $("upCompare");
-  cmp.addEventListener("pointerdown", (e) => { e.preventDefault(); showOriginal(); });
-  cmp.addEventListener("pointerup", () => showResult());
-  cmp.addEventListener("pointerleave", () => showResult());
-  cmp.addEventListener("pointercancel", () => showResult());
+  /* "Lihat asli" = toggle ketuk-sekali (prinsip I). */
+  const cmp = $("upCompare") as HTMLButtonElement;
+  let comparing = false;
+  cmp.onclick = () => {
+    comparing = !comparing;
+    cmp.setAttribute("aria-pressed", comparing ? "true" : "false");
+    if (comparing) showOriginal();
+    else showResult();
+  };
   $("upSave").onclick = () => {
     if (!exportBlob) return;
     hooks.onReplace(exportBlob);
@@ -217,23 +218,9 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
     }
     ($("upResultBar") as HTMLElement).classList.add("hidden");
     ($("upCompare") as HTMLElement).classList.add("hidden");
-    setNote("Dihitung AI di HP kamu (Real-ESRGAN x4v3, 4,6 MB — download sekali, tersimpan di HP).");
+    setNote("");
     if (origUrl) preview.src = origUrl;
     hooks.onToast("Hasil diurungkan — kembali ke sebelum diperbesar.");
-  };
-  $("upDownload").onclick = () => {
-    if (!exportBlob) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(exportBlob);
-    a.download = source.suggestName;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      a.remove();
-      URL.revokeObjectURL(a.href);
-    }, 2000);
-    hooks.onToast("Mengunduh " + a.download);
   };
   const origBtn = $("upUseOriginal");
   origBtn.classList.toggle("hidden", !opts.showUseOriginal);
@@ -275,8 +262,9 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
   bmp.close();
   $("upSub").textContent =
     source.name + " · " + fw + "×" + fh + " · diedit dari " + (source.sourceLabel || "Asli");
-  setNote("Dihitung AI di HP kamu (Real-ESRGAN x4v3, 4,6 MB — download sekali, tersimpan di HP).");
-  setRunLabel("Perbesar", false);
+  /* Engine dijelaskan sekali saja di deskripsi HTML (#upDesc) — jangan
+     diulang di catatan dinamis (P2-03). */
+  setNote("");
   ($("upResultBar") as HTMLElement).classList.add("hidden");
   ($("upCompare") as HTMLElement).classList.add("hidden");
   $("upWarn3").classList.add("hidden");
@@ -289,4 +277,6 @@ export async function openUpscale(source: EraseSource, hooks: EraseHooks, opts: 
   previewUrl = origUrl;
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  /* Default 2× jalan sendiri begitu dibuka (prinsip B). */
+  void run();
 }

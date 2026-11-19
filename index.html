@@ -81,7 +81,6 @@
     </div>
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
       <button type="button" id="topBackBtn" class="hidden w-10 h-10 shrink-0 grid place-items-center rounded-full border bg-white dark:bg-[#1C1C1E]" style="border-color:var(--line)" title="Semua alat" aria-label="Kembali ke semua alat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="w-5 h-5"><path d="m15 18-6-6 6-6"/></svg></button>
-      <button type="button" id="topExportBtn" class="hidden btn-ic min-h-[40px] px-4 rounded-full grad-bg text-white font-semibold text-sm shrink-0"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-download"/></svg>Export</button>
       <span class="hidden md:flex items-center gap-1.5 text-xs font-medium" style="color:var(--muted)"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg>100% lokal</span>
       <button type="button" id="themeBtn" aria-label="Ganti ke mode gelap" aria-pressed="false" title="Mode terang / gelap" class="w-10 h-10 shrink-0 grid place-items-center rounded-full border bg-white dark:bg-[#1C1C1E]" style="border-color:var(--line)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="icon-moon w-5 h-5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -102,7 +101,7 @@
   <section class="relative pt-8 sm:pt-12 pb-6" id="heroSection">
     <div class="hero-glow" aria-hidden="true"></div>
     <h1 class="rise rise-1 relative font-bold tracking-tight leading-[1.06] text-[34px] sm:text-[50px]">Taruh foto. Beres. <span class="grad-text">Simpan.</span></h1>
-    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Pilih alat, taruh file, simpan. Semua di HP kamu, tanpa server.</p>
+    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Pilih alat, taruh file, simpan. Semua di browser kamu, tanpa server.</p>
     <!-- ═══ LAYAR A — PEMILIH ALAT (home) ═══
          Tool-first (Langkah 2): pilih alat dulu, baru upload. Grid kartu —
          semua alat kelihatan sekaligus, tiap kartu ≥44px, satu ketukan =
@@ -116,27 +115,27 @@
       </button>
       <button type="button" class="tool-card" data-tool="erase">
         <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg></span>
-        <span class="tool-card-text"><b>Hapus Objek</b><span>Coret orang / benda / teks</span><i>Foto dulu · kuas</i></span>
+        <span class="tool-card-text"><b>Hapus Objek</b><span>Coret orang / benda / teks</span><i>Hanya foto · coret dengan kuas</i></span>
         <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
       </button>
       <button type="button" class="tool-card" data-tool="watermark">
         <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span>
-        <span class="tool-card-text"><b>Hapus Watermark</b><span>Hapus tanda air di pojok</span><i>Foto dulu · deteksi otomatis</i></span>
+        <span class="tool-card-text"><b>Hapus Watermark</b><span>Hapus tanda air di pojok</span><i>Hanya foto · coba deteksi otomatis</i></span>
         <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
       </button>
       <button type="button" class="tool-card" data-tool="background">
         <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg></span>
-        <span class="tool-card-text"><b>Hapus Latar</b><span>Latar apa pun jadi transparan</span><i>Foto dulu · AI</i></span>
+        <span class="tool-card-text"><b>Hapus Latar</b><span>Latar apa pun jadi transparan</span><i>Hanya foto · AI</i></span>
         <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
       </button>
       <button type="button" class="tool-card" data-tool="upscale">
         <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-expand"/></svg></span>
-        <span class="tool-card-text"><b>Perbesar</b><span>Foto jadi 2× lebih besar</span><i>Foto dulu · AI</i></span>
+        <span class="tool-card-text"><b>Perbesar</b><span>Foto jadi 2× atau 3× lebih besar</span><i>Hanya foto · AI</i></span>
         <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
       </button>
       <button type="button" class="tool-card" data-tool="jejak">
         <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span>
-        <span class="tool-card-text"><b>Hapus Jejak</b><span>Hapus GPS, EXIF &amp; data pribadi</span><i>Foto dulu · sekali ketuk</i></span>
+        <span class="tool-card-text"><b>Hapus Jejak</b><span>Hapus GPS, EXIF &amp; data pribadi</span><i>Hanya foto · jalan otomatis</i></span>
         <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
       </button>
       <button type="button" class="tool-card" data-tool="dedup">
@@ -181,7 +180,7 @@
     <button type="button" class="tool-chip" data-tool-switch="jejak" aria-pressed="false">Hapus Jejak</button>
     <button type="button" class="tool-chip" data-tool-switch="dedup" aria-pressed="false">Hapus Duplikat</button>
   </div>
-  <div class="ws-steps" id="toolStepper" aria-label="Langkah alat ini"></div>
+  <div class="tool-status" id="toolStatus" role="status"></div>
   <!-- ═══ KEPALA EDITOR (kanonis, P0-1): foto terpilih di atas (maks 55vh),
        status + versi di bawahnya, lalu rail alat. Bukan sticky — antrean
        di bawah tetap bisa di-scroll & diklik tanpa tertutup (kepala yang
@@ -193,8 +192,7 @@
       <img id="shellImg" alt="Foto yang sedang diedit">
       <video id="shellVideo" class="hidden" muted playsinline controls preload="metadata"></video>
       <div class="shell-canvas-actions">
-        <button type="button" id="shellUndo" class="shell-chip-btn hidden" title="Kembali ke versi sebelumnya" aria-label="Urungkan ke versi sebelumnya"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-rotate"/></svg><span>Urungkan</span></button>
-        <button type="button" id="shellCompare" class="shell-chip-btn" title="Tahan untuk melihat foto asli" aria-label="Tahan untuk melihat foto asli">Tahan: lihat asli</button>
+        <button type="button" id="shellCompare" class="shell-chip-btn" aria-pressed="false" aria-label="Lihat foto asli">Lihat asli</button>
       </div>
     </div>
     <div class="shell-status">
@@ -249,6 +247,7 @@
       <div class="grid grid-cols-2 gap-4">
         <div>
           <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-image"/></svg></span>Format</div>
+          <p class="set-desc">Format file hasil. “Asli” = formatnya tetap seperti file awal.</p>
           <div class="seg mt-2" role="group" aria-label="Format output">
             <button type="button" data-format="same" aria-pressed="true">Asli</button>
             <button type="button" data-format="image/jpeg" aria-pressed="false">JPG</button>
@@ -258,6 +257,7 @@
         </div>
         <div>
           <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eraser"/></svg></span>Mode</div>
+          <p class="set-desc">Deep: periksa lebih teliti, file sedikit berubah. Standar sudah cukup untuk kebanyakan foto.</p>
           <div class="seg mt-2" role="group" aria-label="Mode cleaning">
             <button type="button" data-mode="std" aria-pressed="true">Standar</button>
             <button type="button" data-mode="deep" aria-pressed="false">Deep</button>
@@ -271,12 +271,14 @@
             <span class="font-bold text-accent text-sm"><span id="qVal">92</span>%</span>
           </div>
           <input type="range" id="qualityRange" min="70" max="100" value="92" class="mt-2.5">
+          <p class="set-desc">Berlaku saat gambar digambar ulang. Kalau cuma metadata yang dibuang, kualitas tidak berubah.</p>
         </div>
         <div>
           <div class="set-head"><span class="icon-tile sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-tag"/></svg></span>Nama file</div>
+          <p class="set-desc">“Nama sama seperti aslinya” = hasil disimpan dengan nama yang sama — bisa menimpa file lama.</p>
           <div class="seg mt-2" role="group" aria-label="Nama file hasil">
             <button type="button" data-dl="copy" aria-pressed="true">-clean</button>
-            <button type="button" data-dl="same" aria-pressed="false">Sama</button>
+            <button type="button" data-dl="same" aria-pressed="false">Nama sama seperti aslinya</button>
           </div>
         </div>
       </div>
@@ -288,18 +290,20 @@
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <h2 class="font-bold text-[22px] tracking-tight">File kamu <span id="statsText" class="text-sm font-medium ml-1" style="color:var(--muted)"></span></h2>
       <div class="flex items-center gap-1.5 shrink-0">
-        <button type="button" id="restartBtn" class="icon-btn" style="color:var(--muted)" title="Mulai ulang" aria-label="Mulai ulang — buang semua file"><svg class="ic" aria-hidden="true"><use href="#i-rotate"/></svg></button>
+        <button type="button" id="restartBtn" class="btn-ic min-h-[40px] px-3.5 rounded-full border font-semibold text-[13px]" style="border-color:var(--line);color:var(--muted)" title="Buang semua file dan kembali ke pemilih alat" aria-label="Mulai ulang — buang semua file"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-rotate"/></svg>Mulai ulang</button>
         <button type="button" id="addMoreBtn" class="icon-btn" title="Tambah file" aria-label="Tambah file" style="background:var(--accent);color:#fff"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </div>
     </div>
     <div id="dedupView" class="hidden mt-3" aria-label="Duplikat">
       <div class="card p-4 sm:p-5">
-        <div class="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h3 class="font-bold text-[17px]">Cari duplikat</h3>
-            <p class="text-[13.5px] mt-0.5" style="color:var(--muted)">Foto yang sama/mirip dikelompokkan. Kamu yang pilih mana yang disimpan — tidak ada yang terhapus otomatis.</p>
-          </div>
-          <button type="button" id="dedupScanBtn" class="erase-btn primary">Cari duplikat</button>
+        <div>
+          <h3 class="font-bold text-[17px]">Cari duplikat</h3>
+          <p class="text-[13.5px] mt-0.5" style="color:var(--muted)">Foto yang sama/mirip dikelompokkan. Kamu yang pilih mana yang disimpan — tidak ada yang terhapus otomatis.</p>
+        </div>
+        <p id="dedupStatus" class="dedup-status" role="status"></p>
+        <div id="dedupInvite" class="hidden mt-3">
+          <p class="dedup-empty">Tambah 1 file lagi untuk cari duplikat — duplikat baru ketemu kalau ada 2 foto atau lebih.</p>
+          <button type="button" id="dedupAddBtn" class="btn-ic min-h-[44px] px-5 mt-2 rounded-full grad-bg text-white font-semibold text-sm"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-plus"/></svg>Tambah file</button>
         </div>
         <div id="dedupGroups" class="mt-3"></div>
       </div>
@@ -366,7 +370,6 @@
 <div id="batchBar" class="hidden bg-white/95 dark:bg-[#141517]/95 backdrop-blur border-t" style="border-color:var(--line);padding-bottom:env(safe-area-inset-bottom)">
   <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
     <span id="batchStats" class="text-sm font-semibold mr-auto truncate"></span>
-    <button type="button" id="zipBtn" class="btn-ic min-h-[44px] px-5 rounded-full grad-bg text-white font-semibold text-sm disabled:opacity-40 shrink-0" disabled><svg class="ic ic-sm" aria-hidden="true"><use href="#i-archive"/></svg><span>ZIP</span></button>
     <button type="button" id="clearBtn" class="icon-btn shrink-0" style="color:var(--muted)" title="Hapus semua" aria-label="Hapus semua"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button>
   </div>
 </div>
@@ -440,11 +443,6 @@
          saat ini (chaining); tombol ini muat ulang editor dari file asli —
          cuma tampil kalau sumbernya bukan file asli. -->
     <button type="button" id="eraseUseOriginal" class="erase-orig hidden">Mulai dari file asli</button>
-    <div class="erase-steps" id="eraseSteps" aria-label="Langkah: coret, hapus, simpan">
-      <span class="erase-step active"><b>1</b> Coret</span>
-      <span class="erase-step"><b>2</b> Hapus</span>
-      <span class="erase-step"><b>3</b> Simpan</span>
-    </div>
     <div class="erase-stage" id="eraseStage">
       <div class="erase-canvas-box">
         <canvas id="eraseCanvas"></canvas>
@@ -452,12 +450,12 @@
       </div>
     </div>
     <div class="erase-tools">
-      <p class="erase-mode-desc">Dihitung AI di HP kamu (Mi-GAN, 28 MB — download sekali, tersimpan di HP). Paling pas buat coretan kecil, teks, dan watermark.</p>
+      <p class="erase-mode-desc">Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat. Paling pas buat coretan kecil, teks, dan watermark.</p>
       <label class="erase-brush" for="eraseBrush">Kuas <input type="range" id="eraseBrush" min="8" max="160" step="4" value="48"><span id="eraseBrushVal">48 px</span></label>
       <div class="erase-row">
-        <button type="button" id="eraseUndo" class="erase-btn">Urungkan</button>
+        <button type="button" id="eraseUndo" class="erase-btn">Urungkan coretan</button>
         <button type="button" id="eraseClear" class="erase-btn">Bersihin coretan</button>
-        <button type="button" id="eraseCompare" class="erase-btn">Tahan: lihat asli</button>
+        <button type="button" id="eraseCompare" class="erase-btn" aria-pressed="false">Lihat asli</button>
       </div>
       <div id="eraseMaskWarn" class="erase-warn hidden" role="alert">
         <span id="eraseMaskWarnText">Coretannya besar — hasilnya bisa belang di area segede ini. Coba coret lebih kecil, atau bagi jadi beberapa bagian.</span>
@@ -470,7 +468,6 @@
       <div id="eraseResultBar" class="erase-row hidden">
         <button type="button" id="eraseSave" class="erase-btn primary">Simpan hasil</button>
         <button type="button" id="eraseUndoResult" class="erase-btn">Urungkan hasil</button>
-        <button type="button" id="eraseDownload" class="erase-btn">Unduh</button>
       </div>
       <p class="erase-note" id="eraseNote"></p>
     </div>
@@ -497,8 +494,8 @@
       </div>
     </div>
     <div class="erase-tools">
-      <p class="erase-mode-desc">Dihitung AI di HP kamu (ORMBG, 44 MB — download sekali, tersimpan di HP). Latar apa pun bisa: orang, produk, ilustrasi.</p>
-      <button type="button" id="bgRun" class="erase-run grad-bg">Hapus latar</button>
+      <p class="erase-mode-desc">Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat. Latar apa pun bisa: orang, produk, ilustrasi.</p>
+      <button type="button" id="bgRetry" class="erase-btn hidden" style="width:100%">Coba lagi</button>
       <div id="bgModelProgress" class="ai-progress hidden" role="status">
         <div class="ai-progress-bar"><div id="bgModelBar" class="ai-progress-fill"></div></div>
         <div class="ai-progress-row"><span id="bgModelText">Lagi unduh model…</span><button type="button" id="bgCancel" class="erase-btn">Batalkan</button></div>
@@ -506,7 +503,6 @@
       <div id="bgResultBar" class="erase-row hidden">
         <button type="button" id="bgSave" class="erase-btn primary">Simpan hasil</button>
         <button type="button" id="bgUndoResult" class="erase-btn">Urungkan hasil</button>
-        <button type="button" id="bgDownload" class="erase-btn">Unduh</button>
       </div>
       <p class="erase-note" id="bgNote"></p>
     </div>
@@ -533,24 +529,24 @@
       </div>
     </div>
     <div class="erase-tools">
-      <p class="erase-mode-desc">Dihitung AI di HP kamu (Real-ESRGAN x4v3, 4,6 MB — download sekali, tersimpan di HP).</p>
+      <p class="erase-mode-desc">Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat.</p>
       <div class="seg" role="group" aria-label="Skala perbesar">
         <button type="button" data-up-scale="2" aria-pressed="true">2×</button>
         <button type="button" data-up-scale="3" aria-pressed="false">3×</button>
       </div>
+      <p class="set-desc">Ketuk 2× atau 3× — foto langsung diperbesar.</p>
       <div id="upWarn3" class="erase-warn hidden" role="alert">
         <span>3× diproses dari 4× lalu diperkecil — tetap tajam. Foto di atas 768 px diproses di 768 px dulu.</span>
       </div>
-      <button type="button" id="upRun" class="erase-run grad-bg">Perbesar</button>
+      <button type="button" id="upRetry" class="erase-btn hidden" style="width:100%">Coba lagi</button>
       <div id="upModelProgress" class="ai-progress hidden" role="status">
         <div class="ai-progress-bar"><div id="upModelBar" class="ai-progress-fill"></div></div>
         <div class="ai-progress-row"><span id="upModelText">Lagi unduh model…</span><button type="button" id="upCancel" class="erase-btn">Batalkan</button></div>
       </div>
-      <button type="button" id="upCompare" class="erase-btn hidden" style="width:100%">Tahan: lihat asli</button>
+      <button type="button" id="upCompare" class="erase-btn hidden" style="width:100%" aria-pressed="false">Lihat asli</button>
       <div id="upResultBar" class="erase-row hidden">
         <button type="button" id="upSave" class="erase-btn primary">Simpan hasil</button>
         <button type="button" id="upUndoResult" class="erase-btn">Urungkan hasil</button>
-        <button type="button" id="upDownload" class="erase-btn">Unduh</button>
       </div>
       <p class="erase-note" id="upNote"></p>
     </div>
@@ -572,18 +568,17 @@
     <button type="button" id="jejakUseOriginal" class="erase-orig hidden">Mulai dari file asli</button>
     <div class="erase-tools">
       <div id="jejakList" class="jejak-list" role="list"></div>
-      <button type="button" id="jejakRun" class="erase-run grad-bg">Hapus jejak</button>
+      <button type="button" id="jejakRetry" class="erase-btn hidden" style="width:100%">Coba lagi</button>
       <div id="jejakResultBar" class="erase-row hidden">
         <button type="button" id="jejakSave" class="erase-btn primary">Simpan hasil</button>
         <button type="button" id="jejakUndoResult" class="erase-btn">Urungkan hasil</button>
-        <button type="button" id="jejakDownload" class="erase-btn">Unduh</button>
       </div>
       <p class="erase-note" id="jejakNote"></p>
     </div>
   </div>
 </div>
 
-<div id="toast" class="hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold text-sm px-4 py-2.5 rounded-full shadow-lg max-w-[92vw] text-center" style="bottom:max(112px, calc(84px + env(safe-area-inset-bottom)))"></div>
+<div id="toast" class="hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold text-sm px-4 py-2.5 rounded-full shadow-lg max-w-[92vw] text-center" style="top:calc(64px + env(safe-area-inset-top))"></div>
 
 
 

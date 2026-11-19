@@ -31,7 +31,10 @@ test('Hapus Objek: editor shell ada, SATU engine Mi-GAN, semua file di bawah bat
   assert.match(html, /id="eraseCancel"/);
   assert.match(html, /Batalkan/);
   assert.doesNotMatch(html, /Cepat AI|Terbaik|Instan/);
-  assert.match(html, /Dihitung AI di HP kamu \(Mi-GAN, 28 MB/);
+  // Redesain (P2-03): deskripsi engine di UI pengguna TANPA nama model /
+  // ukuran — cuma "sekali unduh, tersimpan di perangkat".
+  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat/);
+  assert.doesNotMatch(html, /Mi-GAN, 28 MB/);
   // dist/ort ADA (bukan tidak ada): cuma 2 file WASM thread yang
   // dipakai — jsep/asyncify/jspi TIDAK boleh ada (jsep 29,5 MB dan
   // asyncify 28,7 MB lewat batas 25 MiB/file Cloudflare).
@@ -78,6 +81,7 @@ test('Hapus Objek: editor shell ada, SATU engine Mi-GAN, semua file di bawah bat
   assert.match(eraseSrc, /inpaintTelea/);
   assert.match(eraseSrc, /Mode offline/);
   assert.match(eraseSrc, /ensureEngine\("migan"/);
+  assert.doesNotMatch(eraseSrc, /Lagi unduh model Mi-GAN/); // P2-03: tanpa nama model di UI
   assert.doesNotMatch(eraseSrc, /setMode|Cepat AI|Terbaik|lama_fp32/);
   const teleaSrc = await readFile(new URL('../src/telea.ts', dir), 'utf8');
   assert.match(teleaSrc, /GRAD_CLAMP = 8/); // clamp ±8 (hotfix zebra)
@@ -110,14 +114,16 @@ test('Hapus Watermark: kartu alat ada, deteksi lazy-load, model tetap di chunk e
 });
 test('Step 0: hotfix zebra + copy status', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
-  // Editor: strip langkah, peringatan mask besar, tombol "Urungkan hasil"
-  // (ganti "Lanjut hapus"), Hapus mulai disabled sampai ada coretan.
-  assert.match(html, /id="eraseSteps"/);
+  // Editor: strip langkah DIHAPUS (prinsip F — diganti baris status),
+  // "Tahan: lihat asli" jadi toggle "Lihat asli" (prinsip I); peringatan
+  // mask besar, tombol "Urungkan hasil", Hapus disabled sampai ada coretan.
+  assert.doesNotMatch(html, /id="eraseSteps"/);
+  assert.doesNotMatch(html, /Tahan: lihat asli/);
+  assert.match(html, /Lihat asli/);
   assert.match(html, /id="eraseMaskWarn"/);
   assert.match(html, /id="eraseUndoResult"/);
   assert.match(html, /Urungkan hasil/);
   assert.match(html, /Bersihin coretan/);
-  assert.match(html, /Tahan: lihat asli/);
   assert.match(html, /id="eraseRun"[^>]*disabled/);
   assert.doesNotMatch(html, /id="eraseMore"/); // "Lanjut hapus" dihapus
   const assets = await readdir(new URL('assets',dir));
@@ -153,7 +159,8 @@ test('Step 1: state machine + copy §4.3 (satu sumber status)', async () => {
   assert.match(bundle, /File ini aman diunggah/);
   assert.match(bundle, /file siap disimpan/);
   assert.match(bundle, /sudah bersih/);
-  assert.match(bundle, /Coba Deep Clean/);
+  assert.match(bundle, /Bersihkan dengan Deep/);
+  assert.doesNotMatch(bundle, /Coba Deep Clean/); // satu konsep, satu nama (prinsip K)
   assert.match(bundle, /File aslimu aman/);
   assert.match(bundle, /WebM hanya bisa dicek\. Pakai MP4 kalau mau dibersihkan\./);
   assert.match(bundle, /Label ketemu, tapi tidak bisa dibuang dari file ini\./);
@@ -178,10 +185,12 @@ test('Step 2: pemilih alat + workspace per alat + stepper per alat', async () =>
   assert.match(html, /data-tool="jejak"/);
   assert.match(html, /data-tool="dedup"/);
   assert.match(html, /Foto &amp; video · otomatis/);
-  assert.match(html, /Foto dulu · kuas/);
-  assert.match(html, /Foto dulu · deteksi otomatis/);
+  assert.match(html, /Hanya foto · coret dengan kuas/);
+  assert.match(html, /Hanya foto · coba deteksi otomatis/);
+  assert.match(html, /Hanya foto · AI/);
   assert.match(html, /Latar apa pun jadi transparan/);
-  assert.match(html, /Foto jadi 2× lebih besar/);
+  assert.match(html, /Foto jadi 2× atau 3× lebih besar/);
+  assert.doesNotMatch(html, /Foto dulu/);
   assert.match(html, /Hapus GPS, EXIF &amp; data pribadi/);
   assert.match(html, /Cari foto yang sama\/mirip/);
   assert.match(html, /Pilih alat, taruh file, simpan/);
@@ -201,16 +210,21 @@ test('Step 2: pemilih alat + workspace per alat + stepper per alat', async () =>
   assert.match(html, /data-tool-switch="dedup"/);
   assert.match(html, /Semua alat/);
   assert.match(html, /id="dedupView"/);
-  assert.match(html, /id="dedupScanBtn"/);
+  assert.match(html, /id="dedupAddBtn"/); // <2 file: ajakan tambah file (prinsip H)
+  assert.match(html, /id="dedupStatus"/);
+  assert.doesNotMatch(html, /id="dedupScanBtn"/);
   assert.match(html, /id="dedupGroups"/);
-  assert.match(html, /id="toolStepper"/);
+  assert.match(html, /id="toolStatus"/); // stepper palsu → satu baris status (prinsip F)
+  assert.doesNotMatch(html, /id="toolStepper"/);
   assert.match(html, /id="settingsCard"/);
   // Router alat ada di sumber (identifier lokal di-minify di bundle).
   const src = await readFile(new URL('../src/app.ts', dir), 'utf8');
   assert.match(src, /var activeTool/);
-  assert.match(src, /TOOL_STEPS/);
+  assert.match(src, /TOOL_RESULT_LABEL/);
   assert.match(src, /function setActiveTool\(tool\)/);
-  assert.match(src, /function updateToolStepper\(\)/);
+  assert.match(src, /function updateToolStatus\(\)/);
+  assert.doesNotMatch(src, /TOOL_STEPS/);
+  assert.doesNotMatch(src, /function updateToolStepper\(\)/);
   assert.match(src, /function routeFiles\(fileList\)/);
   // Label langkah tiap alat + toast antre ada di bundle.
   const assets = await readdir(new URL('assets',dir));
@@ -219,8 +233,14 @@ test('Step 2: pemilih alat + workspace per alat + stepper per alat', async () =>
   for (const f of js) bundle += await readFile(new URL('assets/' + f, dir), 'utf8');
   assert.match(bundle, /Pilih file/);
   assert.match(bundle, /Coret/);
-  assert.match(bundle, /Deteksi/);
-  assert.match(bundle, /file masuk — .* siap di kepala editor/); // toast pasca-upload: foto di kepala editor, bukan kartu
+  // Stepper dihapus (prinsip F) — yang diasersi sekarang baris status
+  // jujur + ajakan dedup, bukan label langkah "Deteksi"/"Hapus"/"Simpan".
+  assert.match(bundle, /Lagi dibersihin…/);
+  assert.match(bundle, /Sudah bersih/);
+  assert.match(bundle, /Tambah 1 file lagi/);
+  assert.doesNotMatch(bundle, /"Deteksi","Hapus","Simpan"/);
+  assert.match(bundle, /file siap — pilih alat dulu di atas\./); // toast pasca-upload tanpa alat: file diantre, alat tidak jalan
+  assert.match(bundle, /Foto contoh dimuat ✓ — pilih alat di atas\./);
 });
 test('Step 3: tumpukan versi + rel alat di kartu', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
@@ -233,14 +253,14 @@ test('Step 3: tumpukan versi + rel alat di kartu', async () => {
   assert.match(src, /function pushVersion\(item,label,blob,type,scan,box\)/);
   assert.match(src, /function setCurrentVersion\(item,label\)/);
   assert.match(src, /function renderVersions\(item\)/);
-  assert.match(src, /function renderRail\(item\)/);
+  assert.doesNotMatch(src, /function renderRail\(item\)/); // rel kartu dihapus (prinsip E)
+  assert.doesNotMatch(src, /RAIL_TOOLS/);
+  assert.doesNotMatch(src, /class="tool-bar" id="rail-/);
   assert.match(src, /function renderResultBox\(item,res,box\)/);
   assert.match(src, /data-act="version"/);
-  // Rel di kartu = .tool-bar kanonis (chip ikon+label, data-tool-switch) —
-  // SATU implementasi rel; rel teks abu-abu lama + segmen "railclean" sudah
-  // dihapus 19 Nov 2026 (screenshot POCO F6).
-  assert.match(src, /RAIL_TOOLS/);
-  assert.match(src, /class="tool-bar" id="rail-/);
+  // Rel kartu DIHAPUS (prinsip E) — yang tersisa cuma rail kepala editor
+  // (#toolBar, data-tool-switch); rel teks abu-abu lama + segmen
+  // "railclean" sudah dihapus 19 Nov 2026 (screenshot POCO F6).
   assert.match(src, /data-tool-switch/);
   assert.doesNotMatch(src, /tool-rail/);
   assert.doesNotMatch(src, /"railclean"/);
@@ -266,8 +286,9 @@ test('Step 3: tumpukan versi + rel alat di kartu', async () => {
 });
 test('Step 4: kejelasan editor (copy B1–B17) — SATU engine Mi-GAN, tanpa tier', async () => {
   const html = await readFile(new URL('index.html',dir),'utf8');
-  // B5: deskripsi statis di HTML (satu engine: Mi-GAN, 28 MB, download sekali).
-  assert.match(html, /Dihitung AI di HP kamu \(Mi-GAN, 28 MB — download sekali, tersimpan di HP\)\. Paling pas buat coretan kecil, teks, dan watermark\./);
+  // B5: deskripsi statis di HTML — engine sekali saja, TANPA nama model /
+  // ukuran di UI pengguna (P2-03).
+  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat\. Paling pas buat coretan kecil, teks, dan watermark\./);
   // Tidak ada lagi tier mode / bar model lama di HTML; bar progres ADA.
   assert.doesNotMatch(html, /data-erase-mode=/);
   assert.doesNotMatch(html, /Pakai Cepat AI/);
@@ -316,7 +337,9 @@ test('Hapus Latar: SATU engine ORMBG int8, chroma-key DIHAPUS', async () => {
   assert.match(html, /data-tool="background"/);
   assert.match(html, /data-tool-switch="background"/);
   assert.match(html, /id="bgModal"/);
-  assert.match(html, /id="bgRun"/);
+  assert.match(html, /id="bgRetry"/); // auto-run: tombol run dihapus, sisa "Coba lagi" (prinsip A)
+  assert.doesNotMatch(html, /id="bgRun"/);
+  assert.doesNotMatch(html, /id="bgDownload"/);
   assert.match(html, /checkerboard/); // preview transparan di atas papan catur
   // Chroma-key DIHAPUS: tidak ada lagi swatch/toleransi/mode kontigu.
   assert.doesNotMatch(html, /id="bgKeySwatch"/);
@@ -329,16 +352,20 @@ test('Hapus Latar: SATU engine ORMBG int8, chroma-key DIHAPUS', async () => {
   // Bar progres model ADA (44 MB, sekali, + Batalkan).
   assert.match(html, /id="bgModelBar"/);
   assert.match(html, /id="bgCancel"/);
-  assert.match(html, /Dihitung AI di HP kamu \(ORMBG, 44 MB/);
+  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat\. Latar apa pun bisa: orang, produk, ilustrasi\./);
+  assert.doesNotMatch(html, /ORMBG, 44 MB/);
   // Wiring alat di sumber (identifier lokal di-minify di bundle).
   const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(appSrc, /background:\["Pilih file","Deteksi","Hapus","Simpan"\]/);
   assert.match(appSrc, /function openBackgroundFor\(item/);
+  assert.match(appSrc, /function autoRunTool\(tool, item\)/); // pilih alat = alat jalan (prinsip A)
   assert.match(appSrc, /"Latar"/);
-  assert.match(appSrc, /\["background","Hapus Latar","i-layers"\]/); // chip rel kartu kanonis
+  assert.doesNotMatch(appSrc, /\["background","Hapus Latar","i-layers"\]/); // rel kartu dihapus (prinsip E)
   assert.match(appSrc, /Hapus Latar/);
   const bgSrc = await readFile(new URL('../src/background.ts', dir), 'utf8');
   assert.match(bgSrc, /ensureEngine\("ormbg"/);
+  assert.doesNotMatch(bgSrc, /Lagi unduh model ORMBG/); // P2-03: tanpa nama model di UI
+  // P1-11: toast error memuat panduan lengkap (bukan cuma "Failed to fetch").
+  assert.match(bgSrc, /Gagal hapus latar: " \+ msg \+ "\. Hapus Latar butuh internet sekali buat unduh model — coba lagi pas online\."/);
   assert.match(bgSrc, /function featherMask\(/); // post-pass wajib
   assert.match(bgSrc, /function upscaleMask\(/); // mask 1024 -> ukuran penuh
   assert.match(bgSrc, /blobToImageDataExact/); // ORMBG fixed-shape: input HARUS 1024x1024
@@ -379,9 +406,12 @@ test('Perbesar + Hapus Jejak + Hapus Duplikat: modal & wiring, SATU engine Real-
   assert.match(html, /data-up-scale="3"/);
   assert.match(html, /id="upWarn3"/);
   assert.match(html, /3× diproses dari 4× lalu diperkecil/);
-  assert.match(html, /id="upRun"/);
+  assert.match(html, /id="upRetry"/); // auto-run 2×: tombol run dihapus, sisa "Coba lagi" (prinsip A/B)
+  assert.doesNotMatch(html, /id="upRun"/);
+  assert.doesNotMatch(html, /id="upDownload"/);
   assert.match(html, /id="upCompare"/);
-  assert.match(html, /Dihitung AI di HP kamu \(Real-ESRGAN x4v3, 4,6 MB/);
+  assert.match(html, /Dihitung AI di perangkat kamu — sekali unduh, tersimpan di perangkat\./);
+  assert.doesNotMatch(html, /Real-ESRGAN x4v3, 4,6 MB/);
   assert.match(html, /id="upModelBar"/);
   assert.match(html, /id="upCancel"/);
   assert.doesNotMatch(html, /Memperbesar tanpa AI/);
@@ -389,23 +419,22 @@ test('Perbesar + Hapus Jejak + Hapus Duplikat: modal & wiring, SATU engine Real-
   // Modal Hapus Jejak: daftar jejak + tombol hapus.
   assert.match(html, /id="jejakModal"/);
   assert.match(html, /id="jejakList"/);
-  assert.match(html, /id="jejakRun"/);
+  assert.match(html, /id="jejakRetry"/); // auto-run: tombol run dihapus, sisa "Coba lagi" (prinsip A)
+  assert.doesNotMatch(html, /id="jejakRun"/);
+  assert.doesNotMatch(html, /id="jejakDownload"/);
   // Wiring di sumber.
   const appSrc = await readFile(new URL('../src/app.ts', dir), 'utf8');
-  assert.match(appSrc, /upscale:\["Pilih file","Perbesar","Simpan"\]/);
-  assert.match(appSrc, /jejak:\["Pilih file","Cari jejak","Hapus","Simpan"\]/);
-  assert.match(appSrc, /dedup:\["Pilih file","Cari duplikat","Pilih yang disimpan","Selesai"\]/);
   assert.match(appSrc, /function openUpscaleFor\(item/);
   assert.match(appSrc, /function openJejakFor\(item/);
   assert.match(appSrc, /function scrubTracesBlob\(blob\)/);
-  assert.match(appSrc, /function scanDuplicates\(\)/);
+  assert.match(appSrc, /function scanDuplicates\(opts\?: \{keepSummary\?: boolean\}\)/); // opsi keepSummary: ringkasan hapus tidak tertimpa pindai ulang (prinsip H)
   assert.match(appSrc, /function removeDedupItems\(removeIds, keepIds\)/);
   assert.match(appSrc, /"Perbesar"/);
   assert.match(appSrc, /"Jejak"/);
-  // Rel kartu kanonis: chip RAIL_TOOLS (ikon+label, data-tool-switch).
-  assert.match(appSrc, /\["upscale","Perbesar","i-expand"\]/);
-  assert.match(appSrc, /\["jejak","Hapus Jejak","i-shield"\]/);
-  assert.match(appSrc, /\["dedup","Hapus Duplikat","i-repeat"\]/);
+  // Rel kartu DIHAPUS (prinsip E) — RAIL_TOOLS sudah tidak ada.
+  assert.doesNotMatch(appSrc, /\["upscale","Perbesar","i-expand"\]/);
+  assert.doesNotMatch(appSrc, /\["jejak","Hapus Jejak","i-shield"\]/);
+  assert.doesNotMatch(appSrc, /\["dedup","Hapus Duplikat","i-repeat"\]/);
   // Algoritma murni di sumber (bukan di bundle — nama di-minify).
   const lanczosSrc = await readFile(new URL('../src/lanczos.ts', dir), 'utf8');
   assert.match(lanczosSrc, /function lanczosUpscale\(img: ImageData, scale: Upscale\)/);
@@ -414,6 +443,7 @@ test('Perbesar + Hapus Jejak + Hapus Duplikat: modal & wiring, SATU engine Real-
   assert.match(lanczosSrc, /function unsharp\(img: ImageData/);
   const upSrc = await readFile(new URL('../src/upscale.ts', dir), 'utf8');
   assert.match(upSrc, /ensureEngine\("esrgan"/);
+  assert.doesNotMatch(upSrc, /Lagi unduh model Real-ESRGAN/); // P2-03: tanpa nama model di UI
   assert.match(upSrc, /kind: "upscale"/);
   assert.match(upSrc, /Mode offline/); // Lanczos cuma fallback offline
   const jejakSrc = await readFile(new URL('../src/jejak.ts', dir), 'utf8');
@@ -507,7 +537,8 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.doesNotMatch(html, /Hapus label AI/);
   assert.match(html, /Pilih alat, taruh file, simpan/);
   // Perbesar sekarang AI (Real-ESRGAN) — copy "tanpa AI" sudah salah.
-  assert.match(html, /Foto dulu · AI/);
+  assert.match(html, /Hanya foto · AI/);
+  assert.doesNotMatch(html, /Foto dulu/);
   assert.doesNotMatch(html, /tanpa AI/);
   // Coba foto contoh: tombol + banner staged (file diantre, alat tidak jalan).
   assert.match(html, /id="sampleBtn"/);
@@ -521,13 +552,15 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.match(html, /id="shellPill"/);
   assert.match(html, /id="shellStatus"/);
   assert.match(html, /id="shellVersions"/);
-  assert.match(html, /id="shellUndo"/);
+  assert.doesNotMatch(html, /id="shellUndo"/); // satu undo: chip Versi saja (prinsip I)
   assert.match(html, /id="shellCompare"/);
-  // Tombol utama sticky + tombol topbar (kembali / Export).
+  assert.match(html, /Lihat asli/); // compare jadi toggle (prinsip I)
+  // Tombol utama sticky + tombol topbar (kembali). Export top bar DIHAPUS —
+  // satu jalur simpan lewat tombol utama (prinsip C).
   assert.match(html, /id="primaryBar"/);
   assert.match(html, /id="primaryBtn"/);
   assert.match(html, /id="topBackBtn"/);
-  assert.match(html, /id="topExportBtn"/);
+  assert.doesNotMatch(html, /id="topExportBtn"/);
   // Bottom sheet generik (konfirmasi destruktif).
   assert.match(html, /id="sheet"/);
   assert.match(html, /id="sheetScrim"/);
@@ -558,8 +591,28 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.match(appSrc, /function removeItem\(/);
   assert.match(appSrc, /function selectItem\(/);
   assert.match(appSrc, /makeSampleFile/);
-  assert.match(appSrc, /Bersihkan label/);
   assert.match(appSrc, /Simpan foto/);
+  assert.match(appSrc, /Simpan semua/); // tombol utama dua keadaan (prinsip C)
+  assert.match(appSrc, /function autoRunTool\(tool, item\)/);
+  assert.match(appSrc, /function updateToolStatus\(\)/);
+  // P0-05: status "Tidak ada jejak…" harus tampil bahkan saat file sudah
+  // punya versi Bersih — cek jejakEmptyMsg mendahului cabang cleanedBlob.
+  assert.match(appSrc, /if\(activeTool==="jejak" && jejakEmptyMsg\)\{ bar\.textContent=jejakEmptyMsg; return; \}/);
+  const statusFn = appSrc.slice(appSrc.indexOf("function updateToolStatus()"));
+  assert.ok(statusFn.indexOf('if(activeTool==="jejak" && jejakEmptyMsg)') < statusFn.indexOf("if(it.cleanedBlob){"));
+  // P0-08/P1-08: baris status dedup menunjukkan hasil pindai terakhir,
+  // bukan "Lagi memindai…" selamanya.
+  assert.match(appSrc, /var dedupLastStatus="";/);
+  assert.match(statusFn, /bar\.textContent=dedupLastStatus \|\| "Lagi memindai duplikat…";/);
+  // P0-07: ganti file terpilih (filmstrip) harus ikut mengubah status alat
+  // + ketersediaan chip foto-only — kalau tidak, video terpilih tapi chip
+  // erase tetap aktif dan status masih instruksi foto sebelumnya.
+  assert.match(appSrc, /function selectItem\(id\)\{ selectedId=id; syncShell\(\); syncPrimary\(\); updateStats\(\); \}/);
+  assert.match(statusFn, /bar\.textContent="Video dipilih — "/);
+  // P0-07 (lanjutan): tombol utama "Coret foto"/"Coret watermark" tidak
+  // boleh tampil saat video terpilih dengan alat foto-only — tidak ada yang
+  // bisa dijalankan, baris status yang menjelaskan.
+  assert.match(appSrc, /else if\(show && it\.kind==="video" && PHOTO_ONLY\.indexOf\(activeTool\)!==-1\)\{/);
   // Foto contoh digenerate runtime (tanpa biner di repo): canvas + injeksi
   // chunk tEXt PNG dengan CRC32, label OpenAI DALL·E.
   const sampleSrc = await readFile(new URL('../src/sample.ts', dir), 'utf8');
@@ -568,6 +621,7 @@ test('Phase 2 layout (19 Nov 2026): picker dulu tanpa default + editor kanonis +
   assert.match(sampleSrc, /function injectTextChunks\(/);
   assert.match(sampleSrc, /OpenAI DALL·E/);
   assert.match(sampleSrc, /export async function makeSampleFile/);
-  // Kata kerja alat aktif ada semua di PRIMARY_VERB.
-  assert.match(appSrc, /clean:"Bersihkan label",erase:"Hapus Objek",watermark:"Hapus Watermark",background:"Hapus Latar",upscale:"Perbesar",jejak:"Hapus Jejak",dedup:"Cari duplikat"/);
+  // Label hasil per alat ada semua di TOOL_RESULT_LABEL (pengganti
+  // PRIMARY_VERB — tombol utama sekarang cuma "Simpan foto / Simpan semua").
+  assert.match(appSrc, /clean:"Bersih",erase:"Objek",watermark:"Watermark",background:"Latar",upscale:"Perbesar",jejak:"Jejak"/);
 });

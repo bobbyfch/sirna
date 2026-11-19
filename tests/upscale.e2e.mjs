@@ -1,12 +1,13 @@
 // E2E Perbesar: Playwright Chromium, serve dist/ lokal.
 // Langkah: 1) load awal = NOL request model; 2) pilih alat Perbesar,
-// upload foto tes (800x600), buka modal -> judul "Perbesar", catatan
-// "Dihitung AI di HP kamu (Real-ESRGAN x4v3, 4,6 MB…)"; 3) [Perbesar] 2x
+// upload foto tes (800x600) -> modal LANGSUNG terbuka + 2x LANGSUNG jalan
+// (prinsip B), catatan engine tanpa nama model/ukuran (P2-03); 3) 2x
 // -> 1600x1200 (Real-ESRGAN, model di-intercept -> fixture lokal),
-// piksel tengah tetap merah, sudut utuh; 4) "Tahan: lihat asli" ->
-// preview kembali ke 800x600, lepas -> 1600x1200 lagi; 5) Urungkan hasil
-// -> bar hilang; 6) 3x -> input di-cap 768 px -> 2304x1728; 7) Simpan
-// hasil -> kartu "Foto diperbesar" + versi "Perbesar"; 8) Unduh -> PNG
+// piksel tengah tetap merah, sudut utuh; 4) "Lihat asli" toggle ->
+// preview kembali ke 800x600, ketuk lagi -> 1600x1200 lagi; 5) Urungkan
+// hasil -> bar hilang; 6) ketuk segmen 3x -> LANGSUNG jalan, input
+// di-cap 768 px -> 2304x1728; 7) Simpan hasil -> kartu "Foto diperbesar"
+// + versi "Perbesar"; 8) Unduh lewat tombol utama "Simpan foto" -> PNG
 // valid (run kedua: 0 request model baru, cache); 9) viewport 390px:
 // tanpa overflow, 0 console error.
 import { chromium } from "@playwright/test";
@@ -82,25 +83,22 @@ try {
 
   await page.click('button[data-tool="upscale"]');
   await page.waitForSelector("#panel-cleaner:not(.hidden)", { timeout: 10000 });
+  // 2x (default) jalan sendiri begitu modal dibuka (prinsip B) — poller
+  // progres didaftarkan SEBELUM upload.
+  const progressSeen = page.waitForSelector("#upModelProgress:not(.hidden)", { timeout: 30000 }).then(() => true).catch(() => false);
+  const t1 = Date.now();
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector("#list .card", { timeout: 30000 });
-  await page.waitForTimeout(500);
-
-  // Buka modal dari rel alat kartu (chip kanonis) + tombol utama.
-  await page.click('#list [data-tool-switch="upscale"]');
-  await page.click("#primaryBtn");
   await page.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 });
   note("modalTitle", await page.evaluate(() => document.getElementById("upTitle").textContent));
   note("modalSub", await page.locator("#upSub").textContent());
   note("noteText", await page.locator("#upNote").textContent());
-  note("modelReqsAfterOpen", modelReqs().length);
+  note("noRunButton", await page.evaluate(() => document.getElementById("upRun") === null)); // auto-run 2x: tombol run dihapus (prinsip B)
+  note("modelReqsAfterOpen", modelReqs().length); // buka modal = run 2x mulai = unduh model dimulai
   const px0 = await readPreviewPixels(page);
   note("previewOriginal", px0);
 
   // 2x (default) — Real-ESRGAN; bar progres tile harus sempat tampil.
-  const progressSeen = page.waitForSelector("#upModelProgress:not(.hidden)", { timeout: 30000 }).then(() => true).catch(() => false);
-  const t1 = Date.now();
-  await page.click("#upRun");
   await page.waitForSelector("#upResultBar:not(.hidden)", { timeout: 180000 });
   note("run2xMs", Date.now() - t1);
   note("progressBarSeen", await progressSeen);
@@ -114,15 +112,14 @@ try {
   note("centerStillRed", px2.center[0] > 180 && px2.center[1] < 80 && px2.center[2] < 80);
   note("cornerIntact", px2.corner[0] < 20 && px2.corner[1] < 20 && Math.abs(px2.corner[2] - 128) < 20);
 
-  // "Tahan: lihat asli" — tahan -> preview kembali 800x600, lepas -> 1600x1200.
-  const cmpBox = await page.locator("#upCompare").boundingBox();
-  await page.mouse.move(cmpBox.x + cmpBox.width / 2, cmpBox.y + cmpBox.height / 2);
-  await page.mouse.down();
+  // "Lihat asli" = toggle ketuk-sekali (prinsip I): ketuk -> preview
+  // kembali 800x600, ketuk lagi -> 1600x1200.
+  await page.click("#upCompare");
   await page.waitForTimeout(300);
-  note("naturalWhileHolding", await page.evaluate(() => { const i = document.getElementById("upPreview"); return [i.naturalWidth, i.naturalHeight]; }));
-  await page.mouse.up();
+  note("naturalWhileComparing", await page.evaluate(() => { const i = document.getElementById("upPreview"); return [i.naturalWidth, i.naturalHeight]; }));
+  await page.click("#upCompare");
   await page.waitForTimeout(300);
-  note("naturalAfterRelease", await page.evaluate(() => { const i = document.getElementById("upPreview"); return [i.naturalWidth, i.naturalHeight]; }));
+  note("naturalAfterCompareOff", await page.evaluate(() => { const i = document.getElementById("upPreview"); return [i.naturalWidth, i.naturalHeight]; }));
 
   // Urungkan hasil -> bar hilang.
   await page.click("#upUndoResult");
@@ -130,12 +127,11 @@ try {
   note("resultBarHiddenAfterUndo", await page.evaluate(() => document.getElementById("upResultBar").classList.contains("hidden")));
   note("compareHiddenAfterUndo", await page.evaluate(() => document.getElementById("upCompare").classList.contains("hidden")));
 
-  // 3x — input di-cap 768 px (WASM-only): 768x576 -> 2304x1728.
-  await page.click('[data-up-scale="3"]');
-  await page.waitForTimeout(300);
-  note("warn3Visible", await page.evaluate(() => !document.getElementById("upWarn3").classList.contains("hidden")));
+  // 3x — mengetuk segmen 3x LANGSUNG menjalankan (prinsip B, tanpa tombol
+  // run). Input di-cap 768 px (WASM-only): 768x576 -> 2304x1728.
   const t3 = Date.now();
-  await page.click("#upRun");
+  await page.click('[data-up-scale="3"]');
+  note("warn3Visible", await page.evaluate(() => !document.getElementById("upWarn3").classList.contains("hidden")));
   await page.waitForSelector("#upResultBar:not(.hidden)", { timeout: 180000 });
   note("run3xMs", Date.now() - t3);
   note("run3xNote", await page.locator("#upNote").textContent());
@@ -151,23 +147,26 @@ try {
   note("cardHasVersionPerbesar", /Perbesar/.test(cardText));
   note("modalClosedAfterSave", await page.evaluate(() => document.getElementById("upModal").classList.contains("hidden")));
 
-  // Unduh hasil -> PNG valid (buka lagi dulu, run lagi — model sudah
-  // di-cache, jadi 0 request model baru).
-  await page.click('#list [data-tool-switch="upscale"]');
-  await page.click("#primaryBtn");
-  await page.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 });
+  // Unduh hasil -> PNG valid (buka lagi dulu dari "Asli", run 2x lagi
+  // otomatis — model sudah di-cache, jadi 0 request model baru).
+  await page.click('#shellVersions button[data-v="Asli"]');
+  await page.waitForTimeout(400);
   const reqsBeforeRun2 = modelReqs().length;
-  await page.click("#upRun");
+  await page.click('[data-tool-switch="upscale"]');
+  await page.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 });
   await page.waitForSelector("#upResultBar:not(.hidden)", { timeout: 180000 });
   note("modelReqsRun2", modelReqs().length - reqsBeforeRun2); // harus 0 (cache)
+  await page.click("#upSave");
+  await page.waitForTimeout(500);
   const dl = page.waitForEvent("download", { timeout: 30000 });
-  await page.click("#upDownload");
+  await page.click("#primaryBtn");
   const download = await dl;
   const dlPath = "/tmp/up-downloaded.png";
   await download.saveAs(dlPath);
   const buf = readFileSync(dlPath);
   note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
-  await page.click("#upClose");
+  // Modal sudah tertutup oleh #upSave (Simpan hasil = kembali + simpan).
+  note("modalClosedAfterSave2", await page.evaluate(() => document.getElementById("upModal").classList.contains("hidden")));
   note("modelReqsTotal", modelReqs()); // tetap 1 (x4v3 ter-pin, sekali)
   note("modelReqCountTotal", modelReqs().length);
 } catch (e) {
@@ -188,9 +187,7 @@ await p2.waitForTimeout(1000);
 await p2.click('button[data-tool="upscale"]');
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector("#list .card", { timeout: 30000 });
-await p2.click('#list [data-tool-switch="upscale"]');
-await p2.click("#primaryBtn");
-await p2.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 });
+await p2.waitForSelector("#upModal:not(.hidden)", { timeout: 10000 }); // auto-buka saat upload
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 note("overflow390Modal", overflow2);

@@ -1,8 +1,9 @@
-// Layout kanonis Phase 2 (19 Nov 2026, arah Bobby 08:49 WIB):
+// Layout kanonis redesain (19 Nov 2026):
 // home = pemilih alat (tanpa default) -> "Coba foto contoh" cuma mengantre
-// (tidak ada alat yang jalan otomatis) -> pilih alat -> editor kanonis
-// (filmstrip + canvas + status + versi + rail scroll + tombol utama sticky)
-// -> chaining lewat rail -> sheet konfirmasi. + 390px tanpa overflow.
+// (tidak ada alat yang jalan otomatis) -> pilih alat -> alat JALAN SENDIRI
+// -> editor kanonis (filmstrip + canvas + status + versi + rail scroll +
+// tombol utama sticky "Simpan foto") -> chaining lewat rail -> sheet
+// konfirmasi. + 390px tanpa overflow.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -74,62 +75,70 @@ try {
   note("noActiveChipAfterSample", await page.evaluate(() => document.querySelectorAll("[data-tool-switch].active").length));
   note("primaryStillHidden", await page.evaluate(() => document.getElementById("primaryBar").classList.contains("hidden")));
 
-  // (3) Pilih Bersihkan: workspace + kepala editor muncul; file staged
-  // (belum dibersihkan — proses jalan lewat tombol utama, bukan otomatis).
+  // (3) Pilih Bersihkan: workspace + kepala editor muncul; alat JALAN
+  // SENDIRI (prinsip A) — tunggu tombol utama jadi "Simpan foto".
   await page.click('[data-tool="clean"]');
-  await page.waitForTimeout(700);
+  await waitFor(page, () => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, 30000);
+  await page.waitForTimeout(400);
   note("editorHeadVisible", await page.evaluate(() => !document.getElementById("editorHead").classList.contains("hidden")));
-  note("shellPillStaged", await page.locator("#shellPill").textContent());
-  note("shellStatusStaged", await page.locator("#shellStatus").textContent());
+  note("shellPillAfterAutoClean", await page.locator("#shellPill").textContent());
+  note("shellStatusAfterAutoClean", await page.locator("#shellStatus").textContent());
   note("shellImgSize", await page.evaluate(() => { const i = document.getElementById("shellImg"); return [i.naturalWidth, i.naturalHeight]; }));
   note("filmThumbs", await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb").length));
   note("filmActive", await page.evaluate(() => document.querySelectorAll("#shellFilm .shell-thumb.active").length));
-  note("shellVersionsHidden", await page.evaluate(() => document.getElementById("shellVersions").classList.contains("hidden")));
-  note("shellUndoHidden", await page.evaluate(() => document.getElementById("shellUndo").classList.contains("hidden")));
+  note("shellVersionsVisible", await page.evaluate(() => !document.getElementById("shellVersions").classList.contains("hidden")));
+  note("shellUndoAbsent", await page.evaluate(() => !document.getElementById("shellUndo"))); // satu undo: chip Versi (prinsip I)
   note("primaryLabelClean", await page.locator("#primaryBtn").textContent());
   note("topBackVisible", await page.evaluate(() => !document.getElementById("topBackBtn").classList.contains("hidden")));
-  note("topExportHidden", await page.evaluate(() => document.getElementById("topExportBtn").classList.contains("hidden")));
+  note("topExportAbsent", await page.evaluate(() => !document.getElementById("topExportBtn"))); // satu jalur simpan (prinsip C)
 
-  // (4) Tombol utama "Bersihkan label" -> bersih -> "Simpan foto".
+  // (4) Tombol utama "Simpan foto" -> download hasil (satu jalur simpan).
+  const dlPromise = page.waitForEvent("download", { timeout: 30000 });
   await page.click("#primaryBtn");
-  await waitFor(page, () => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, 30000);
+  const dl = await dlPromise;
+  note("downloadName", dl.suggestedFilename());
   await page.waitForTimeout(400);
   note("cardPillAfterClean", await page.evaluate(() => document.querySelector("#list article .status-pill")?.textContent?.trim()));
   note("shellPillAfterClean", await page.locator("#shellPill").textContent());
   note("shellStatusAfterClean", await page.locator("#shellStatus").textContent());
   note("primaryLabelAfterClean", await page.locator("#primaryBtn").textContent());
-  note("topExportVisible", await page.evaluate(() => !document.getElementById("topExportBtn").classList.contains("hidden")));
   note("shellVersionsVisible", await page.evaluate(() => !document.getElementById("shellVersions").classList.contains("hidden")));
-  note("shellUndoVisible", await page.evaluate(() => !document.getElementById("shellUndo").classList.contains("hidden")));
 
-  // (5) Tahan-lihat-asli di shell: src berubah ke asli saat ditahan.
+  // (5) "Lihat asli" di shell = toggle ketuk-sekali (prinsip I):
+  // ketuk -> src asli; ketuk lagi -> kembali ke hasil.
   const srcBefore = await page.evaluate(() => document.getElementById("shellImg").getAttribute("data-cur"));
-  const cmpBox = await page.locator("#shellCompare").boundingBox();
-  await page.mouse.move(cmpBox.x + cmpBox.width / 2, cmpBox.y + cmpBox.height / 2);
-  await page.mouse.down();
+  await page.click("#shellCompare");
   await page.waitForTimeout(300);
-  const srcHolding = await page.evaluate(() => document.getElementById("shellImg").getAttribute("data-cur"));
-  await page.mouse.up();
+  const srcToggled = await page.evaluate(() => document.getElementById("shellImg").getAttribute("data-cur"));
+  await page.click("#shellCompare");
   await page.waitForTimeout(300);
   const srcAfter = await page.evaluate(() => document.getElementById("shellImg").getAttribute("data-cur"));
-  note("compareChangesSrc", srcBefore !== srcHolding);
+  note("compareChangesSrc", srcBefore !== srcToggled);
   note("compareRestoresSrc", srcBefore === srcAfter);
+  note("comparePressed", await page.evaluate(() => document.getElementById("shellCompare").getAttribute("aria-pressed")));
 
-  // (6) Urungkan di shell: kembali ke Asli, pill "Ada label AI".
-  await page.click("#shellUndo");
+  // (6) Kembali ke versi "Asli" lewat chip Versi (satu undo, prinsip I):
+  // pill kembali "Ada label AI", hasil Bersihkan tetap tersimpan.
+  await page.click('#shellVersions button[data-v="Asli"]');
   await page.waitForTimeout(500);
-  note("pillAfterShellUndo", await page.evaluate(() => document.querySelector("#list article .status-pill")?.textContent?.trim()));
-  note("shellPillAfterUndo", await page.locator("#shellPill").textContent());
-  note("primaryLabelAfterUndo", await page.locator("#primaryBtn").textContent());
+  note("pillAfterVersionAsli", await page.evaluate(() => document.querySelector("#list article .status-pill")?.textContent?.trim()));
+  note("shellPillAfterAsli", await page.locator("#shellPill").textContent());
+  note("primaryLabelAfterAsli", await page.locator("#primaryBtn").textContent());
 
-  // (7) Chaining lewat rail: ganti ke Hapus Objek — foto & hasil ikut,
-  // tombol utama jadi kata kerja alat itu.
+  // (7) Chaining lewat rail: ganti ke Hapus Objek — editor langsung
+  // terbuka (prinsip B), foto & hasil Bersihkan ikut.
   await page.click('[data-tool-switch="erase"]');
+  await waitFor(page, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
+  note("eraseModalAutoOpenOnSwitch", true);
+  await page.click("#eraseClose");
   await page.waitForTimeout(600);
   note("primaryLabelErase", await page.locator("#primaryBtn").textContent());
   note("shellImgStillSame", await page.evaluate(() => { const i = document.getElementById("shellImg"); return [i.naturalWidth, i.naturalHeight]; }));
   note("cardKeptAfterSwitch", await page.evaluate(() => document.querySelectorAll("#list article").length));
-  // Tombol utama Hapus Objek membuka editor.
+  // Tombol utama "Coret foto" membuka editor lagi.
   await page.click("#primaryBtn");
   await waitFor(page, () => !document.getElementById("eraseModal").classList.contains("hidden"), 10000);
   note("eraseModalFromPrimary", true);
@@ -172,7 +181,10 @@ try {
   await page2.click('[data-tool="clean"]');
   await page2.waitForTimeout(500);
   await page2.setInputFiles("#fileInput", [F("matrix/png-text.png")]);
-  await waitFor(page2, () => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, 30000);
+  await waitFor(page2, () => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, 30000);
   await page2.waitForTimeout(500);
   note("m390_editorHeadVisible", await page2.evaluate(() => !document.getElementById("editorHead").classList.contains("hidden")));
   note("m390_canvasHeight", await page2.evaluate(() => {
@@ -196,9 +208,10 @@ try {
     return f.scrollWidth - f.clientWidth;
   }));
 
-  // (10) P0 fix 19 Nov 2026 (screenshot POCO F6 Bobby): rel kartu kanonis
-  // + tombol utama tidak terpotong gesture bar + editor terlihat setelah
-  // pilih alat. Screenshot (a) kartu file, (b) kepala editor — dilihat manual.
+  // (10) Redesain (prinsip E): rel kartu DIHAPUS — yang tersisa cuma
+  // rail kepala editor (#toolBar). + tombol utama tidak terpotong
+  // gesture bar + editor terlihat setelah pilih alat. Screenshot (a)
+  // kartu file, (b) kepala editor — dilihat manual.
   await page2.evaluate(() => document.querySelector("#list article").scrollIntoView({ block: "start" }));
   await page2.waitForTimeout(600);
   await page2.screenshot({ path: "/home/hatch/workspace/sirna-p0-fix/card-390.png" });
@@ -214,22 +227,23 @@ try {
   note("p0_viewportHeight", vh);
   if (pBtn.y + pBtn.height > vh - 20) throw new Error("primary button clipped: bottom " + Math.round(pBtn.y + pBtn.height) + " > vh-20 " + (vh - 20));
   const railCheck = await page2.evaluate(() => {
-    const rail = document.querySelector("#list article .tool-bar");
-    if (!rail) return { hasRail: false };
-    const chips = Array.from(rail.querySelectorAll(".tool-chip"));
+    const cardRail = document.querySelector("#list article .tool-bar");
+    const bar = document.getElementById("toolBar");
+    const chips = Array.from(bar.querySelectorAll(".tool-chip"));
     return {
-      hasRail: true, chipCount: chips.length,
+      cardRailPresent: !!cardRail,
       oldRail: document.querySelectorAll("#list .tool-rail").length,
+      toolBarChipCount: chips.length,
       chipMinHeight: Math.min(...chips.map((c) => Math.round(c.getBoundingClientRect().height))),
       allOpaque: chips.every((c) => { const bg = getComputedStyle(c).backgroundColor; return bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent"; }),
-      activeFilled: (() => { const a = rail.querySelector(".tool-chip.active"); if (!a) return false; const bg = getComputedStyle(a).backgroundColor; return bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent"; })(),
+      activeFilled: (() => { const a = bar.querySelector(".tool-chip.active"); if (!a) return false; const bg = getComputedStyle(a).backgroundColor; return bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent"; })(),
       labels: chips.map((c) => c.textContent.trim()).join("|"),
     };
   });
   note("p0_cardRail", railCheck);
-  if (!railCheck.hasRail) throw new Error("card rail .tool-bar missing");
+  if (railCheck.cardRailPresent) throw new Error("card rail .tool-bar still present — harus dihapus (prinsip E)");
   if (railCheck.oldRail) throw new Error("old .tool-rail still present in card");
-  if (railCheck.chipCount !== 7) throw new Error("card rail must have 7 chips, got " + railCheck.chipCount);
+  if (railCheck.toolBarChipCount !== 8) throw new Error("toolBar harus 8 chip (7 alat + Semua alat), got " + railCheck.toolBarChipCount);
   if (railCheck.chipMinHeight < 48) throw new Error("rail chip min-height < 48px: " + railCheck.chipMinHeight);
   if (!railCheck.allOpaque) throw new Error("a rail chip has transparent background");
   if (!railCheck.activeFilled) throw new Error("active rail chip is not filled");
@@ -336,9 +350,10 @@ try {
     // terlihat penuh, pengaturan in-flow (bukan grid inspector), maskot
     // menempel tepi kanan kolom di atas toast.
     await pd.click('[data-tool="clean"]');
-    await pd.waitForTimeout(700);
-    await pd.click("#primaryBtn");
-    await waitFor(pd, () => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, 30000);
+    await waitFor(pd, () => {
+      const b = document.getElementById("primaryBtn");
+      return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+    }, 30000);
     await pd.waitForTimeout(500);
     const dEd = await pd.evaluate(() => {
       const img = document.getElementById("shellImg").getBoundingClientRect();

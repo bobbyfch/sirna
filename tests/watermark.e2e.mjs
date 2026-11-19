@@ -78,14 +78,16 @@ try {
   await page.click('[data-tool="clean"]');
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", TEST_IMG);
-  await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-  note("cleanDone", "save button visible");
+  await page.waitForFunction(() => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, { timeout: 30000 });
+  note("cleanDone", "primary Simpan foto visible");
   await page.waitForTimeout(500);
 
   // Buka Hapus Watermark — auto-detect harus sudah menandai kedua mark.
-  // (chip rel kartu + tombol utama, pengganti tombol aksi kartu lama)
-  await page.click('#list [data-tool-switch="watermark"]');
-  await page.click("#primaryBtn");
+  // (chip rail kepala editor langsung membuka, prinsip B)
+  await page.click('[data-tool-switch="watermark"]');
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   await page.waitForTimeout(600); // deteksi sinkron, kasih waktu render overlay
   note("modalTitle", await page.evaluate(() => document.getElementById("eraseTitle").textContent));
@@ -136,24 +138,25 @@ try {
   }, IMG_DATA_URL);
   note("afterInstant", after);
 
-  // Unduh hasil -> file valid.
-  const dl = page.waitForEvent("download", { timeout: 30000 });
-  await page.click("#eraseDownload");
-  const download = await dl;
-  const dlPath = "/tmp/wm-downloaded" + (download.suggestedFilename().endsWith(".png") ? ".png" : ".bin");
-  await download.saveAs(dlPath);
-  const buf = readFileSync(dlPath);
-  note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
-
   // Simpan hasil -> kartu harus update "Watermark dihapus".
   await page.click("#eraseSave");
   await page.waitForTimeout(800);
   const cardText = await page.locator("#list").textContent();
   note("cardMentionsWatermark", /Watermark dihapus/.test(cardText));
   note("editorClosedAfterSave", await page.evaluate(() => document.getElementById("eraseModal").classList.contains("hidden")));
-  // Buka Hapus Objek sesudah Watermark: judul harus balik "Hapus Objek".
-  await page.click('#list [data-tool-switch="erase"]');
+
+  // Unduh hasil lewat SATU jalur simpan: tombol utama "Simpan foto"
+  // (tombol "Unduh" di editor sudah dihapus, prinsip C).
+  const dl = page.waitForEvent("download", { timeout: 30000 });
   await page.click("#primaryBtn");
+  const download = await dl;
+  const dlPath = "/tmp/wm-downloaded" + (download.suggestedFilename().endsWith(".png") ? ".png" : ".bin");
+  await download.saveAs(dlPath);
+  const buf = readFileSync(dlPath);
+  note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
+
+  // Buka Hapus Objek sesudah Watermark: judul harus balik "Hapus Objek".
+  await page.click('[data-tool-switch="erase"]');
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
   note("titleBackToErase", await page.evaluate(() => document.getElementById("eraseTitle").textContent));
   await page.click("#eraseClose");
@@ -180,9 +183,11 @@ note("overflow390", overflow);
 await p2.click('[data-tool="clean"]');
 await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", CLEAN_IMG);
-await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-await p2.click('#list [data-tool-switch="watermark"]');
-await p2.click("#primaryBtn");
+await p2.waitForFunction(() => {
+  const b = document.getElementById("primaryBtn");
+  return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+}, { timeout: 30000 });
+await p2.click('[data-tool-switch="watermark"]');
 await p2.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(600);
 note("cleanNote", await p2.locator("#eraseNote").textContent());

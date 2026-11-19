@@ -12,7 +12,7 @@
    Hasilnya PNG transparan, preview di atas checkerboard. */
 
 import type { EraseSource, EraseHooks } from "./erase";
-import { ensureEngine, runAi, cancelAiJobs, MODELS, formatMB, type DownloadProgress } from "./models";
+import { ensureEngine, runAi, cancelAiJobs, type DownloadProgress } from "./models";
 
 /* ── Util gambar ── */
 function canvasOf(w: number, h: number): HTMLCanvasElement {
@@ -125,7 +125,6 @@ const EXPORT_MAX = 2048; // sisi panjang maks ekspor (hemat RAM HP)
 export async function openBackground(source: EraseSource, hooks: EraseHooks, opts: BgOptions = {}): Promise<void> {
   const modal = $("bgModal");
   const preview = $("bgPreview") as HTMLImageElement;
-  const runBtn = $("bgRun") as HTMLButtonElement;
 
   // Gambar kerja (preview) — inferensi jalan sekali di 1024, mask-nya
   // dipakai buat preview dan ekspor resolusi penuh.
@@ -148,10 +147,6 @@ export async function openBackground(source: EraseSource, hooks: EraseHooks, opt
   function setNote(t: string): void {
     $("bgNote").textContent = t;
   }
-  function setRunLabel(t: string, disabled: boolean): void {
-    runBtn.textContent = t;
-    runBtn.disabled = disabled;
-  }
   function showModelProgress(text: string): void {
     ($("bgModelProgress") as HTMLElement).classList.remove("hidden");
     ($("bgModelBar") as HTMLElement).style.width = "0%";
@@ -160,7 +155,7 @@ export async function openBackground(source: EraseSource, hooks: EraseHooks, opt
   function updateModelProgress(p: DownloadProgress, label: string): void {
     const pct = p.total > 0 ? Math.min(100, Math.round((p.loaded / p.total) * 100)) : 0;
     ($("bgModelBar") as HTMLElement).style.width = pct + "%";
-    $("bgModelText").textContent = p.fromCache ? "Model sudah di HP — lagi disiapkan…" : label + " " + pct + "% (" + formatMB(p.loaded) + " / " + formatMB(p.total || MODELS.ormbg.size) + ")";
+    $("bgModelText").textContent = p.fromCache ? "Model sudah di HP — lagi disiapkan…" : label + " " + pct + "%";
   }
   function hideModelProgress(): void {
     ($("bgModelProgress") as HTMLElement).classList.add("hidden");
@@ -176,14 +171,14 @@ export async function openBackground(source: EraseSource, hooks: EraseHooks, opt
   async function run(): Promise<void> {
     if (busy) return;
     busy = true;
-    setRunLabel("Lagi hapus…", true);
     ($("bgResultBar") as HTMLElement).classList.add("hidden");
+    ($("bgRetry") as HTMLButtonElement).classList.add("hidden");
     setNote("");
     abort = new AbortController();
     try {
-      showModelProgress("Lagi unduh model ORMBG…");
+      showModelProgress("Lagi unduh model…");
       await ensureEngine("ormbg", {
-        onDownload: (p) => updateModelProgress(p, "Lagi unduh model ORMBG"),
+        onDownload: (p) => updateModelProgress(p, "Lagi unduh model"),
         signal: abort.signal,
       });
       hideModelProgress();
@@ -217,14 +212,14 @@ export async function openBackground(source: EraseSource, hooks: EraseHooks, opt
         setNote("");
       } else {
         const msg = String((e as Error).message || "Gagal").replace(/\.+$/, "");
-        hooks.onToast("Gagal hapus latar: " + msg + ".");
-        setNote("Gagal hapus latar: " + msg + ". Hapus Latar butuh internet sekali buat unduh model (44 MB) — coba lagi pas online.");
+        hooks.onToast("Gagal hapus latar: " + msg + ". Hapus Latar butuh internet sekali buat unduh model — coba lagi pas online.");
+        setNote("Gagal hapus latar: " + msg + ". Hapus Latar butuh internet sekali buat unduh model — coba lagi pas online.");
+        ($("bgRetry") as HTMLButtonElement).classList.remove("hidden");
       }
     }
     hideModelProgress();
     abort = null;
     busy = false;
-    setRunLabel("Hapus latar", false);
   }
 
   /* ── Kontrol ── */
@@ -232,7 +227,7 @@ export async function openBackground(source: EraseSource, hooks: EraseHooks, opt
     abort?.abort();
     cancelAiJobs();
   };
-  runBtn.onclick = () => {
+  ($("bgRetry") as HTMLButtonElement).onclick = () => {
     void run();
   };
   $("bgSave").onclick = () => {
@@ -250,21 +245,6 @@ export async function openBackground(source: EraseSource, hooks: EraseHooks, opt
     setNote("");
     setPreviewImg(source.blob);
     hooks.onToast("Hasil diurungkan — kembali ke sebelum dihapus.");
-  };
-  $("bgDownload").onclick = () => {
-    if (!exportBlob) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(exportBlob);
-    // Hasil selalu PNG transparan — paksa ekstensi .png.
-    a.download = source.suggestName.replace(/\.[a-z0-9]+$/i, ".png");
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      a.remove();
-      URL.revokeObjectURL(a.href);
-    }, 2000);
-    hooks.onToast("Mengunduh " + a.download);
   };
   const origBtn = $("bgUseOriginal");
   origBtn.classList.toggle("hidden", !opts.showUseOriginal);
@@ -303,10 +283,13 @@ export async function openBackground(source: EraseSource, hooks: EraseHooks, opt
   bmp.close();
   $("bgSub").textContent =
     source.name + " · " + fw + "×" + fh + " · diedit dari " + (source.sourceLabel || "Asli");
-  setNote("Dihitung AI di HP kamu (ORMBG, 44 MB — download sekali, tersimpan di HP). Latar apa pun bisa: orang, produk, ilustrasi.");
-  setRunLabel("Hapus latar", false);
+  /* Engine dijelaskan sekali saja di deskripsi HTML (#bgDesc) — jangan
+     diulang di catatan dinamis (P2-03). */
+  setNote("Lagi hapus latar…");
   ($("bgResultBar") as HTMLElement).classList.add("hidden");
   setPreviewImg(source.blob);
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  /* Alat tanpa input jalan sendiri begitu dibuka (prinsip A). */
+  void run();
 }

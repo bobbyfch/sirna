@@ -77,21 +77,26 @@ try {
   await page.click('[data-tool="clean"]');
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", TEST_IMG);
-  await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-  note("cleanDone", "save button visible");
-  await page.click('#list [data-tool-switch="erase"]');
-  await page.click("#primaryBtn");
+  await page.waitForFunction(() => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+  }, { timeout: 30000 });
+  note("cleanDone", "primary Simpan foto visible");
+  await page.click('[data-tool-switch="erase"]');
   await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 
-  // (1) Hapus disabled sebelum coretan; langkah 1 aktif.
+  // (1) Hapus disabled sebelum coretan; strip langkah sudah dihapus (prinsip F).
   note("runDisabledBeforePaint", await page.evaluate(() => document.getElementById("eraseRun").disabled));
-  note("step1ActiveOnOpen", await page.evaluate(() => document.querySelectorAll("#eraseSteps .erase-step")[0].classList.contains("active")));
+  note("stepsAbsent", await page.evaluate(() => !document.getElementById("eraseSteps")));
   note("warnHiddenBeforePaint", await page.evaluate(() => document.getElementById("eraseMaskWarn").classList.contains("hidden")));
 
   // Coret pita mata (5 garis, kuas 48) -> ~6% foto.
-  const box = await page.locator("#eraseCanvas").boundingBox();
-  const toPx = (ix, iy) => ({ x: box.x + (ix / 1200) * box.width, y: box.y + (iy / 1496) * box.height });
+  // Box kanvas dibaca ulang per garis: begitu mask >2%, peringatan mask
+  // besar muncul dan sheet modal recenters — box lama bikin coretan
+  // mendarat ~32px meleset (celah tak ter-mask di tengah coretan).
   async function paintLine(x1, y1, x2, y2) {
+    const box = await page.locator("#eraseCanvas").boundingBox();
+    const toPx = (ix, iy) => ({ x: box.x + (ix / 1200) * box.width, y: box.y + (iy / 1496) * box.height });
     const a = toPx(x1, y1), b = toPx(x2, y2);
     await page.mouse.move(a.x, a.y);
     await page.mouse.down();
@@ -106,7 +111,7 @@ try {
   note("runEnabledAfterPaint", await page.evaluate(() => !document.getElementById("eraseRun").disabled));
   note("maskWarnVisible", await page.evaluate(() => !document.getElementById("eraseMaskWarn").classList.contains("hidden")));
   note("maskWarnText", await page.locator("#eraseMaskWarnText").textContent());
-  note("step1DoneAfterPaint", await page.evaluate(() => document.querySelectorAll("#eraseSteps .erase-step")[0].classList.contains("done")));
+  note("runEnabledStillAfterPaint", await page.evaluate(() => !document.getElementById("eraseRun").disabled));
   note("overlayPixels", await page.evaluate(() => {
     const c = document.getElementById("eraseOverlay");
     const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
@@ -154,12 +159,16 @@ try {
   }, IMG_DATA_URL);
   note("undoResult", undoStats);
 
-  // (5) Hapus lagi -> Unduh -> piksel band hasil unduhan HARUS berubah,
-  //     luar band HARUS sama persis dengan file asli.
+  // (5) Hapus lagi -> Simpan hasil -> Unduh lewat tombol utama
+  //     "Simpan foto" (satu jalur simpan, prinsip C) -> piksel band
+  //     hasil unduhan HARUS berubah, luar band HARUS sama persis
+  //     dengan file asli.
   await page.click("#eraseRun");
   await page.waitForSelector("#eraseResultBar:not(.hidden)", { timeout: 60000 });
+  await page.click("#eraseSave");
+  await page.waitForTimeout(500);
   const dl = page.waitForEvent("download", { timeout: 30000 });
-  await page.click("#eraseDownload");
+  await page.click("#primaryBtn");
   const download = await dl;
   const dlPath = "/tmp/zebra-downloaded.png";
   await download.saveAs(dlPath);
@@ -181,9 +190,13 @@ try {
       const i = (y * W + x) * 4;
       const same = od[i] === ed[i] && od[i + 1] === ed[i + 1] && od[i + 2] === ed[i + 2];
       const inBand = x >= 150 && x <= 900 && y >= 385 && y <= 530;
-      // "Luar" = di luar pita + margin 60px (kuas 48 + dilasi + tepi lembut
-      // mask memang mengubah piksel sampai ~30px di luar garis coretan).
-      const nearBand = x >= 90 && x <= 960 && y >= 325 && y <= 590;
+      // "Luar" = di luar pita + margin 90px. Margin 60px lama SALAH:
+      // kuas 48px itu 48px DISPLAY — kanvas kerja (1024px) ditampilkan
+      // ~468px, jadi 48px display ≈ 105px kerja ≈ 76px full-res; +
+      // dilasi mask + tepi lembut upscale, jejak kuas mencapai ~83px
+      // di luar garis coretan (terukur: diff sampai y=603, garis
+      // terbawah y=520). Di luar jejak kuas ASLI, piksel harus identik.
+      const nearBand = x >= 60 && x <= 990 && y >= 295 && y <= 620;
       if (inBand) { bandN++; if (!same) bandDiff++; }
       else if (!nearBand) { outN++; if (!same) outDiff++; }
     }
@@ -191,7 +204,8 @@ try {
   }, [IMG_DATA_URL, "data:image/png;base64," + dlB64]);
   note("exportCheck", exportCheck);
   note("exportRegression", { bandChangedOK: exportCheck.bandChangedPct > 50, outsideOK: exportCheck.outsideDiff === 0 });
-  await page.click("#eraseClose");
+  // Modal sudah tertutup oleh #eraseSave (Simpan hasil = kembali + simpan).
+  note("modalClosedAfterSave", await page.evaluate(() => document.getElementById("eraseModal").classList.contains("hidden")));
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
 }
@@ -211,9 +225,11 @@ note("overflow390", overflow);
 await p2.click('[data-tool="clean"]'); // tanpa alat, file cuma diantre (arah 19 Nov 2026)
 await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", TEST_IMG);
-await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-await p2.click('#list [data-tool-switch="erase"]');
-await p2.click("#primaryBtn");
+await p2.waitForFunction(() => {
+  const b = document.getElementById("primaryBtn");
+  return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan foto");
+}, { timeout: 30000 });
+await p2.click('[data-tool-switch="erase"]');
 await p2.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, modalSw: document.getElementById("eraseModal").scrollWidth }));

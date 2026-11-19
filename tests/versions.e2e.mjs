@@ -42,11 +42,18 @@ async function cardInfo(nth) {
       pill: c.querySelector(".status-pill")?.textContent?.trim(),
       versions: versions?.classList.contains("hidden") ? "(hidden)" : versions?.textContent?.replace(/\s+/g, " ").trim(),
       activeVersion: versions?.querySelector(".version-chip.active")?.textContent?.trim(),
-      rail: c.querySelector(".tool-bar")?.textContent?.replace(/\s+/g, " ").trim(),
-      saveHidden: c.querySelector('button[data-act="save"]')?.classList.contains("hidden"),
+      cardRailAbsent: !c.querySelector(".tool-bar"), // rel kartu dihapus (prinsip E)
+      primaryText: document.getElementById("primaryBtn")?.textContent?.trim(),
+      primaryVisible: !document.getElementById("primaryBar").classList.contains("hidden"),
       resultHead: c.querySelector(".clean-head, .detect-head")?.textContent?.trim(),
     };
   }, nth);
+}
+// Pilih file ke-n (0-based) lewat filmstrip kepala editor.
+async function selectFile(nth) {
+  const id = await page.evaluate((n) => document.querySelectorAll("#shellFilm button")[n]?.dataset.shellId, nth);
+  await page.click(`#shellFilm button[data-shell-id="${id}"]`);
+  await page.waitForTimeout(300);
 }
 async function previewPixel(nth, ix, iy) {
   await page.locator("#list article").nth(nth).locator(".thumb-wrap img").click();
@@ -68,9 +75,15 @@ async function previewPixel(nth, ix, iy) {
   return px;
 }
 async function paintCircle() {
-  const box = await page.locator("#eraseCanvas").boundingBox();
-  const toPx = (ix, iy) => ({ x: box.x + (ix / 800) * box.width, y: box.y + (iy / 600) * box.height });
+  // Box kanvas dibaca ulang per coretan: begitu mask >2%, peringatan
+  // mask besar muncul dan sheet modal recenters — box lama bikin coretan
+  // mendarat ~32px meleset dan menyisakan celah tak ter-mask di tengah
+  // coretan (piksel merah itu lalu jadi "benih" buat Telea, pusat
+  // lingkaran tetap merah). Pengguna nyata tidak kena ini (evtPos baca
+  // rect live per event); tes meniru jari yang mengikuti kanvas.
   for (const y of [250, 270, 290, 310, 330, 350]) {
+    const box = await page.locator("#eraseCanvas").boundingBox();
+    const toPx = (ix, iy) => ({ x: box.x + (ix / 800) * box.width, y: box.y + (iy / 600) * box.height });
     const a = toPx(335, y), b = toPx(465, y);
     await page.mouse.move(a.x, a.y); await page.mouse.down();
     for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 8, a.y, { steps: 2 });
@@ -84,12 +97,16 @@ try {
   await page.click('[data-tool="clean"]');
   await page.waitForTimeout(600);
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png"), F("wm-test.png")]);
-  await page.waitForFunction(() => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 2, { timeout: 60000 });
+  await page.waitForFunction(() => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan semua (2)");
+  }, { timeout: 60000 });
   await page.waitForTimeout(500);
 
-  // (1) File 1: versi Asli·Bersih, rel alat Bersihkan ✓.
+  // (1) File 1: versi Asli·Bersih, tanpa rel kartu (prinsip E).
   note("f1_afterClean", await cardInfo(0));
-  // (2) Kembali ke Asli -> pill "Ada label AI", Simpan sembunyi, toast C6.
+  // (2) Kembali ke Asli -> pill "Ada label AI", tombol utama sembunyi (alat
+  // otomatis tanpa hasil = progres saja, prinsip C), toast C6.
   await page.locator("#list article").nth(0).locator('button[data-act="version"][data-v="Asli"]').click();
   await page.waitForTimeout(400);
   note("f1_backAsli", await cardInfo(0));
@@ -99,14 +116,15 @@ try {
   await page.waitForTimeout(400);
   note("f1_backBersih", await cardInfo(0));
 
-  // (4) File 2: Hapus Objek via rel alat -> coret lingkaran -> Instan -> Simpan hasil.
+  // (4) File 2: pilih lewat filmstrip, Hapus Objek via rail kepala
+  // editor (langsung buka editor, prinsip B) -> coret lingkaran ->
+  // Instan -> Simpan hasil.
   // Catatan: waitForSelector('#eraseModal:not(.hidden)') TIDAK bisa
   // diandalkan di halaman ini — timeout padahal modal sudah terbuka &
   // visible (diverifikasi via classList + bounding rect 1280x900 flex);
   // pakai waitForFunction di semua penunggu modal di tes ini.
-  // (chip rel kartu + tombol utama)
-  await page.locator("#list article").nth(1).locator('[data-tool-switch="erase"]').click();
-  await page.click("#primaryBtn");
+  await selectFile(1);
+  await page.click('[data-tool-switch="erase"]');
   await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
   await paintCircle();
   await page.click("#eraseRun");
@@ -123,9 +141,10 @@ try {
   await page.waitForTimeout(400);
   note("f2_previewObjek_circle", await previewPixel(1, 400, 300));
 
-  // (6) File 2: Hapus Watermark via rel alat -> deteksi otomatis -> Instan -> Simpan hasil.
-  await page.locator("#list article").nth(1).locator('[data-tool-switch="watermark"]').click();
-  await page.click("#primaryBtn");
+  // (6) File 2: Hapus Watermark via rail kepala editor -> deteksi
+  // otomatis -> Instan -> Simpan hasil.
+  await selectFile(1);
+  await page.click('[data-tool-switch="watermark"]');
   await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
   await page.waitForTimeout(800);
   note("f2_wmOverlay", await page.evaluate(() => {
@@ -150,8 +169,8 @@ try {
 
   // (8) "Mulai dari file asli" (file 1): tombol tampil (sumber = hasil
   // Bersihkan) -> klik -> editor buka ulang dari asli -> tombol hilang.
-  await page.locator("#list article").nth(0).locator('[data-tool-switch="erase"]').click();
-  await page.click("#primaryBtn");
+  await selectFile(0);
+  await page.click('[data-tool-switch="erase"]');
   await page.waitForFunction(() => !document.getElementById("eraseModal").classList.contains("hidden"), { timeout: 10000 });
   note("f1_origBtnVisible", await page.evaluate(() => !document.getElementById("eraseUseOriginal").classList.contains("hidden")));
   await page.click("#eraseUseOriginal");
@@ -160,12 +179,12 @@ try {
   await page.click("#eraseClose");
   await page.waitForTimeout(400);
 
-  // (9) Chip Bersihkan di rel kartu = pindah workspace ke Bersihkan.
-  await page.click('[data-tool-switch="erase"]');
+  // (9) Chip Bersihkan di rail kepala editor = pindah workspace ke
+  // Bersihkan (rel kartu sudah dihapus, prinsip E). Tidak ada klik chip
+  // erase dulu: klik itu kini auto-run dan membuka editor (prinsip A).
+  await page.click('[data-tool-switch="clean"]');
   await page.waitForTimeout(500);
-  await page.locator("#list article").nth(0).locator('.tool-bar [data-tool-switch="clean"]').click();
-  await page.waitForTimeout(500);
-  note("cardRailCleanSwitches", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
+  note("toolBarCleanSwitches", await page.evaluate(() => document.querySelector('[data-tool-switch="clean"]').classList.contains("active")));
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
 }

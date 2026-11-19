@@ -1,12 +1,15 @@
 // E2E Hapus Duplikat: Playwright Chromium, serve dist/ lokal.
 // Langkah: 1) load awal = NOL request model; 2) pilih alat Hapus
 // Duplikat, upload 4 file: erase-test.png 2x (identik), dedup-near.png
-// (mirip — 2% piksel digeser +/-5), wm-test.png (beda); 3) [Cari
-// duplikat] -> 1 grup berisi 3 (identik + mirip), wm-test TIDAK masuk
-// grup; 4) ganti pilihan simpan -> label "Disimpan" pindah; 5) [Hapus
-// yang lain] -> sisa 2 kartu (yang disimpan + wm-test), toast konfirmasi;
-// 6) pindai ulang otomatis -> "Tidak ada duplikat"; 7) viewport 390px:
-// tanpa overflow, 0 console error.
+// (mirip — 2% piksel digeser +/-5), wm-test.png (beda); 3) pindai
+// OTOMATIS begitu file masuk (prinsip A/H) -> 1 grup berisi 3
+// (identik + mirip) + alasan miripnya, wm-test TIDAK masuk grup;
+// 4) ganti pilihan simpan -> label "Disimpan" pindah; 5) [Hapus
+// yang lain] -> sisa 2 kartu (yang disimpan + wm-test), ringkasan
+// hapus tampil INLINE di tempat (bukan toast yang tertimpa pindai
+// ulang); 6) pindai ulang otomatis -> "Tidak ada duplikat" tapi
+// ringkasan hapus tetap tampil; 7) viewport 390px: tanpa overflow,
+// 0 console error.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -56,14 +59,16 @@ try {
   await page.waitForTimeout(500);
   note("cardsUploaded", await page.evaluate(() => document.querySelectorAll("#list .card").length));
 
+  // Pindai OTOMATIS begitu file masuk (prinsip A) — tanpa tombol scan.
   const t1 = Date.now();
-  await page.click("#dedupScanBtn");
   await page.waitForSelector(".dedup-group", { timeout: 60000 });
   note("scanMs", Date.now() - t1);
   note("groupsFound", await page.evaluate(() => document.querySelectorAll(".dedup-group").length));
   note("groupSize", await page.evaluate(() => document.querySelectorAll(".dedup-group .dedup-item").length));
   const groupText = await page.locator(".dedup-group").first().textContent();
   note("groupText", groupText);
+  note("groupTitle", await page.locator(".dedup-group-title").first().textContent());
+  note("groupReason", await page.locator(".dedup-reason").first().textContent());
   note("groupHasNear", /dedup-near/.test(groupText));
   note("groupExcludesWm", !/wm-test/.test(groupText));
   // Default: entri pertama (paling awal diunggah) yang disimpan.
@@ -82,13 +87,17 @@ try {
   }));
   note("removeBtnLabel", await page.locator(".dedup-remove").first().textContent());
 
-  // Hapus yang lain -> sisa 2 kartu; pindai ulang -> tidak ada duplikat.
+  // Hapus yang lain -> sisa 2 kartu; pindai ulang -> tidak ada duplikat,
+  // TAPI ringkasan hapus tetap tampil inline di #dedupStatus (prinsip H —
+  // tidak tertimpa pindai ulang).
   await page.click(".dedup-remove");
   await page.waitForFunction(() => document.querySelectorAll("#list .card").length === 2, { timeout: 10000 });
   await page.waitForTimeout(800);
   note("cardsAfterRemove", await page.evaluate(() => document.querySelectorAll("#list .card").length));
   note("groupsAfterRescan", await page.evaluate(() => document.querySelectorAll(".dedup-group").length));
   note("emptyAfterRescan", await page.evaluate(() => /Tidak ada duplikat/.test(document.getElementById("dedupGroups").textContent)));
+  note("dedupStatusAfterRescan", await page.evaluate(() => document.getElementById("dedupStatus").textContent));
+  note("deleteSummaryKeptInline", await page.evaluate(() => /Dihapus \d+ duplikat/.test(document.getElementById("dedupStatus").textContent)));
   const cardText = await page.locator("#list").textContent();
   note("wmStillThere", /wm-test/.test(cardText));
   note("modelReqsTotal", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
@@ -110,8 +119,7 @@ await p2.waitForTimeout(1000);
 await p2.click('button[data-tool="dedup"]');
 await p2.setInputFiles("#fileInput", [IMG_A, IMG_A, IMG_NEAR]);
 await p2.waitForFunction(() => document.querySelectorAll("#list .card").length === 3, { timeout: 30000 });
-await p2.click("#dedupScanBtn");
-await p2.waitForSelector(".dedup-group", { timeout: 60000 });
+await p2.waitForSelector(".dedup-group", { timeout: 60000 }); // auto-scan, tanpa tombol
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 note("overflow390Dedup", overflow2);

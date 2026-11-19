@@ -86,36 +86,33 @@ try {
   note("isolated", await page.evaluate(() => self.crossOriginIsolated));
   note("modelReqsOnLoad", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
 
-  // Pilih alat Hapus Latar Polos, lalu upload (file cuma diantre — alat ini
-  // tidak auto-clean; tombol Simpan baru muncul setelah ada hasil).
+  // Pilih alat Hapus Latar, lalu upload: modal LANGSUNG terbuka dan
+  // alat LANGSUNG jalan (prinsip A — tanpa tombol run). Poller progres
+  // didaftarkan SEBELUM upload, karena run mulai begitu modal dibuka.
   await page.click('button[data-tool="background"]');
   await page.waitForSelector("#panel-cleaner:not(.hidden)", { timeout: 10000 });
   note("pickerHasBackground", await page.evaluate(() => !!document.querySelector('button[data-tool="background"]')));
   note("pickerName", await page.evaluate(() => document.querySelector('button[data-tool="background"] b').textContent));
+  const progressSeen = page.waitForSelector("#bgModelProgress:not(.hidden)", { timeout: 30000 }).then(() => true).catch(() => false);
+  const t1 = Date.now();
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector("#list .card", { timeout: 30000 });
   note("cardVisible", true);
-  await page.waitForTimeout(500);
-
-  // Buka modal dari rel alat kartu (chip kanonis) + tombol utama.
-  await page.click('#list [data-tool-switch="background"]');
-  await page.click("#primaryBtn");
   await page.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 });
   note("modalOpen", await page.evaluate(() => !document.getElementById("bgModal").classList.contains("hidden")));
   note("modalTitle", await page.evaluate(() => document.getElementById("bgTitle").textContent));
   // Chroma-key DIHAPUS: tidak ada lagi swatch/toleransi/mode.
   note("noChromaControls", await page.evaluate(() => document.getElementById("bgKeySwatch") === null && document.getElementById("bgKeyLabel") === null && document.getElementById("bgTol") === null && document.querySelectorAll("[data-bg-mode]").length === 0));
   note("hasModelBar", await page.evaluate(() => document.getElementById("bgModelBar") !== null));
-  note("modelReqsAfterOpen", modelReqs().length); // buka modal tidak mengunduh apa pun
-  // Preview awal = foto asli (sudut masih utuh, alpha 255).
+  note("noRunButton", await page.evaluate(() => document.getElementById("bgRun") === null)); // auto-run: tombol run dihapus (prinsip A)
+  note("modelReqsAfterOpen", modelReqs().length); // buka modal = run mulai = unduh model dimulai
+  // Preview awal = foto asli (sudut masih utuh, alpha 255) — dibaca
+  // sebelum inferensi selesai mengganti preview.
   const px0 = await readPreviewPixels(page);
   note("previewOriginal", px0);
   note("cornersOpaqueBeforeRun", [px0.cornerTL, px0.cornerTR, px0.cornerBL, px0.cornerBR].every((p) => p[3] > 200));
 
-  // [Hapus latar]: ORMBG int8 — model diunduh sekali saat ini.
-  const progressSeen = page.waitForSelector("#bgModelProgress:not(.hidden)", { timeout: 30000 }).then(() => true).catch(() => false);
-  const t1 = Date.now();
-  await page.click("#bgRun");
+  // [Hapus latar] jalan sendiri: ORMBG int8 — model diunduh sekali saat ini.
   await page.waitForSelector("#bgResultBar:not(.hidden)", { timeout: 180000 });
   note("runMs", Date.now() - t1);
   note("progressBarSeen", await progressSeen);
@@ -139,26 +136,30 @@ try {
 
   // Buka lagi + run kedua: 0 request model BARU (Cache Storage — model
   // sudah di HP). Timeout run kedua lebih pendek (tanpa unduh).
-  await page.click('#list [data-tool-switch="background"]');
-  await page.click("#primaryBtn");
-  await page.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 });
+  // Dibuka ulang dari versi "Asli" dulu — hasil Latar masih tersimpan,
+  // tapi tidak sedang ditampilkan.
+  await page.click('#shellVersions button[data-v="Asli"]');
+  await page.waitForTimeout(400);
   const reqsBeforeRun2 = modelReqs().length;
   const t2 = Date.now();
-  await page.click("#bgRun");
+  await page.click('[data-tool-switch="background"]');
+  await page.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 });
   await page.waitForSelector("#bgResultBar:not(.hidden)", { timeout: 120000 });
   note("run2Ms", Date.now() - t2);
   note("modelReqsRun2", modelReqs().length - reqsBeforeRun2); // harus 0 (cache)
 
-  // Unduh hasil -> PNG valid.
+  // Simpan hasil -> Unduh lewat tombol utama "Simpan foto" (satu jalur
+  // simpan, prinsip C) -> PNG valid.
+  await page.click("#bgSave");
+  await page.waitForTimeout(500);
   const dl = page.waitForEvent("download", { timeout: 30000 });
-  await page.click("#bgDownload");
+  await page.click("#primaryBtn");
   const download = await dl;
   const dlPath = "/tmp/bg-downloaded.png";
   await download.saveAs(dlPath);
   const buf = readFileSync(dlPath);
   note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
   note("downloadIsPng", download.suggestedFilename().endsWith(".png"));
-  await page.click("#bgClose");
   note("modelReqsTotal", modelReqs()); // tetap 1 (ORMBG ter-pin, sekali)
   note("modelReqCountTotal", modelReqs().length);
 } catch (e) {
@@ -179,9 +180,7 @@ await p2.waitForTimeout(1000);
 await p2.click('button[data-tool="background"]');
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector("#list .card", { timeout: 30000 });
-await p2.click('#list [data-tool-switch="background"]');
-await p2.click("#primaryBtn");
-await p2.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 });
+await p2.waitForSelector("#bgModal:not(.hidden)", { timeout: 10000 }); // auto-buka saat upload
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 note("overflow390Modal", overflow2);

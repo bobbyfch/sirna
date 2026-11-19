@@ -64,29 +64,22 @@ try {
   await page.waitForSelector("#list .card", { timeout: 30000 });
   await page.waitForTimeout(500);
 
-  // Buka modal dari rel alat kartu (chip kanonis) + tombol utama.
-  await page.click('#list [data-tool-switch="jejak"]');
-  await page.click("#primaryBtn");
+  // Modal LANGSUNG terbuka saat upload + jejak LANGSUNG dihapus
+  // (prinsip A — tanpa tombol run). Daftar jejak sempat tampil sebelum
+  // run selesai; yang diasersi: sesudah run, jejak blob hilang, baris
+  // nama file tetap (nama file TIDAK diubah alat ini).
+  const t1 = Date.now();
   await page.waitForSelector("#jejakModal:not(.hidden)", { timeout: 10000 });
   note("modalTitle", await page.evaluate(() => document.getElementById("jejakTitle").textContent));
   note("modalSub", await page.locator("#jejakSub").textContent());
-  await page.waitForFunction(() => document.getElementById("jejakList").children.length > 0, { timeout: 10000 });
-  const listText = await page.locator("#jejakList").textContent();
-  note("listText", listText);
-  note("listHasTextChunks", /Teks PNG/.test(listText));
-  note("listHasTime", /Waktu pembuatan/.test(listText));
-  note("listHasFilename", /Nama file/.test(listText));
-
-  // [Hapus jejak] -> dicek ulang 0 jejak di dalam file.
-  const t1 = Date.now();
-  await page.click("#jejakRun");
+  note("noRunButton", await page.evaluate(() => document.getElementById("jejakRun") === null)); // auto-run: tombol run dihapus (prinsip A)
   await page.waitForSelector("#jejakResultBar:not(.hidden)", { timeout: 30000 });
   note("scrubMs", Date.now() - t1);
   note("scrubNote", await page.locator("#jejakNote").textContent());
   const listAfter = await page.locator("#jejakList").textContent();
   note("listAfterScrub", listAfter);
   note("blobTracesGone", !/Teks PNG/.test(listAfter) && !/Waktu pembuatan/.test(listAfter));
-  note("filenameRowStays", /Nama file/.test(listAfter)); // nama file TIDAK diubah alat ini
+  note("filenameRowStays", /Nama file/.test(listAfter));
 
   // Simpan -> kartu + versi.
   await page.click("#jejakSave");
@@ -95,17 +88,19 @@ try {
   note("cardMentionsJejak", /Jejak dihapus/.test(cardText));
   note("modalClosedAfterSave", await page.evaluate(() => document.getElementById("jejakModal").classList.contains("hidden")));
 
-  // Unduh hasil -> PNG hasil NOL chunk jejak. Buka lagi DARI ASLI (versi
-  // tersimpan sudah bersih, jadi tombol Hapus nonaktif) lalu hapus & unduh.
-  await page.click('#list [data-tool-switch="jejak"]');
-  await page.click("#primaryBtn");
+  // Unduh hasil -> PNG hasil NOL chunk jejak. Buka lagi DARI ASLI
+  // (chip Versi "Asli" dulu — hasil Jejak masih tersimpan, tapi tidak
+  // sedang ditampilkan), jejak dihapus otomatis lagi, lalu unduh lewat
+  // tombol utama "Simpan foto" (satu jalur simpan, prinsip C).
+  await page.click('#shellVersions button[data-v="Asli"]');
+  await page.waitForTimeout(400);
+  await page.click('[data-tool-switch="jejak"]');
   await page.waitForSelector("#jejakModal:not(.hidden)", { timeout: 10000 });
-  await page.click("#jejakUseOriginal");
-  await page.waitForFunction(() => /Teks PNG/.test(document.getElementById("jejakList").textContent), { timeout: 10000 });
-  await page.click("#jejakRun");
   await page.waitForSelector("#jejakResultBar:not(.hidden)", { timeout: 30000 });
+  await page.click("#jejakSave");
+  await page.waitForTimeout(500);
   const dl = page.waitForEvent("download", { timeout: 30000 });
-  await page.click("#jejakDownload");
+  await page.click("#primaryBtn");
   const download = await dl;
   const dlPath = "/tmp/jejak-downloaded.png";
   await download.saveAs(dlPath);
@@ -113,7 +108,6 @@ try {
   const chunks = pngChunks(buf);
   note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, chunks=" + chunks.join(","));
   note("downloadClean", !chunks.some((c) => ["tEXt", "iTXt", "zTXt", "tIME", "eXIf"].includes(c)));
-  await page.click("#jejakClose");
   note("modelReqsTotal", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
@@ -133,9 +127,7 @@ await p2.waitForTimeout(1000);
 await p2.click('button[data-tool="jejak"]');
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector("#list .card", { timeout: 30000 });
-await p2.click('#list [data-tool-switch="jejak"]');
-await p2.click("#primaryBtn");
-await p2.waitForSelector("#jejakModal:not(.hidden)", { timeout: 10000 });
+await p2.waitForSelector("#jejakModal:not(.hidden)", { timeout: 10000 }); // auto-buka saat upload
 await p2.waitForTimeout(800);
 const overflow2 = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 note("overflow390Modal", overflow2);

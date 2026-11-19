@@ -47,7 +47,12 @@ try {
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", FILES);
   // Tunggu semua 23 kartu selesai: tombol Simpan muncul per kartu.
-  await page.waitForFunction((n) => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= n, FILES.length, { timeout: 120000 });
+  // Tunggu tombol utama jadi "Simpan semua (N)" — Simpan per kartu
+  // sudah dihapus (prinsip C).
+  await page.waitForFunction((n) => {
+    const b = document.getElementById("primaryBtn");
+    return b && !document.getElementById("primaryBar").classList.contains("hidden") && b.textContent.includes("Simpan semua (" + n + ")");
+  }, FILES.length, { timeout: 120000 });
   await page.waitForTimeout(500);
   const states = await page.evaluate(() => {
     const cards = Array.from(document.querySelectorAll("#list article"));
