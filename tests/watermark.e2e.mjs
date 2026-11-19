@@ -1,28 +1,29 @@
 // E2E Hapus Watermark: Playwright Chromium, serve dist/ lokal.
-// Langkah: 1) load awal = TANPA fetch model/ort; 2) upload foto tes
-// (sparkle putih pojok kanan bawah + badge "Made with AI" pojok kiri
+// Langkah: 1) load awal = NOL request model/runtime apa pun; 2) upload foto
+// tes (sparkle putih pojok kanan bawah + badge "Made with AI" pojok kiri
 // bawah) -> buka Hapus Watermark: auto-detect harus menandai KEDUA
-// mark merah (overlay), judul modal "Hapus Watermark"; 3) Hapus
-// (Instan) -> mark hilang, luar mask byte-identical; 4) Simpan hasil
-// -> kartu update "Watermark dihapus"; 5) upload ulang, mode Cepat AI
-// (MI-GAN, model lokal via route) -> hasil; 6) foto tanpa watermark ->
-// "Nggak ketemu watermark otomatis", overlay kosong; 7) viewport 390px:
-// tanpa overflow horizontal, 0 console error.
+// mark merah (overlay), judul modal "Hapus Watermark"; 3) Hapus (Telea,
+// satu-satunya mode) -> mark hilang, luar mask byte-identical; 4) Unduh ->
+// file valid; 5) Simpan hasil -> kartu update "Watermark dihapus";
+// 6) foto tanpa watermark -> "Tidak ketemu tanda otomatis" (B3), overlay
+// kosong; 7) viewport 390px: tanpa overflow horizontal, 0 console error.
+// Revert model (19 Nov 2026): tidak ada lagi MI-GAN/LaMa — tes ini
+// membuktikan tidak ada satu pun request model selama seluruh sesi.
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 
 const BASE = "https://127.0.0.1:4173/";
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // sertifikat self-signed server tes lokal
-const TEST_IMG = "/tmp/wm-test.png"; // 800x600: gradien + kotak hijau + lingkaran merah + sparkle putih (742,545) + badge "Made with AI" (24..168,544..576)
-const CLEAN_IMG = "/tmp/wm-clean.png"; // 800x600: sama, tanpa watermark
+const TEST_IMG = new URL("./fixtures/wm-test.png", import.meta.url).pathname; // 800x600: gradien + kotak hijau + lingkaran merah + sparkle putih (742,545) + badge "Made with AI" (24..168,544..576)
+const CLEAN_IMG = new URL("./fixtures/wm-clean.png", import.meta.url).pathname; // 800x600: sama, tanpa watermark
 const OUT = "/tmp/watermark-e2e-result.json";
 const log = [];
 function note(k, v) { log.push([k, v]); console.log("##", k, "=", typeof v === "string" ? v : JSON.stringify(v)); }
 
 const IMG_DATA_URL = "data:image/png;base64," + readFileSync(TEST_IMG).toString("base64");
 try { execSync("pkill -f 'serve-sirn[a].mjs'"); await new Promise((r) => setTimeout(r, 500)); } catch (_e) {}
-const server = spawn("node", ["/tmp/serve-sirna.mjs", "/home/hatch/workspace/sirna-vite/dist", "4173"], { stdio: "pipe" });
+const server = spawn("node", [new URL("./serve-sirna.mjs", import.meta.url).pathname, "/home/hatch/workspace/sirna-vite/dist", "4173"], { stdio: "pipe" });
 for (let i = 0; i < 20; i++) {
   try { const r = await fetch(BASE); if (r.ok) break; } catch (_e) { /* belum */ }
   await new Promise((r) => setTimeout(r, 500));
@@ -35,12 +36,10 @@ try {
   if (pu.hostname) proxyOpt = { server: `${pu.protocol}//${pu.hostname}:${pu.port}`, username: decodeURIComponent(pu.username), password: decodeURIComponent(pu.password), bypass: "127.0.0.1,localhost" };
 } catch (_e) { /* tanpa proxy */ }
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true, ...(proxyOpt ? { proxy: proxyOpt } : {}) });
-// Model HF diganti file lokal ASLI via ctx.route (lihat erase.e2e.mjs).
-await ctx.route("**/huggingface.co/**", async (route) => {
-  const u = route.request().url();
-  const file = u.includes("lama_fp32") ? "lama_fp32.onnx" : "migan_pipeline_v2.onnx";
-  await route.continue({ url: BASE + "model/" + file });
-});
+// Sirna tidak lagi mengunduh apa pun saat jalan — guard di bawah justru
+// membuktikan tidak ada satu pun request ke host model/runtime.
+const NO_MODEL_RE = /huggingface|staticimgly|onnxruntime|ort-wasm|migan|lama|\.onnx|isnet/i;
+const modelReqs = () => reqs.filter((u) => NO_MODEL_RE.test(u));
 const page = await ctx.newPage();
 const reqs = [];
 const consoleErrors = [];
@@ -72,10 +71,12 @@ try {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   note("heroHasWatermark", await page.evaluate(() => document.body.textContent.includes("Hapus Watermark")));
-  const initialModelReqs = reqs.filter((u) => /huggingface|onnxruntime|ort-wasm|migan|lama|\.onnx/i.test(u));
-  note("modelReqsOnLoad", initialModelReqs.length === 0 ? "NONE (good)" : initialModelReqs);
+  note("modelReqsOnLoad", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
 
-  // Upload foto tes (ada watermark).
+  // Upload foto tes (ada watermark) — pilih Bersihkan dulu (tanpa alat,
+  // file cuma diantre; arah 19 Nov 2026).
+  await page.click('[data-tool="clean"]');
+  await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
   note("cleanDone", "save button visible");
@@ -133,6 +134,15 @@ try {
   }, IMG_DATA_URL);
   note("afterInstant", after);
 
+  // Unduh hasil -> file valid.
+  const dl = page.waitForEvent("download", { timeout: 30000 });
+  await page.click("#eraseDownload");
+  const download = await dl;
+  const dlPath = "/tmp/wm-downloaded" + (download.suggestedFilename().endsWith(".png") ? ".png" : ".bin");
+  await download.saveAs(dlPath);
+  const buf = readFileSync(dlPath);
+  note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
+
   // Simpan hasil -> kartu harus update "Watermark dihapus".
   await page.click("#eraseSave");
   await page.waitForTimeout(800);
@@ -145,48 +155,7 @@ try {
   note("titleBackToErase", await page.evaluate(() => document.getElementById("eraseTitle").textContent));
   await page.click("#eraseClose");
 
-  // Upload ulang foto tes -> mode Cepat AI (MI-GAN).
-  await page.setInputFiles("#fileInput", TEST_IMG);
-  await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
-  await page.waitForTimeout(500);
-  const cards = await page.locator('button[data-act="watermark"]').count();
-  note("watermarkButtons", cards);
-  await page.locator('button[data-act="watermark"]').nth(1).click();
-  await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
-  await page.waitForTimeout(600);
-  const ov2 = await readOverlay();
-  note("overlaySecondOpen", ov2);
-  await page.click('[data-erase-mode="migan"]');
-  await page.waitForTimeout(800);
-  note("miganModelBar", await page.evaluate(() => ({
-    label: document.getElementById("eraseModelLabel").textContent,
-    state: document.getElementById("eraseModelState").textContent,
-  })));
-  const t0 = Date.now();
-  await page.click("#eraseRun");
-  await page.waitForSelector("#eraseResultBar:not(.hidden)", { timeout: 300000 });
-  note("miganMs", Date.now() - t0);
-  note("miganNote", await page.locator("#eraseNote").textContent());
-  const miganReqs = reqs.filter((u) => /huggingface|migan|\.onnx|ort-wasm/i.test(u));
-  note("miganReqs", miganReqs.slice(0, 6));
-  const afterMigan = await page.evaluate(() => {
-    const c = document.getElementById("eraseCanvas");
-    const x = c.getContext("2d");
-    const d = x.getImageData(0, 0, c.width, c.height);
-    const pix = (ix, iy) => { const i = (iy * c.width + ix) * 4; return [d.data[i], d.data[i + 1], d.data[i + 2]]; };
-    return { sparkleCenter: pix(742, 545), badgeWhite: pix(30, 560), corner: pix(10, 10) };
-  });
-  note("afterMigan", afterMigan);
-
-  // Unduh hasil -> file valid.
-  const dl = page.waitForEvent("download", { timeout: 30000 });
-  await page.click("#eraseDownload");
-  const download = await dl;
-  const dlPath = "/tmp/wm-downloaded" + (download.suggestedFilename().endsWith(".png") ? ".png" : ".bin");
-  await download.saveAs(dlPath);
-  const buf = readFileSync(dlPath);
-  note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
-  await page.click("#eraseClose");
+  note("modelReqsTotal", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
 }
@@ -205,6 +174,8 @@ await p2.goto(BASE, { waitUntil: "networkidle" });
 await p2.waitForTimeout(1000);
 const overflow = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 note("overflow390", overflow);
+await p2.click('[data-tool="clean"]');
+await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", CLEAN_IMG);
 await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
 await p2.click('button[data-act="watermark"]');

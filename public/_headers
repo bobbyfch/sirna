@@ -4,12 +4,27 @@
 # + atribut style masih dipakai, jadi 'unsafe-inline' diperlukan untuk
 # script-src dan style-src. blob: di img-src/media-src untuk pratinjau file
 # via URL.createObjectURL, data: untuk favicon SVG inline.
+# Tanpa model AI (19 Nov 2026): tidak ada lagi unduhan runtime — tidak ada
+# blob: di script-src/connect-src, tidak ada 'unsafe-eval' / 'wasm-unsafe-eval',
+# tidak ada host model (huggingface.co / staticimgly.com).
+#
+# SINGLE-ENGINE (19 Nov 2026): SATU model per fitur, diunduh lazy dari
+# Hugging Face (URL resolve di-pin ke revisi commit — lihat src/models.ts):
+# Mi-GAN 28,1 MB, ORMBG int8 44 MB, Real-ESRGAN x4v3 4,6 MB. connect-src
+# mengizinkan huggingface.co (fetch model + redirect CDN). Satu runtime
+# onnxruntime-web 1.31.1 (bundle WASM-only) di Web Worker; wasm dilayani
+# lokal dari /ort/.
+# 'wasm-unsafe-eval' di script-src WAJIB buat WebAssembly.instantiate /
+# instantiateStreaming (ORT) — ini BUKAN 'unsafe-eval' (eval JS tetap
+# dilarang); tanpa ini wasm gagal compile dan semua engine jatuh ke
+# fallback offline. COOP/COEP dipertahankan — dibutuhkan SharedArrayBuffer
+# untuk WASM multi-thread ORT.
 #
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://huggingface.co https://*.cdn.hf.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://huggingface.co https://cdn-lfs.huggingface.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: credentialless

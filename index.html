@@ -80,6 +80,8 @@
       <span class="hidden lg:block text-[12.5px] font-medium truncate" style="color:var(--muted)">sirna.limaraya.com</span>
     </div>
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+      <button type="button" id="topBackBtn" class="hidden w-10 h-10 shrink-0 grid place-items-center rounded-full border bg-white dark:bg-[#1C1C1E]" style="border-color:var(--line)" title="Semua alat" aria-label="Kembali ke semua alat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="w-5 h-5"><path d="m15 18-6-6 6-6"/></svg></button>
+      <button type="button" id="topExportBtn" class="hidden btn-ic min-h-[40px] px-4 rounded-full grad-bg text-white font-semibold text-sm shrink-0"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-download"/></svg>Export</button>
       <span class="hidden md:flex items-center gap-1.5 text-xs font-medium" style="color:var(--muted)"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg>100% lokal</span>
       <button type="button" id="themeBtn" aria-label="Ganti ke mode gelap" aria-pressed="false" title="Mode terang / gelap" class="w-10 h-10 shrink-0 grid place-items-center rounded-full border bg-white dark:bg-[#1C1C1E]" style="border-color:var(--line)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="icon-moon w-5 h-5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -99,23 +101,98 @@
        bawah, sesudah #procDock). -->
   <section class="relative pt-8 sm:pt-12 pb-6" id="heroSection">
     <div class="hero-glow" aria-hidden="true"></div>
-    <h1 class="rise rise-1 relative font-bold tracking-tight leading-[1.06] text-[34px] sm:text-[50px]">Hapus label AI<br class="hidden sm:block"> <span class="grad-text">dari foto &amp; video</span></h1>
-    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Taruh file. Beres.</p>
-    <div class="hero-steps rise rise-2" aria-label="Alur: deteksi, bersihkan, hapus objek, hapus watermark, simpan">
-      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg></span>Deteksi</div>
-      <span class="hero-step-conn" aria-hidden="true"></span>
-      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-eraser"/></svg></span>Bersihkan</div>
-      <span class="hero-step-conn" aria-hidden="true"></span>
-      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg></span>Hapus Objek</div>
-      <span class="hero-step-conn" aria-hidden="true"></span>
-      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span>Hapus Watermark</div>
-      <span class="hero-step-conn" aria-hidden="true"></span>
-      <div class="hero-step"><span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span>Simpan</div>
+    <h1 class="rise rise-1 relative font-bold tracking-tight leading-[1.06] text-[34px] sm:text-[50px]">Taruh foto. Beres. <span class="grad-text">Simpan.</span></h1>
+    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Pilih alat, taruh file, simpan. Semua di HP kamu, tanpa server.</p>
+    <!-- ═══ LAYAR A — PEMILIH ALAT (home) ═══
+         Tool-first (Langkah 2): pilih alat dulu, baru upload. Grid kartu —
+         semua alat kelihatan sekaligus, tiap kartu ≥44px, satu ketukan =
+         masuk workspace alat itu. Cuma alat yang sudah jadi yang dirender;
+         alat belum jadi disembunyikan (bukan badge "segera hadir" palsu). -->
+    <div class="tool-picker rise rise-2" id="toolPicker" role="group" aria-label="Pilih alat">
+      <button type="button" class="tool-card" data-tool="clean">
+        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-eraser"/></svg></span>
+        <span class="tool-card-text"><b>Bersihkan</b><span>Hapus label &amp; metadata AI</span><i>Foto &amp; video · otomatis</i></span>
+        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
+      <button type="button" class="tool-card" data-tool="erase">
+        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg></span>
+        <span class="tool-card-text"><b>Hapus Objek</b><span>Coret orang / benda / teks</span><i>Foto dulu · kuas</i></span>
+        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
+      <button type="button" class="tool-card" data-tool="watermark">
+        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span>
+        <span class="tool-card-text"><b>Hapus Watermark</b><span>Hapus tanda air di pojok</span><i>Foto dulu · deteksi otomatis</i></span>
+        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
+      <button type="button" class="tool-card" data-tool="background">
+        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg></span>
+        <span class="tool-card-text"><b>Hapus Latar</b><span>Latar apa pun jadi transparan</span><i>Foto dulu · AI</i></span>
+        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
+      <button type="button" class="tool-card" data-tool="upscale">
+        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-expand"/></svg></span>
+        <span class="tool-card-text"><b>Perbesar</b><span>Foto jadi 2× lebih besar</span><i>Foto dulu · AI</i></span>
+        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
+      <button type="button" class="tool-card" data-tool="jejak">
+        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span>
+        <span class="tool-card-text"><b>Hapus Jejak</b><span>Hapus GPS, EXIF &amp; data pribadi</span><i>Foto dulu · sekali ketuk</i></span>
+        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
+      <button type="button" class="tool-card" data-tool="dedup">
+        <span class="icon-tile"><svg class="ic" aria-hidden="true"><use href="#i-repeat"/></svg></span>
+        <span class="tool-card-text"><b>Hapus Duplikat</b><span>Cari foto yang sama/mirip</span><i>Banyak file · pilih yang disimpan</i></span>
+        <svg class="ic tool-card-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
     </div>
+    <!-- Coba foto contoh: file dimuat & diantre, TAPI tidak ada alat yang
+         jalan otomatis — user tetap pilih alat dulu di atas (arah Bobby
+         19 Nov 2026 08:49 WIB: tidak ada alat default / pre-select). -->
+    <div class="rise rise-2 mt-4 flex flex-wrap items-center gap-2">
+      <button type="button" id="sampleBtn" class="btn-ic min-h-[48px] px-5 rounded-full font-semibold text-sm border" style="border-color:var(--line)"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-image"/></svg>Coba foto contoh</button>
+      <span class="text-[13.5px]" style="color:var(--muted)">Foto berlabel AI — buat nyoba alat apa pun.</span>
+    </div>
+    <div id="sampleBanner" class="hidden mt-3 px-4 py-3 rounded-2xl text-[14px] font-semibold" role="status" style="background:var(--fill);color:var(--label)"></div>
   </section>
 
-  <!-- ═══ SATU WORKSPACE — semua tahap & olah lanjut nyambung di file yang sama ═══ -->
-  <div class="tool-panel" id="panel-cleaner">
+  <!-- ═══ LAYAR B — WORKSPACE ALAT (muncul setelah pilih alat) ═══
+       Satu antrean file untuk semua alat; ganti alat lewat chip di atas
+       (wrap, bukan scroll tersembunyi) tanpa kehilangan file/hasil.
+       Panel tersembunyi (class hidden) sampai alat dipilih. -->
+  <div class="tool-panel hidden" id="panel-cleaner">
+  <!-- Baris ganti alat + stepper alat ini (3–4 langkah, §2.4) -->
+  <div class="tool-bar" id="toolBar" role="group" aria-label="Ganti alat">
+    <button type="button" class="tool-chip" data-tool-switch="" aria-pressed="false">‹ Semua alat</button>
+    <button type="button" class="tool-chip" data-tool-switch="clean" aria-pressed="false">Bersihkan</button>
+    <button type="button" class="tool-chip" data-tool-switch="erase" aria-pressed="false">Hapus Objek</button>
+    <button type="button" class="tool-chip" data-tool-switch="watermark" aria-pressed="false">Hapus Watermark</button>
+    <button type="button" class="tool-chip" data-tool-switch="background" aria-pressed="false">Hapus Latar</button>
+    <button type="button" class="tool-chip" data-tool-switch="upscale" aria-pressed="false">Perbesar</button>
+    <button type="button" class="tool-chip" data-tool-switch="jejak" aria-pressed="false">Hapus Jejak</button>
+    <button type="button" class="tool-chip" data-tool-switch="dedup" aria-pressed="false">Hapus Duplikat</button>
+  </div>
+  <div class="ws-steps" id="toolStepper" aria-label="Langkah alat ini"></div>
+  <!-- ═══ KEPALA EDITOR (kanonis, P0-1): foto terpilih di atas (maks 55vh),
+       status + versi di bawahnya, lalu rail alat. Bukan sticky — antrean
+       di bawah tetap bisa di-scroll & diklik tanpa tertutup (kepala yang
+       sticky menutupi tombol kartu di layar kecil). Satu foto satu sesi:
+       ganti alat lewat rail, foto & hasil ikut. ═══ -->
+  <section id="editorHead" class="hidden" aria-label="Foto yang sedang diedit">
+    <div id="shellFilm" class="shell-film" role="group" aria-label="Foto di antrean"></div>
+    <div class="shell-canvas-wrap">
+      <img id="shellImg" alt="Foto yang sedang diedit">
+      <video id="shellVideo" class="hidden" muted playsinline controls preload="metadata"></video>
+      <div class="shell-canvas-actions">
+        <button type="button" id="shellUndo" class="shell-chip-btn hidden" title="Kembali ke versi sebelumnya" aria-label="Urungkan ke versi sebelumnya"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-rotate"/></svg><span>Urungkan</span></button>
+        <button type="button" id="shellCompare" class="shell-chip-btn" title="Tahan untuk melihat foto asli" aria-label="Tahan untuk melihat foto asli">Tahan: lihat asli</button>
+      </div>
+    </div>
+    <div class="shell-status">
+      <span id="shellPill" class="status-pill shrink-0 pill-plain"></span>
+      <p id="shellStatus" class="shell-status-text"></p>
+    </div>
+    <div id="shellVersions" class="version-row hidden"></div>
+  </section>
   <!-- 1 · Drop -->
   <div id="dropZone" role="button" tabindex="0" aria-label="Upload foto atau video"
     class="card rise rise-4 border-2 border-dashed p-7 sm:p-9 text-center cursor-pointer select-none" style="border-color:#C9CCC9">
@@ -205,6 +282,18 @@
         <button type="button" id="addMoreBtn" class="icon-btn" title="Tambah file" aria-label="Tambah file" style="background:var(--accent);color:#fff"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </div>
     </div>
+    <div id="dedupView" class="hidden mt-3" aria-label="Duplikat">
+      <div class="card p-4 sm:p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 class="font-bold text-[17px]">Cari duplikat</h3>
+            <p class="text-[13.5px] mt-0.5" style="color:var(--muted)">Foto yang sama/mirip dikelompokkan. Kamu yang pilih mana yang disimpan — tidak ada yang terhapus otomatis.</p>
+          </div>
+          <button type="button" id="dedupScanBtn" class="erase-btn primary">Cari duplikat</button>
+        </div>
+        <div id="dedupGroups" class="mt-3"></div>
+      </div>
+    </div>
     <div id="list" class="mt-3 flex flex-col gap-2.5"></div>
   </section>
   </div><!-- /panel-cleaner -->
@@ -241,6 +330,27 @@
     <span>© 2026 Bobby Fajar Christian · Bagian dari semesta limaraya.com</span>
   </footer>
 </main>
+
+<!-- Bar utama sticky (P0-1): SATU tombol, kata kerja alat aktif, 16px di
+     atas safe-area. Muncul kalau workspace buka + ada foto + alat aktif.
+     Naik di atas batch bar (ZIP) kalau bar itu tampil. -->
+<div id="primaryBar" class="hidden" style="padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+  <div class="max-w-3xl mx-auto px-4">
+    <button type="button" id="primaryBtn" class="btn-ic w-full min-h-[54px] px-6 rounded-full grad-bg text-white font-bold text-[16px] shadow-lg"></button>
+  </div>
+</div>
+
+<!-- Bottom sheet generik (P1): konfirmasi & alur sekunder, maks 1 level. -->
+<div id="sheetScrim" class="hidden" aria-hidden="true"></div>
+<div id="sheet" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <h3 id="sheetTitle" class="sheet-title"></h3>
+  <p id="sheetBody" class="sheet-body"></p>
+  <div class="sheet-actions">
+    <button type="button" id="sheetCancel" class="erase-btn">Batal</button>
+    <button type="button" id="sheetConfirm" class="erase-btn primary"></button>
+  </div>
+</div>
 
 <!-- Batch bar — satu baris, satu aksi utama -->
 <div id="batchBar" class="hidden bg-white/95 dark:bg-[#141517]/95 backdrop-blur border-t" style="border-color:var(--line);padding-bottom:env(safe-area-inset-bottom)">
@@ -303,9 +413,10 @@
 <!-- Editor Hapus Objek / Hapus Watermark — overlay; dibuka dari kartu file
      gambar. Judul & mask awal diatur pas dibuka (lihat src/erase.ts):
      Hapus Objek = kuas kosong, Hapus Watermark = mask hasil deteksi
-     otomatis (src/watermark.ts). Model AI dimuat malas di sini: Instan
-     tanpa download, Cepat AI (MI-GAN 27 MB) & Terbaik (LaMa 198 MB)
-     diunduh sekali pas mode itu dipilih, lalu tersimpan di Cache Storage. -->
+     otomatis (src/watermark.ts). SATU engine: Mi-GAN (28,1 MB, MIT) —
+     diunduh sekali saat alat dibuka, tersimpan di HP, inferensi di Web
+     Worker. Kalau model tidak bisa diunduh (offline), Telea dipakai
+     diam-diam sebagai fallback dengan teks status yang jujur. -->
 <div id="eraseModal" class="hidden erase-modal" role="dialog" aria-modal="true" aria-label="Hapus Objek">
   <div class="erase-sheet">
     <div class="erase-head">
@@ -315,6 +426,15 @@
       </div>
       <button type="button" id="eraseClose" class="icon-btn shrink-0" aria-label="Tutup editor"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
+    <!-- "Mulai dari file asli" (Langkah 3): editor memuat hasil kerja
+         saat ini (chaining); tombol ini muat ulang editor dari file asli —
+         cuma tampil kalau sumbernya bukan file asli. -->
+    <button type="button" id="eraseUseOriginal" class="erase-orig hidden">Mulai dari file asli</button>
+    <div class="erase-steps" id="eraseSteps" aria-label="Langkah: coret, hapus, simpan">
+      <span class="erase-step active"><b>1</b> Coret</span>
+      <span class="erase-step"><b>2</b> Hapus</span>
+      <span class="erase-step"><b>3</b> Simpan</span>
+    </div>
     <div class="erase-stage" id="eraseStage">
       <div class="erase-canvas-box">
         <canvas id="eraseCanvas"></canvas>
@@ -322,33 +442,133 @@
       </div>
     </div>
     <div class="erase-tools">
-      <div class="seg" role="group" aria-label="Mode hapus">
-        <button type="button" data-erase-mode="instant" aria-pressed="true">Instan</button>
-        <button type="button" data-erase-mode="migan" aria-pressed="false">Cepat AI</button>
-        <button type="button" data-erase-mode="lama" aria-pressed="false">Terbaik</button>
-      </div>
-      <p class="erase-mode-desc" id="eraseModeDesc">Tanpa download — buat coretan kecil, teks &amp; watermark.</p>
+      <p class="erase-mode-desc">Dihitung AI di HP kamu (Mi-GAN, 28 MB — download sekali, tersimpan di HP). Paling pas buat coretan kecil, teks, dan watermark.</p>
       <label class="erase-brush" for="eraseBrush">Kuas <input type="range" id="eraseBrush" min="8" max="160" step="4" value="48"><span id="eraseBrushVal">48 px</span></label>
       <div class="erase-row">
         <button type="button" id="eraseUndo" class="erase-btn">Urungkan</button>
-        <button type="button" id="eraseClear" class="erase-btn">Hapus coretan</button>
-        <button type="button" id="eraseCompare" class="erase-btn">Tahan: asli</button>
+        <button type="button" id="eraseClear" class="erase-btn">Bersihin coretan</button>
+        <button type="button" id="eraseCompare" class="erase-btn">Tahan: lihat asli</button>
       </div>
-      <div id="eraseModelBar" class="erase-model hidden">
-        <div class="erase-model-top"><span id="eraseModelLabel">Model —</span><span id="eraseModelState">Belum diunduh</span></div>
-        <div class="erase-progress"><div id="eraseModelFill"></div></div>
-        <div class="erase-model-actions">
-          <button type="button" id="eraseModelBtn" class="erase-btn primary">Unduh model</button>
-          <button type="button" id="eraseModelDel" class="erase-btn hidden">Hapus model</button>
-        </div>
+      <div id="eraseMaskWarn" class="erase-warn hidden" role="alert">
+        <span id="eraseMaskWarnText">Coretannya besar — hasilnya bisa belang di area segede ini. Coba coret lebih kecil, atau bagi jadi beberapa bagian.</span>
       </div>
-      <button type="button" id="eraseRun" class="erase-run grad-bg">Hapus</button>
+      <button type="button" id="eraseRun" class="erase-run grad-bg" disabled>Hapus</button>
+      <div id="eraseModelProgress" class="ai-progress hidden" role="status">
+        <div class="ai-progress-bar"><div id="eraseModelBar" class="ai-progress-fill"></div></div>
+        <div class="ai-progress-row"><span id="eraseModelText">Lagi unduh model…</span><button type="button" id="eraseCancel" class="erase-btn">Batalkan</button></div>
+      </div>
       <div id="eraseResultBar" class="erase-row hidden">
         <button type="button" id="eraseSave" class="erase-btn primary">Simpan hasil</button>
+        <button type="button" id="eraseUndoResult" class="erase-btn">Urungkan hasil</button>
         <button type="button" id="eraseDownload" class="erase-btn">Unduh</button>
-        <button type="button" id="eraseMore" class="erase-btn">Lanjut hapus</button>
       </div>
       <p class="erase-note" id="eraseNote"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Editor Hapus Latar — overlay; dibuka dari kartu file gambar.
+     SATU engine: ORMBG int8 (44 MB, Apache-2.0) — lihat
+     src/background.ts. Hasilnya PNG transparan, preview di atas
+     pola papan catur biar transparansinya kelihatan. Latar apa pun. -->
+<div id="bgModal" class="hidden erase-modal" role="dialog" aria-modal="true" aria-label="Hapus Latar">
+  <div class="erase-sheet">
+    <div class="erase-head">
+      <div class="min-w-0">
+        <h3 class="erase-title" id="bgTitle">Hapus Latar</h3>
+        <p class="erase-sub" id="bgSub">Latar jadi transparan.</p>
+      </div>
+      <button type="button" id="bgClose" class="icon-btn shrink-0" aria-label="Tutup editor"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <button type="button" id="bgUseOriginal" class="erase-orig hidden">Mulai dari file asli</button>
+    <div class="bg-stage">
+      <div class="bg-preview-box checkerboard">
+        <img id="bgPreview" alt="Foto yang latarnya mau dihapus">
+      </div>
+    </div>
+    <div class="erase-tools">
+      <p class="erase-mode-desc">Dihitung AI di HP kamu (ORMBG, 44 MB — download sekali, tersimpan di HP). Latar apa pun bisa: orang, produk, ilustrasi.</p>
+      <button type="button" id="bgRun" class="erase-run grad-bg">Hapus latar</button>
+      <div id="bgModelProgress" class="ai-progress hidden" role="status">
+        <div class="ai-progress-bar"><div id="bgModelBar" class="ai-progress-fill"></div></div>
+        <div class="ai-progress-row"><span id="bgModelText">Lagi unduh model…</span><button type="button" id="bgCancel" class="erase-btn">Batalkan</button></div>
+      </div>
+      <div id="bgResultBar" class="erase-row hidden">
+        <button type="button" id="bgSave" class="erase-btn primary">Simpan hasil</button>
+        <button type="button" id="bgUndoResult" class="erase-btn">Urungkan hasil</button>
+        <button type="button" id="bgDownload" class="erase-btn">Unduh</button>
+      </div>
+      <p class="erase-note" id="bgNote"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Editor Perbesar — overlay; dibuka dari kartu file gambar. SATU
+     engine: Real-ESRGAN General x4v3 (4,6 MB fp32) — lihat
+     src/upscale.ts. 2× = 4× lalu rata-rata blok 2×2; 3× = 4× lalu
+     Lanczos ke 3×. Lanczos murni cuma fallback offline diam-diam. -->
+<div id="upModal" class="hidden erase-modal" role="dialog" aria-modal="true" aria-label="Perbesar">
+  <div class="erase-sheet">
+    <div class="erase-head">
+      <div class="min-w-0">
+        <h3 class="erase-title" id="upTitle">Perbesar</h3>
+        <p class="erase-sub" id="upSub">Foto jadi lebih besar.</p>
+      </div>
+      <button type="button" id="upClose" class="icon-btn shrink-0" aria-label="Tutup editor"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <button type="button" id="upUseOriginal" class="erase-orig hidden">Mulai dari file asli</button>
+    <div class="bg-stage">
+      <div class="bg-preview-box">
+        <img id="upPreview" alt="Foto yang mau diperbesar">
+      </div>
+    </div>
+    <div class="erase-tools">
+      <p class="erase-mode-desc">Dihitung AI di HP kamu (Real-ESRGAN x4v3, 4,6 MB — download sekali, tersimpan di HP).</p>
+      <div class="seg" role="group" aria-label="Skala perbesar">
+        <button type="button" data-up-scale="2" aria-pressed="true">2×</button>
+        <button type="button" data-up-scale="3" aria-pressed="false">3×</button>
+      </div>
+      <div id="upWarn3" class="erase-warn hidden" role="alert">
+        <span>3× diproses dari 4× lalu diperkecil — tetap tajam. Foto di atas 768 px diproses di 768 px dulu.</span>
+      </div>
+      <button type="button" id="upRun" class="erase-run grad-bg">Perbesar</button>
+      <div id="upModelProgress" class="ai-progress hidden" role="status">
+        <div class="ai-progress-bar"><div id="upModelBar" class="ai-progress-fill"></div></div>
+        <div class="ai-progress-row"><span id="upModelText">Lagi unduh model…</span><button type="button" id="upCancel" class="erase-btn">Batalkan</button></div>
+      </div>
+      <button type="button" id="upCompare" class="erase-btn hidden" style="width:100%">Tahan: lihat asli</button>
+      <div id="upResultBar" class="erase-row hidden">
+        <button type="button" id="upSave" class="erase-btn primary">Simpan hasil</button>
+        <button type="button" id="upUndoResult" class="erase-btn">Urungkan hasil</button>
+        <button type="button" id="upDownload" class="erase-btn">Unduh</button>
+      </div>
+      <p class="erase-note" id="upNote"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Editor Hapus Jejak — overlay; dibuka dari kartu file gambar. Tanpa model:
+     pindai jejak privasi di byte file (EXIF/GPS/IPTC/XMP/teks PNG/ICC),
+     hapus lewat strip lossless yang sama dengan Bersihkan (lihat src/jejak.ts). -->
+<div id="jejakModal" class="hidden erase-modal" role="dialog" aria-modal="true" aria-label="Hapus Jejak">
+  <div class="erase-sheet">
+    <div class="erase-head">
+      <div class="min-w-0">
+        <h3 class="erase-title" id="jejakTitle">Hapus Jejak</h3>
+        <p class="erase-sub" id="jejakSub">Jejak privasi di dalam file.</p>
+      </div>
+      <button type="button" id="jejakClose" class="icon-btn shrink-0" aria-label="Tutup editor"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <button type="button" id="jejakUseOriginal" class="erase-orig hidden">Mulai dari file asli</button>
+    <div class="erase-tools">
+      <div id="jejakList" class="jejak-list" role="list"></div>
+      <button type="button" id="jejakRun" class="erase-run grad-bg">Hapus jejak</button>
+      <div id="jejakResultBar" class="erase-row hidden">
+        <button type="button" id="jejakSave" class="erase-btn primary">Simpan hasil</button>
+        <button type="button" id="jejakUndoResult" class="erase-btn">Urungkan hasil</button>
+        <button type="button" id="jejakDownload" class="erase-btn">Unduh</button>
+      </div>
+      <p class="erase-note" id="jejakNote"></p>
     </div>
   </div>
 </div>

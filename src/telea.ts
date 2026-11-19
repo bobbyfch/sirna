@@ -1,15 +1,15 @@
 /* Telea fast-marching inpainting (A. Telea, 2004) — murni TypeScript, tanpa
    dependensi, tanpa download. Dipakai mode Instan Hapus Objek: buat
-   coretan kecil (teks, watermark, noda) hasilnya mulus; buat lubang besar
-   tetap jalan tapi isinya cenderung halus/blur — itu sifat algoritmanya,
-   bukan bug: dia ngisi dari piksel sekitar, bukan nebak objek baru.
-
-   Cara kerja singkat: tiap piksel yang dicat (mask=1) diisi berurutan dari
-   yang paling dekat ke daerah yang dikenal (fast marching, antrean
-   prioritas = jarak T). Nilai isian = rata-rata berbobot tetangga yang
-   sudah dikenal, bobot = 1/jarak² × 1/(1+selisih T), plus koreksi gradien
-   (I(q) + grad(q)·(p−q)) supaya tepi/garis gambar ikut kebawa, bukan
-   sekadar blur. Piksel di luar mask disalin apa adanya — byte-identical. */
+   coretan kecil (teks, watermark, noda) hasilnya mulus. BATASAN JUJUR
+   (terbukti Nov 2026, reproduksi skenario A): buat lubang BESAR di atas
+   tekstur kontras tinggi (mis. rambut hitam-putih), isian bisa jadi
+   pita garis hitam-putih (zebra) — BUKAN halus/blur. Penyebabnya
+   ekstrapolasi gradien yang overshoot lalu ter-clamp 0/255, dirambatkan
+   fast-marching ke tengah lubang. Mitigasinya: (1) kontribusi gradien
+   dijepit ±32/kanal (lihat GRAD_CLAMP), (2) editor memperingatkan saat
+   mask besar di mode Instan dan menyarankan Cepat AI / Terbaik.
+   Buat lubang besar, mode AI (MI-GAN / LaMa) adalah jalan yang benar.
+   Piksel di luar mask disalin apa adanya — byte-identical. */
 
 /* Antrean prioritas min-heap atas indeks piksel, kunci = jarak T. Entri
    basi (piksel sudah terisi / T sudah mengecil) dilewati pas pop. */
@@ -129,6 +129,15 @@ export function inpaintTelea(src: Uint8ClampedArray<ArrayBuffer>, mask: Uint8Arr
     return 0;
   }
   const R = 2; // radius jendela tetangga buat isian
+  /* GRAD_CLAMP — penjepit koreksi gradien per kanal. Tanpa ini, gradien
+     rambut hitam-putih (hitam ↔ putih dalam 1–2 px) menembak isian jauh
+     melewati 0–255 lalu ter-clamp jadi 0/255 murni — pita zebra (§5).
+     Kalibrasi skenario A (potret B&W, mask pita 6,2%): ±32 masih belang
+     (runs/baris 82,8 vs sumber 45,2; ekstrem 13,5%); ±8 kembali ke
+     level sumber (runs/baris 41,9; ekstrem 4,6%; sd 47,6 vs 64,1 —
+     sedikit lebih halus, wajar buat mode instan). ±0 terlalu blur.
+     Jadi ±8: cukup buat membawa arah tepi, tidak cukup buat zebra. */
+  const GRAD_CLAMP = 8;
   while (heap.size > 0) {
     const p = heap.pop();
     if (known[p]) continue; // entri basi
@@ -149,9 +158,14 @@ export function inpaintTelea(src: Uint8ClampedArray<ArrayBuffer>, mask: Uint8Arr
         const lev = 1 / (1 + Math.abs(tp - dist[q]));
         const wt = dst * lev;
         const qi = q * 4;
-        // (p − q) = (−dx, −dy): kontribusi = I(q) + grad(q)·(p−q)
+        // (p − q) = (−dx, −dy): kontribusi = I(q) + grad(q)·(p−q),
+        // dengan gradien dijepit ±GRAD_CLAMP biar tidak overshoot jadi zebra.
         for (let c = 0; c < 4; c++) {
-          const g = c < 3 ? (gradX(qx, qy, c) * -dx + gradY(qx, qy, c) * -dy) : 0;
+          let g = 0;
+          if (c < 3) {
+            g = gradX(qx, qy, c) * -dx + gradY(qx, qy, c) * -dy;
+            if (g > GRAD_CLAMP) g = GRAD_CLAMP; else if (g < -GRAD_CLAMP) g = -GRAD_CLAMP;
+          }
           acc[c] += wt * (out[qi + c] + g);
         }
         wsum += wt;

@@ -1,18 +1,21 @@
 // E2E Hapus Objek: Playwright Chromium, serve dist/ lokal.
-// Langkah: 1) load awal = TANPA fetch model/ort; 2) upload foto tes, buka
-// editor, coret lingkaran merah, Hapus (Instan) -> piksel luar mask harus
-// byte-identical, dalam mask berubah; 3) mode Cepat AI (MI-GAN): unduh model
-// 27 MB sekali, hasil sama; 4) Simpan hasil -> kartu update; Unduh -> file
-// valid; 5) viewport 390px: tanpa overflow horizontal, 0 console error.
-// LaMa (Terbaik, 198 MB) dicoba kalau waktu memungkinkan — kalau tidak,
-// cukup verifikasi Node (sudah) + jalur kode yang sama dengan MI-GAN.
+// Langkah: 1) load awal = NOL request model/runtime apa pun; 2) upload foto
+// tes, buka editor, coret lingkaran merah, Hapus (Mi-GAN, SATU engine) ->
+// piksel luar mask harus byte-identical, dalam mask berubah; 3) Unduh ->
+// file valid; 4) Simpan hasil -> kartu update; 5) coret BESAR (>2% foto)
+// -> peringatan mask muncul, TANPA tombol pindah mode AI (satu engine,
+// tanpa tier); 6) viewport 390px: tanpa overflow horizontal, 0 console error.
+// Single-engine (19 Nov 2026): model Mi-GAN 28,1 MB diunduh sekali saat
+// Hapus ditekan (di-intercept Playwright -> fixture lokal, tanpa internet),
+// tersimpan di Cache Storage; Telea cuma fallback offline (tidak diuji di sini).
 import { chromium } from "@playwright/test";
 import { spawn, execSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 
 const BASE = "https://127.0.0.1:4173/";
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // sertifikat self-signed server tes lokal
-const TEST_IMG = "/tmp/erase-test.png"; // 800x600: gradien (x,y,128) + lingkaran merah r=60 di (400,300) + kotak hijau (60..200,420..500)
+const TEST_IMG = new URL("./fixtures/erase-test.png", import.meta.url).pathname; // 800x600: gradien (x,y,128) + lingkaran merah r=60 di (400,300) + kotak hijau (60..200,420..500)
+const MIGAN_MODEL = new URL("./fixtures/models/migan_pipeline_v2.onnx", import.meta.url).pathname;
 const OUT = "/tmp/erase-e2e-result.json";
 const log = [];
 function note(k, v) { log.push([k, v]); console.log("##", k, "=", typeof v === "string" ? v : JSON.stringify(v)); }
@@ -21,7 +24,7 @@ const IMG_DATA_URL = "data:image/png;base64," + readFileSync(TEST_IMG).toString(
 // Bunuh server tes nyasar dari run yang crash sebelumnya (kalau tidak,
 // spawn baru gagal EADDRINUSE tapi readiness poll tetap kena server lama).
 try { execSync("pkill -f 'serve-sirn[a].mjs'"); await new Promise((r) => setTimeout(r, 500)); } catch (_e) {}
-const server = spawn("node", ["/tmp/serve-sirna.mjs", "/home/hatch/workspace/sirna-vite/dist", "4173"], { stdio: "pipe" });
+const server = spawn("node", [new URL("./serve-sirna.mjs", import.meta.url).pathname, "/home/hatch/workspace/sirna-vite/dist", "4173"], { stdio: "pipe" });
 // Tunggu server beneran jawab (bukan sleep buta).
 for (let i = 0; i < 20; i++) {
   try { const r = await fetch(BASE); if (r.ok) break; } catch (_e) { /* belum */ }
@@ -38,22 +41,35 @@ try {
   const pu = new URL(process.env.HTTPS_PROXY || process.env.https_proxy || "");
   if (pu.hostname) proxyOpt = { server: `${pu.protocol}//${pu.hostname}:${pu.port}`, username: decodeURIComponent(pu.username), password: decodeURIComponent(pu.password), bypass: "127.0.0.1,localhost" };
 } catch (_e) { /* tanpa proxy */ }
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true, ...(proxyOpt ? { proxy: proxyOpt } : {}) });
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true, serviceWorkers: "block", ...(proxyOpt ? { proxy: proxyOpt } : {}) });
 // Chromium di VM ini tidak bisa keluar internet (egress proxy nolak tunnel
-// browser; curl/Node jalan). Model HF diganti file lokal ASLI (byte yang
-// sama, diverifikasi di Node) via ctx.route — SW ikut dicegat di level ini.
-// Transport HF sendiri terbukti hidup: 302 + ACAO:* + 27 MB via curl.
-await ctx.route("**/huggingface.co/**", async (route) => {
-  const u = route.request().url();
-  const file = u.includes("lama_fp32") ? "lama_fp32.onnx" : "migan_pipeline_v2.onnx";
-  // continue (bukan fulfill): body besar lewat CDP base64 bisa matiin target.
-  await route.continue({ url: BASE + "model/" + file });
-});
+// browser; curl/Node jalan). Model HF di-intercept -> fixture lokal, jadi
+// unduhan model tetap teruji end-to-end (fetch + SHA-256 + Cache Storage)
+// tanpa internet. Service worker diblokir di context ini supaya tidak
+// menghalangi intercept.
+// Model = request ke huggingface.co (atau .onnx); runtime ORT wasm lokal
+// (/ort/) dicatat terpisah — itu bukan unduhan model.
+const MODEL_RE = /huggingface\.co|\.onnx/i;
+const ORT_RE = /\/ort\//;
+const modelReqs = () => reqs.filter((u) => MODEL_RE.test(u));
+const ortReqs = () => reqs.filter((u) => ORT_RE.test(u));
 const page = await ctx.newPage();
 const reqs = [];
 const consoleErrors = [];
 const pageErrors = [];
 page.on("request", (r) => reqs.push(r.url()));
+// Intercept unduhan model: resolve HF -> fixture lokal (tanpa redirect).
+let pendingModel = null;
+await page.route("**/huggingface.co/**", async (route) => {
+  const u = route.request().url();
+  if (!u.includes("migan_pipeline_v2.onnx")) return route.abort();
+  pendingModel = MIGAN_MODEL;
+  return route.fulfill({ path: MIGAN_MODEL });
+});
+await page.route("**/cdn-lfs.huggingface.co/**", async (route) => {
+  if (!pendingModel) return route.abort();
+  return route.fulfill({ path: pendingModel });
+});
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => pageErrors.push(String(e)));
 page.on("requestfailed", (r) => note("REQ-FAILED", r.url() + " :: " + (r.failure()?.errorText || "")));
@@ -62,10 +78,12 @@ try {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   note("isolated", await page.evaluate(() => self.crossOriginIsolated));
-  const initialModelReqs = reqs.filter((u) => /huggingface|onnxruntime|ort-wasm|migan|lama|\.onnx/i.test(u));
-  note("modelReqsOnLoad", initialModelReqs.length === 0 ? "NONE (good)" : initialModelReqs);
+  note("modelReqsOnLoad", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
 
-  // Upload foto tes.
+  // Upload foto tes — pilih Bersihkan dulu (tanpa alat, file cuma
+  // diantre; arah 19 Nov 2026).
+  await page.click('[data-tool="clean"]');
+  await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
   note("cleanDone", "save button visible");
@@ -78,11 +96,10 @@ try {
   note("editorOpen", modalVisible);
   const canvasBox = await page.locator("#eraseCanvas").boundingBox();
   note("canvasBox", canvasBox);
-  const modeReqsBefore = reqs.filter((u) => /huggingface|\.onnx|ort-wasm/i.test(u)).length;
-  note("modelReqsAfterOpen", modeReqsBefore); // buka editor saja belum boleh unduh model
+  note("modelReqsAfterOpen", modelReqs().length); // buka editor tidak mengunduh apa pun
 
-  // Coret: TUTUP SELURUH lingkaran merah (bukan garis tipis — Telea ngisi
-  // coretan dari piksel sekitarnya, jadi garis tipis di tengah objek besar
+  // Coret: TUTUP SELURUH lingkaran merah (bukan garis tipis — inpainting
+  // ngisi coretan dari piksel sekitarnya, jadi garis tipis di tengah objek besar
   // bakal keisi warna objeknya lagi. Itu perilaku benar, bukan bug).
   // 6 garis horizontal (y=250..350, spasi 20 < lebar kuas 48) menutup lingkaran.
   const toPx = (ix, iy) => ({ x: canvasBox.x + (ix / 800) * canvasBox.width, y: canvasBox.y + (iy / 600) * canvasBox.height });
@@ -107,9 +124,17 @@ try {
   });
   note("beforePixels", before);
 
-  // Hapus (mode Instan = default).
+  // Hapus (Mi-GAN — model diunduh sekali saat ini; bar progres harus
+  // sempat tampil). Poller progres dimulai SEBELUM klik.
+  const progressSeen = page.waitForSelector("#eraseModelProgress:not(.hidden)", { timeout: 30000 }).then(() => true).catch(() => false);
+  const tRun = Date.now();
   await page.click("#eraseRun");
-  await page.waitForSelector("#eraseResultBar:not(.hidden)", { timeout: 60000 });
+  await page.waitForSelector("#eraseResultBar:not(.hidden)", { timeout: 180000 });
+  note("runMs", Date.now() - tRun);
+  note("progressBarSeen", await progressSeen);
+  note("modelReqsAfterRun", modelReqs());
+  note("modelReqCount", modelReqs().length); // harus 1: URL Mi-GAN ter-pin, sekali
+  note("ortReqsAfterRun", ortReqs()); // wasm ORT lokal dari /ort/
   const after = await page.evaluate((imgDataUrl) => {
     const c = document.getElementById("eraseCanvas");
     const x = c.getContext("2d");
@@ -125,8 +150,9 @@ try {
         octx.drawImage(img, 0, 0, c.width, c.height);
         const od = octx.getImageData(0, 0, c.width, c.height);
         // Dalam = isi lingkaran merah (jarak <= 58 dari pusat): harus berubah
-        // (terisi gradien, bukan merah lagi). Luar = jarak > 112 dari pusat
-        // (kuas 48 + dilasi mencapai ~107; di luar itu harus byte-identical).
+        // (terisi gradien, bukan merah lagi). Luar = jarak > 130 dari pusat
+        // (coretan kuas 48 mencapai dist 123,4 dari pusat — sudut persegi
+        // coretan + round cap + dilasi 1; di luar itu harus byte-identical).
         const sx = c.width / 800, sy = c.height / 600;
         let outsideBad = 0, outsideN = 0, insideChanged = 0, insideN = 0;
         for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) {
@@ -136,7 +162,7 @@ try {
           let same = true;
           for (let ch = 0; ch < 3; ch++) if (d.data[i + ch] !== od.data[i + ch]) same = false;
           if (dist <= 58) { insideN++; if (!same) insideChanged++; }
-          else if (dist > 112) { outsideN++; if (!same) outsideBad++; }
+          else if (dist > 130) { outsideN++; if (!same) outsideBad++; }
         }
         resolve({ w: c.width, h: c.height, center: pix(400, 300), corner: pix(10, 10), green: pix(130, 460), outsideBad, outsideN, insideChanged, insideN });
       };
@@ -147,54 +173,6 @@ try {
   note("afterInstant", after);
   note("noteText", await page.locator("#eraseNote").textContent());
 
-  // Simpan hasil -> kartu harus update (teks "Objek dihapus").
-  await page.click("#eraseSave");
-  await page.waitForTimeout(800);
-  const cardText = await page.locator("#list").textContent();
-  note("cardMentionsErase", /Objek dihapus/.test(cardText));
-  note("editorClosedAfterSave", await page.evaluate(() => document.getElementById("eraseModal").classList.contains("hidden")));
-
-  // Buka lagi, mode Cepat AI (MI-GAN): coret kotak hijau, Hapus.
-  await page.click('button[data-act="erase"]');
-  await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
-  await page.click('[data-erase-mode="migan"]');
-  await page.waitForTimeout(800);
-  const modelBar = await page.evaluate(() => ({
-    label: document.getElementById("eraseModelLabel").textContent,
-    state: document.getElementById("eraseModelState").textContent,
-  }));
-  note("miganModelBar", modelBar);
-  const box2 = await page.locator("#eraseCanvas").boundingBox();
-  const toPx2 = (ix, iy) => ({ x: box2.x + (ix / 800) * box2.width, y: box2.y + (iy / 600) * box2.height });
-  async function paintLine2(x1, y1, x2, y2) {
-    const a = toPx2(x1, y1), b = toPx2(x2, y2);
-    await page.mouse.move(a.x, a.y);
-    await page.mouse.down();
-    for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 8, a.y + ((b.y - a.y) * i) / 8, { steps: 2 });
-    await page.mouse.up();
-    await page.waitForTimeout(120);
-  }
-  // Tutup SELURUH kotak hijau (60..200, 420..500), bukan garis tipis.
-  for (const y of [430, 450, 470, 490]) await paintLine2(55, y, 205, y);
-  await page.waitForTimeout(300);
-  const t0 = Date.now();
-  await page.click("#eraseRun");
-  await page.waitForSelector("#eraseResultBar:not(.hidden)", { timeout: 300000 });
-  note("miganMs", Date.now() - t0);
-  note("miganNote", await page.locator("#eraseNote").textContent());
-  const miganReqs = reqs.filter((u) => /huggingface|migan|\.onnx|ort-wasm/i.test(u));
-  note("miganReqs", miganReqs.slice(0, 6));
-  const afterMigan = await page.evaluate(() => {
-    const c = document.getElementById("eraseCanvas");
-    const x = c.getContext("2d");
-    const d = x.getImageData(0, 0, c.width, c.height);
-    const pix = (ix, iy) => { const i = (iy * c.width + ix) * 4; return [d.data[i], d.data[i + 1], d.data[i + 2]]; };
-    const boxPts = [[80, 440], [130, 460], [180, 480], [100, 490], [160, 435]].map(([a, b]) => pix(a, b));
-    const stillGreen = boxPts.filter(([r, g, b]) => g > 150 && r < 80 && b < 100).length;
-    return { boxPts, stillGreen, corner: pix(10, 10) };
-  });
-  note("afterMigan", afterMigan);
-
   // Unduh hasil (download event) -> file valid.
   const dl = page.waitForEvent("download", { timeout: 30000 });
   await page.click("#eraseDownload");
@@ -203,7 +181,37 @@ try {
   await download.saveAs(dlPath);
   const buf = readFileSync(dlPath);
   note("downloadFile", download.suggestedFilename() + " " + buf.length + " bytes, magic=" + buf.subarray(0, 8).toString("hex"));
+
+  // Simpan hasil -> kartu harus update (teks "Objek dihapus").
+  await page.click("#eraseSave");
+  await page.waitForTimeout(800);
+  const cardText = await page.locator("#list").textContent();
+  note("cardMentionsErase", /Objek dihapus/.test(cardText));
+  note("editorClosedAfterSave", await page.evaluate(() => document.getElementById("eraseModal").classList.contains("hidden")));
+
+  // Buka lagi, coret BESAR (>2% foto): peringatan mask muncul, TANPA
+  // tombol pindah mode AI (revert: tidak ada lagi "Pakai Cepat AI").
+  await page.click('button[data-act="erase"]');
+  await page.waitForSelector("#eraseModal:not(.hidden)", { timeout: 10000 });
+  const box3 = await page.locator("#eraseCanvas").boundingBox();
+  const toPx3 = (ix, iy) => ({ x: box3.x + (ix / 800) * box3.width, y: box3.y + (iy / 600) * box3.height });
+  async function paintLine3(x1, y1, x2, y2) {
+    const a = toPx3(x1, y1), b = toPx3(x2, y2);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 8, a.y + ((b.y - a.y) * i) / 8, { steps: 2 });
+    await page.mouse.up();
+    await page.waitForTimeout(120);
+  }
+  for (const y of [150, 450]) await paintLine3(100, y, 700, y);
+  await page.waitForTimeout(400);
+  note("maskWarnVisible", await page.evaluate(() => !document.getElementById("eraseMaskWarn").classList.contains("hidden")));
+  note("maskWarnText", await page.locator("#eraseMaskWarnText").textContent());
+  note("noAiSwitchButton", await page.evaluate(() => document.getElementById("eraseWarnMigan") === null));
+  note("noModeButtons", await page.evaluate(() => document.querySelectorAll("[data-erase-mode]").length));
   await page.click("#eraseClose");
+  note("modelReqsTotal", modelReqs()); // tetap 1 (tidak ada unduhan model lain)
+  note("modelReqCountTotal", modelReqs().length);
 } catch (e) {
   note("ERROR", String(e && e.stack || e));
 }
@@ -221,6 +229,8 @@ await p2.goto(BASE, { waitUntil: "networkidle" });
 await p2.waitForTimeout(1000);
 const overflow = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 note("overflow390", overflow);
+await p2.click('[data-tool="clean"]');
+await p2.waitForTimeout(500);
 await p2.setInputFiles("#fileInput", TEST_IMG);
 await p2.waitForSelector('button[data-act="save"]:not(.hidden)', { timeout: 30000 });
 await p2.click('button[data-act="erase"]');

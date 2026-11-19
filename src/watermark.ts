@@ -2,9 +2,7 @@
    kayak Hapus Objek (src/erase.ts). Alur: deteksi cari tanda di pojok &
    tepi foto (mis. sparkle Gemini, badge "Made with AI"), tandain merah
    sebagai mask awal, user bisa nambah/kurangin pakai kuas, lalu hapus
-   dengan mode yang sama: Instan (Telea, tanpa download) / Cepat AI
-   (MI-GAN) / Terbaik (LaMa) — model tetap lazy-load, cuma diunduh pas
-   mode AI dibuka (lihat src/erase.ts).
+   dengan Mi-GAN (28,1 MB, MIT — lihat src/erase.ts).
 
    Deteksi murni (tanpa DOM, tanpa model): di grid kecil (sisi panjang
    maks 480) cari piksel yang kontras kuat terhadap latar sekitarnya
@@ -15,7 +13,7 @@
    di tengah foto ada di luar zona. Mask awal selalu kelihatan & bisa
    diubah user — deteksi salah bukan bencana, cuma coretan awal. */
 
-import { openEraser, type EraseSource, type EraseHooks } from "./erase";
+import { openEraser, type EraseSource, type EraseHooks, type EraseOptions } from "./erase";
 
 /* ImageData di browser memenuhi bentuk ini secara struktural; di Node
    (buat tuning) cukup kirim { data, width, height } biasa. */
@@ -371,19 +369,23 @@ export function detectWatermark(img: ImgLike): WatermarkDetect | null {
 
   const wheres = boxes.map((b) => b.where);
   const uniq = [...new Set(wheres)];
-  const note = "Ketemu watermark di " + uniq.join(" & ") +
-    " — udah ditandain merah. Coret buat nambah/kurangin, terus tekan Hapus.";
+  /* B2 (§4.3): jumlah tanda + lokasi — periksa dulu, lalu tekan Hapus. */
+  const note = "Ketemu " + boxes.length + " tanda di " + uniq.join(" & ") +
+    " — periksa dulu, lalu tekan Hapus.";
   return { mask, boxes, found: true, note };
 }
 
-/* Buka editor (yang sama kayak Hapus Objek) dengan mask awal hasil deteksi. */
-export async function openWatermark(source: EraseSource, hooks: EraseHooks): Promise<void> {
+/* Buka editor (yang sama kayak Hapus Objek) dengan mask awal hasil deteksi.
+   opts diteruskan ke openEraser (mis. showUseOriginal — Langkah 3). */
+export async function openWatermark(source: EraseSource, hooks: EraseHooks, opts: EraseOptions = {}): Promise<void> {
   return openEraser(source, hooks, {
+    ...opts,
     title: "Hapus Watermark",
     initialMask: (img) => {
       const d = detectWatermark(img);
       return d ? { mask: d.mask, note: d.note } : null;
     },
-    noMaskNote: "Nggak ketemu watermark otomatis di pojok/tepi — coret manual area watermark-nya, terus tekan Hapus.",
+    /* B3 (§4.3): tidak ketemu tanda otomatis — coret manual. */
+    noMaskNote: "Tidak ketemu tanda otomatis — coret manual bagian yang mau dihapus.",
   });
 }

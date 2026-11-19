@@ -63,10 +63,227 @@ var SIGNATURES=[
 ];
 var items=[]; var idCounter=0; var deepClean=false; var outFormat="same"; var batchRunning=false; var dlMode="copy"; var procCurId=null;
 
+/* ── Alat aktif (Langkah 2): tool-first. null = layar pemilih alat.
+   "clean" | "erase" | "watermark". File baru dirutekan ke alat aktif:
+   Bersihkan → auto-scan+clean; alat lain → antre saja, tunggu aksi
+   pengguna di kartunya. TIDAK ADA alat default: null berarti user belum
+   memilih — file yang masuk tanpa alat cuma diantre (lihat handleFiles),
+   bukan otomatis Bersihkan (arah Bobby 19 Nov 2026 08:49 WIB). */
+var activeTool=null;
+/* Foto terpilih di kepala editor (satu foto satu sesi): null = belum ada
+   foto. Dipilih otomatis saat file masuk (yang pertama) & lewat filmstrip
+   atau ketuk badan kartu. */
+var selectedId: number | null = null;
+function selectedItem(){ return items.find(function(i){return i.id===selectedId}) || items[0] || null; }
+function selectItem(id){ selectedId=id; syncShell(); syncPrimary(); }
+var TOOL_STEPS={
+  clean:["Pilih file","Deteksi","Bersihkan","Simpan"],
+  erase:["Pilih file","Coret","Hapus","Simpan"],
+  watermark:["Pilih file","Deteksi","Hapus","Simpan"],
+  background:["Pilih file","Deteksi","Hapus","Simpan"],
+  upscale:["Pilih file","Perbesar","Simpan"],
+  jejak:["Pilih file","Cari jejak","Hapus","Simpan"],
+  dedup:["Pilih file","Cari duplikat","Pilih yang disimpan","Selesai"]
+};
+/* Ganti alat = ganti workspace, bukan buang file: antrean, hasil & versi
+   ikut. null = balik ke pemilih alat (hero tampil, workspace sembunyi). */
+function setActiveTool(tool){
+  activeTool=tool||null;
+  $$("[data-tool-switch]").forEach(function(x){
+    var on=x.dataset.toolSwitch===(activeTool||"");
+    x.setAttribute("aria-pressed", on?"true":"false");
+    x.classList.toggle("active", on);
+  });
+  var hero=$("#heroSection"), panel=$("#panel-cleaner");
+  if(hero) hero.classList.toggle("hidden", !!activeTool);
+  if(panel) panel.classList.toggle("hidden", !activeTool);
+  var dv=$("#dedupView");
+  if(dv) dv.classList.toggle("hidden", activeTool!=="dedup");
+  updateStats();
+}
+
+/* ── Kepala editor + tombol utama (layout kanonis P0-1) ──
+   syncShell: filmstrip, canvas (maks 55vh), pill + bukti, chip versi,
+   tombol Urungkan / Tahan-lihat-asli. syncPrimary: satu tombol utama
+   sticky dengan kata kerja alat aktif. Keduanya dipanggil dari
+   updateStats() — satu titik sinkronisasi sesudah hampir semua mutasi. */
+var shellComparing=false;
+function shellEvidence(item, st){
+  var cur=item.cleanedBlob||item.file;
+  var size=formatBytes(cur.size);
+  if(st.key==="cleaned") return "Dicek ulang: 0 label AI tersisa · "+size;
+  if(st.key==="residual") return "Masih ada label · "+size;
+  if(st.key==="detected") return "Label AI ketemu · "+size;
+  if(st.key==="plain") return "Tidak ada label · "+size;
+  if(st.key==="cleaning") return "Lagi diproses… · "+size;
+  if(st.key==="failed"||st.key==="attention") return "Perlu perhatian · "+size;
+  return size;
+}
+function syncShell(){
+  var head=$("#editorHead"); if(!head) return;
+  var it=selectedItem();
+  var show= !!activeTool && !!it;
+  head.classList.toggle("hidden", !show);
+  if(!show) return;
+  var film=$("#shellFilm");
+  if(film) film.innerHTML=items.map(function(x){
+    return '<button type="button" class="shell-thumb'+(x.id===it.id?" active":"")+'" data-shell-id="'+x.id+'" aria-label="Pilih '+escapeHtml(x.file.name)+'" aria-pressed="'+(x.id===it.id?"true":"false")+'"><img src="'+(x.cleanedUrl||x.url)+'" alt=""></button>';
+  }).join("");
+  var img=$("#shellImg") as HTMLImageElement, vid=$("#shellVideo") as HTMLVideoElement;
+  if(it.kind==="video"){
+    if(img) img.classList.add("hidden");
+    if(vid){ vid.classList.remove("hidden"); if(vid.src!==it.url) vid.src=it.url; }
+  } else {
+    if(vid){ vid.classList.add("hidden"); vid.removeAttribute("src"); }
+    if(img){
+      img.classList.remove("hidden");
+      var want=shellComparing ? it.url : (it.cleanedUrl||it.url);
+      if(img.getAttribute("data-cur")!==want){ img.src=want; img.setAttribute("data-cur",want); }
+    }
+  }
+  var st=getFileState(it);
+  setPill($("#shellPill"), st.cls, st.icon, st.text);
+  var sst=$("#shellStatus"); if(sst) sst.textContent=shellEvidence(it, st);
+  var row=$("#shellVersions");
+  if(row){
+    var vs=it.versions||[];
+    if(vs.length<2){ row.classList.add("hidden"); row.innerHTML=""; }
+    else{
+      row.classList.remove("hidden");
+      row.innerHTML='<span class="version-label">Versi:</span> '+vs.map(function(v){
+        var cur=v.label===it.currentLabel;
+        return '<button type="button" class="version-chip'+(cur?" active":"")+'" data-v="'+v.label+'" aria-pressed="'+(cur?"true":"false")+'">'+v.label+'</button>';
+      }).join('<span class="version-sep" aria-hidden="true">·</span>')+'<span class="version-hint">— ketuk untuk kembali</span>';
+    }
+  }
+  var un=$("#shellUndo");
+  if(un) un.classList.toggle("hidden", !(it.versions && it.versions.length>1 && it.currentLabel!=="Asli"));
+}
+var PRIMARY_VERB={clean:"Bersihkan label",erase:"Hapus Objek",watermark:"Hapus Watermark",background:"Hapus Latar",upscale:"Perbesar",jejak:"Hapus Jejak",dedup:"Cari duplikat"};
+function syncPrimary(){
+  var bar=$("#primaryBar"); if(!bar) return;
+  var it=selectedItem();
+  var show= !!activeTool && !!it;
+  bar.classList.toggle("hidden", !show);
+  document.body.classList.toggle("has-primary", show);
+  var back=$("#topBackBtn"); if(back) back.classList.toggle("hidden", !activeTool);
+  var exp=$("#topExportBtn"); if(exp) exp.classList.toggle("hidden", !(it && it.cleanedBlob));
+  if(!show) return;
+  var btn=$("#primaryBtn"); if(!btn) return;
+  var label=PRIMARY_VERB[activeTool]||"Simpan foto";
+  if(activeTool==="clean" && it.cleanedBlob) label="Simpan foto";
+  btn.textContent=label;
+  /* Naik di atas bar ZIP kalau bar itu tampil (keduanya fixed bawah). */
+  bar.classList.toggle("above-batch", !document.getElementById("batchBar").classList.contains("hidden"));
+}
+async function runPrimary(){
+  var it=selectedItem();
+  if(!activeTool) return;
+  if(!it){ var fi2=$("#fileInput") as HTMLInputElement; if(fi2) fi2.click(); return; }
+  if(activeTool==="clean"){
+    if(it.cleanedBlob){ saveItem(it); return; }
+    await cleanItem(it);
+    toast("Dibersihin ✓");
+    return;
+  }
+  if(activeTool==="erase"){ await openEraserFor(it); return; }
+  if(activeTool==="watermark"){ await openWatermarkFor(it); return; }
+  if(activeTool==="background"){ await openBackgroundFor(it); return; }
+  if(activeTool==="upscale"){ await openUpscaleFor(it); return; }
+  if(activeTool==="jejak"){ await openJejakFor(it); return; }
+  if(activeTool==="dedup"){ scanDuplicates(); return; }
+}
+/* Stepper workspace dibaca dari antrean + alat aktif (bukan flag terpisah):
+   Bersihkan: file masuk → Deteksi aktif, ada yang dibersihkan → Bersihkan
+   aktif, semua beres → Simpan aktif. Objek/Watermark: file masuk → Coret/
+   Deteksi aktif, ada edit selesai → Simpan aktif. */
+function updateToolStepper(){
+  var bar=document.getElementById("toolStepper");
+  if(!bar||!activeTool) return;
+  var steps=TOOL_STEPS[activeTool];
+  var hasFiles=items.length>0;
+  var anyCleaning=items.some(function(i){return i.status==="cleaning"});
+  var allDone=hasFiles && items.every(function(i){return i.cleanedBlob||i.status==="error"});
+  var anyEdited=items.some(function(i){return i.tools && (i.tools.erase==="selesai"||i.tools.watermark==="selesai"||i.tools.background==="selesai"||i.tools.upscale==="selesai"||i.tools.jejak==="selesai"||i.tools.dedup==="selesai")});
+  var idx=0;
+  if(!hasFiles) idx=0;
+  else if(activeTool==="clean") idx= anyCleaning?2 : (allDone?3:1);
+  else idx= anyEdited?3:1;
+  bar.innerHTML=steps.map(function(s,i){
+    var cls= i<idx ? " done" : (i===idx ? " active" : "");
+    var num= i<idx ? "✓" : String(i+1);
+    return '<span class="ws-step'+cls+'"><b>'+num+'</b> '+s+'</span>';
+  }).join('<span class="ws-conn" aria-hidden="true"></span>');
+}
+
 function $(s){return document.querySelector(s)}
 function $$(s){return Array.from(document.querySelectorAll(s))}
 function ic(id,cls?){ return '<svg class="ic '+(cls||"ic-sm")+'" aria-hidden="true"><use href="#'+id+'"/></svg>'; }
 function setPill(el,cls,icon,text){ if(!el) return; el.className="status-pill shrink-0 "+cls; el.innerHTML=ic(icon,"ic-sm")+escapeHtml(text); }
+
+/* ── SATU STATE MACHINE PER FILE (§3/§4.1 redesign, Langkah 1) ──
+   Satu-satunya sumber kebenaran status file: pill, kotak hasil, stats
+   header, batch bar & toast batch SEMUA membaca getFileState(item).
+   Dilarang menghitung "bersih" dari cleanedBlob di satu tempat dan dari
+   cleanedScan di tempat lain — itu sumber inkonsistensi lama (header
+   "1 bersih" vs kartu "Label tersisa"). State diturunkan dari data item
+   (status + cleanedBlob + cleanedScan + scan awal), bukan dari flag
+   terpisah yang bisa ketinggalan. toolState per alat ikut di sini buat
+   rel alat kartu (Langkah 3): belum / selesai / perlu perhatian. */
+var PILL={
+  cleaning:{cls:"pill-working",icon:"i-eraser",text:"Lagi dibersihin…"},
+  failed:{cls:"pill-error",icon:"i-alert",text:"Gagal"},
+  attention:{cls:"pill-error",icon:"i-alert",text:"Perhatian"},
+  residual:{cls:"pill-error",icon:"i-alert",text:"Masih ada label"},
+  cleaned:{cls:"pill-clean",icon:"i-check",text:"Sudah bersih"},
+  detected:{cls:"pill-detected",icon:"i-alert",text:"Ada label AI"},
+  plain:{cls:"pill-plain",icon:"i-check",text:"Tidak ada label"},
+  unverified:{cls:"pill-error",icon:"i-alert",text:"Belum terverifikasi"}
+};
+function getFileState(item){
+  var key;
+  var tools=item.tools||{clean:"belum",erase:"belum",watermark:"belum",background:"belum",upscale:"belum",jejak:"belum",dedup:"belum"};
+  if(item.status==="cleaning") key="cleaning";
+  else if(item.status==="error") key= item.errorKind==="attention" ? "attention" : "failed";
+  else if(item.cleanedBlob){
+    if(!item.cleanedScan) key="unverified";
+    else if(item.cleanedScan.hasAI) key="residual";
+    else key="cleaned";
+  }
+  else if(item.scan && item.scan.hasAI) key="detected";
+  else key="plain";
+  var p=PILL[key];
+  var curScan=item.cleanedScan||item.scan||{hasAI:false};
+  return {key:key, cls:p.cls, icon:p.icon, text:p.text, tools:tools,
+    verifiedClean:key==="cleaned", hasLabel:!!curScan.hasAI};
+}
+function applyPill(item){
+  var el=document.getElementById("status-"+item.id); if(!el) return;
+  var st=getFileState(item);
+  setPill(el, st.cls, st.icon, st.text);
+}
+/* Deep Clean dari tombol di kotak hasil (A5): nyalain mode Deep + samain
+   tombol pengaturan [data-mode] biar UI-nya nggak bohong. */
+function setDeepClean(on){
+  deepClean=!!on;
+  $$("[data-mode]").forEach(function(x){ x.setAttribute("aria-pressed", (x.dataset.mode==="deep")===!!on ? "true" : "false"); });
+}
+/* Satu jalur gagal (A6–A8): pill + kotak merah dari getFileState, bukan
+   setPill manual di tiap catch — biar "Gagal"/"Perhatian" nggak pernah
+   beda sumber dengan pill di tempat lain. retry=true → tombol [Coba lagi]
+   (data-act="reclean") di dalam kotak. */
+function failClean(item,res,status,kind,body,retry){
+  item.status="error"; item.errorKind=kind; if(item.tools) item.tools.clean="perlu perhatian";
+  hideProc(item);
+  var cardEl=document.getElementById("card-"+item.id); if(cardEl) cardEl.classList.remove("is-processing");
+  var st=getFileState(item);
+  setPill(status, st.cls, st.icon, st.text);
+  if(res){
+    res.classList.remove("hidden");
+    res.innerHTML='<div class="error-box">'+escapeHtml(body)+'</div>'+(retry?'<div class="mt-2"><button type="button" class="min-h-[44px] px-5 grad-bg text-white font-bold text-[13px] btn-ic" data-act="reclean" data-id="'+item.id+'">Coba lagi</button></div>':"");
+  }
+  renderRail(item);
+}
 /* Panel proses DI DALAM kartu: status proses hidup di badan kartu file itu
    sendiri (bukan cuma di atas halaman), jadi selalu kelihatan pas user
    lagi megang / scroll kartu ini di HP. wait=true buat kartu antre. */
@@ -82,7 +299,11 @@ function syncDockBottom(){
   var dock=document.getElementById("procDock"); if(!dock) return;
   var bar=document.getElementById("batchBar");
   var barUp= bar && !bar.classList.contains("hidden");
-  dock.style.bottom= barUp ? "calc(86px + env(safe-area-inset-bottom))" : "calc(14px + env(safe-area-inset-bottom))";
+  var prim=document.getElementById("primaryBar");
+  var primUp= prim && !prim.classList.contains("hidden");
+  /* Dock duduk di atas tumpukan bar bawah: batch 69px, primary ~70px. */
+  var base= primUp ? (barUp ? 156 : 84) : (barUp ? 86 : 14);
+  dock.style.bottom= "calc("+base+"px + env(safe-area-inset-bottom))";
 }
 function formatBytes(b){ if(b===0) return "0 B"; var k=1024,s=["B","KB","MB","GB","TB","PB"],i=Math.min(s.length-1,Math.floor(Math.log(b)/Math.log(k))); return (b/Math.pow(k,i)).toFixed(i?1:0)+" "+s[i]; }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]}); }
@@ -201,8 +422,12 @@ async function scanImageFile(file){
   return scanBuffer(combined.buffer,"image");
 }
 
-/* ── File masuk → langsung dibersihin ── */
-async function handleFiles(fileList: FileList | File[]){
+/* ── File masuk → dirutekan ke alat aktif ──
+   Bersihkan: langsung scan + bersih (janji "Taruh file. Beres.").
+   Objek/Watermark: antre saja — nggak ada yang diubah sebelum user minta.
+   Tanpa alat dipilih (paste / drop di mana aja / tes lama): default ke
+   Bersihkan, biar alur lama tetap jalan tanpa pilih-pilih dulu. */
+async function handleFiles(fileList: FileList | File[], opts?: {sample?: boolean}){
   var files=Array.from(fileList).filter(isMediaFile);
   if(!files.length){ toast("Format tidak didukung."); return; }
   var created=[];
@@ -212,19 +437,46 @@ async function handleFiles(fileList: FileList | File[]){
     var scan;
     try{ scan= kind==="video" ? await scanVideoFile(file) : await scanImageFile(file); }
     catch(e){ scan={found:[], types:[], interesting:[], hasAI:false}; } /* 1 file gagal scan nggak boleh batalin 1 batch */
-    var item={id:++idCounter, file:file, kind:kind, scan:scan, url:URL.createObjectURL(file), cleanedBlob:null, cleanedUrl:null, cleanedName:"", cleanedType:"", cleanedScan:null, status:"ready"};
+    var item={id:++idCounter, file:file, kind:kind, scan:scan, url:URL.createObjectURL(file), cleanedBlob:null, cleanedUrl:null, cleanedName:"", cleanedType:"", cleanedScan:null, status:"ready", errorKind:null, lastEdit:null, tools:{clean:"belum",erase:"belum",watermark:"belum",background:"belum",upscale:"belum",jejak:"belum",dedup:"belum"}, versions:[{label:"Asli", blob:file, type:file.type, scan:scan, box:null}], currentLabel:"Asli"};
     items.push(item); created.push(item); renderItem(item);
     if(kind==="image"){
       (function(it){ var img=new Image(); img.onload=function(){ var el=document.getElementById("dims-"+it.id); if(el) el.textContent=img.naturalWidth+" × "+img.naturalHeight+" · "; }; img.src=it.url; })(item);
     }
   }
   batchRunning=true; updateStats();
+  /* TANPA alat aktif: file cuma diantre + di-scan — TIDAK ada alat yang
+     jalan otomatis dan TIDAK ada alat yang terpilih (arah Bobby 19 Nov
+     2026 08:49 WIB). Banner di home nunjukin file sudah siap; user pilih
+     alat dulu. Berlaku buat foto contoh, paste & drop di home. */
+  if(!activeTool){
+    if(created.length) selectItem(created[0].id);
+    batchRunning=false; updateStats();
+    var p=$("#toolPicker");
+    if(p) p.scrollIntoView({behavior:"smooth",block:"start"});
+    toast(opts && opts.sample ? "Foto contoh dimuat ✓ — pilih alat di atas." : created.length+" file siap — pilih alat dulu di atas.");
+    return;
+  }
   /* Langsung bawa user ke kartu pertama: prosesnya kejadian DI kartu,
      jadi kartu itu yang harus ada di layar — bukan hero di atas. */
   var firstCard=document.getElementById("card-"+created[0].id);
   if(firstCard){
     var rm=!!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     try{ firstCard.scrollIntoView({behavior: rm?"auto":"smooth", block:"start"}); }catch(e){ firstCard.scrollIntoView(); }
+  }
+  /* Alat selain Bersihkan: file cuma diantre + di-scan buat pill-nya —
+     nggak ada yang dibersihkan sebelum user minta. Kartu keluar dari mode
+     proses (nggak ada proses yang jalan) dan user diarahkan ke baris alat
+     di kartunya. */
+  if(activeTool!=="clean"){
+    created.forEach(function(it){
+      var cardEl=document.getElementById("card-"+it.id);
+      if(cardEl) cardEl.classList.remove("is-processing");
+      hideProc(it);
+    });
+    batchRunning=false; updateStats();
+    var toolName= activeTool==="erase" ? "Hapus Objek" : activeTool==="watermark" ? "Hapus Watermark" : activeTool==="background" ? "Hapus Latar" : activeTool==="upscale" ? "Perbesar" : activeTool==="jejak" ? "Hapus Jejak" : activeTool==="dedup" ? "Hapus Duplikat" : "Bersihkan";
+    toast(created.length+" file masuk — ketuk "+toolName+" di kartunya.");
+    return;
   }
   /* Progres batch hidup di dock bawah (selalu kelihatan pas scroll) +
      panel proses di dalam tiap kartu — bukan lagi bar di atas daftar. */
@@ -241,11 +493,14 @@ async function handleFiles(fileList: FileList | File[]){
   for(var ci=0; ci<created.length; ci++){ await cleanItem(created[ci]); done++; paint(); }
   setTimeout(function(){ if(dock) dock.classList.add("hidden"); procCurId=null; },1200);
   batchRunning=false; updateStats();
-  var okCount=created.filter(function(x){return x.cleanedBlob && x.cleanedScan && !x.cleanedScan.hasAI}).length;
-  var residual=created.filter(function(x){return x.cleanedBlob && x.cleanedScan && x.cleanedScan.hasAI}).length;
-  if(okCount===created.length) toast("Beres ✓ " + okCount + " file bersih.");
+  /* Toast batch akhir baca getFileState juga (satu sumber kebenaran):
+     A9 semua bersih / A5 sebagian + sisa label / A10 nggak ada yang
+     bisa dibersihkan. */
+  var okCount=created.filter(function(x){return getFileState(x).key==="cleaned"}).length;
+  var residual=created.filter(function(x){return getFileState(x).key==="residual"}).length;
+  if(okCount===created.length) toast("Beres ✓ " + okCount + " file bersih — label AI sudah hilang.");
   else if(okCount>0) toast(okCount + "/" + created.length + " file bersih" + (residual ? " · " + residual + " masih ada label." : "."));
-  else if(residual>0) toast(residual + " file masih ada label — coba Deep Clean.");
+  else if(residual>0) toast("0/" + created.length + " file bersih · " + residual + " masih ada label.");
   else toast("Tidak ada yang bisa dibersihkan.");
 }
 
@@ -258,16 +513,23 @@ function renderItem(item){
     ? '<video class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-black cursor-pointer block" src="'+item.url+'" muted playsinline preload="metadata" id="vthumb-'+item.id+'" title="Lihat besar"></video>'
     : '<img class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-neutral-100 dark:bg-neutral-800 cursor-pointer block" src="'+item.url+'" alt="Preview '+escapeHtml(item.file.name)+'" title="Lihat besar">';
   var thumb='<div class="thumb-wrap w-16 h-16 sm:w-20 sm:h-20">'+thumbInner+'<span class="scan-beam" aria-hidden="true"></span></div>';
+  var st0=getFileState(item);
   card.innerHTML=
     thumb+
     '<div class="min-w-0 flex-1">'+
       '<div class="flex items-start justify-between gap-2"><h4 class="font-semibold break-all">'+escapeHtml(item.file.name)+'</h4>'+
-      '<span id="status-'+item.id+'" class="status-pill shrink-0 '+(item.scan.hasAI?'pill-detected':'pill-plain')+'">'+(item.scan.hasAI?ic("i-alert","ic-sm")+'Label AI':ic("i-check","ic-sm")+'Polos')+'</span></div>'+
+      '<span id="status-'+item.id+'" class="status-pill shrink-0 '+st0.cls+'">'+ic(st0.icon,"ic-sm")+escapeHtml(st0.text)+'</span></div>'+
       '<p class="file-meta" style="color:var(--muted)"><span id="dims-'+item.id+'"></span>'+formatBytes(item.file.size)+'</p>'+
       '<div class="card-progress is-wait" id="prog-'+item.id+'" role="status"><div class="cp-head"><span class="spinner" aria-hidden="true"></span><span id="prog-label-'+item.id+'">Menunggu…</span></div><div class="cp-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>'+
       '<div id="detect-'+item.id+'"></div>'+
       '<div class="flex flex-wrap gap-1.5 mt-2.5" id="badges-'+item.id+'"></div>'+
       '<div class="hidden" id="result-'+item.id+'"></div>'+
+      '<div class="version-row hidden" id="versions-'+item.id+'"></div>'+
+      /* Rel alat (Langkah 3): satu baris status semua alat — ketuk segmen
+         = buka alat itu untuk file ini. Cuma buat foto; video belum
+         didukung editor ini. */
+      (item.kind==="video" ? "" :
+        '<div class="tool-rail" id="rail-'+item.id+'" role="group" aria-label="Alat untuk file ini"></div>')+
       '<div class="act-primary">'+
         '<button type="button" class="hidden flex-1 min-h-[50px] px-5 grad-bg text-white font-semibold text-[15px] btn-ic" data-act="save" data-id="'+item.id+'">'+ic("i-download")+'Simpan</button>'+
         '<button type="button" class="hidden min-h-[50px] px-5 font-semibold text-[15px] btn-ic" style="background:var(--fill);color:var(--label)" data-act="reclean" data-id="'+item.id+'" title="Bersihkan ulang pakai pengaturan sekarang" aria-label="Bersihkan ulang">'+ic("i-rotate")+'</button>'+
@@ -277,13 +539,9 @@ function renderItem(item){
         '<div class="hidden" id="fold-meta-'+item.id+'"><div class="fold-pad"><div id="meta-body-'+item.id+'"><p class="text-[13.5px]" style="color:var(--muted)">Lagi dimuat\u2026</p></div></div></div>'+
         '<div class="ios-sep" aria-hidden="true"></div>'+
         '<button type="button" class="ios-row" data-act="more" data-id="'+item.id+'" aria-expanded="false" aria-controls="fold-more-'+item.id+'"><span class="icon-tile sm" style="margin-right:11px">'+ic(item.kind==="video" ? "i-film" : "i-repeat","ic-sm")+'</span><span class="row-label">'+(item.kind==="video" ? "Video" : "Konversi")+'</span><svg class="chev ic ic-sm" aria-hidden="true"><use href="#i-chev"/></svg></button>'+
-      /* Hapus Objek & Hapus Watermark cuma buat foto — video belum
-         didukung editor ini. */
-      (item.kind==="video" ? "" :
-        '<div class="ios-sep" aria-hidden="true"></div>'+
-        '<button type="button" class="ios-row" data-act="erase" data-id="'+item.id+'"><span class="icon-tile sm" style="margin-right:11px">'+ic("i-sparkles","ic-sm")+'</span><span class="row-label">Hapus Objek</span><svg class="chev ic ic-sm" aria-hidden="true"><use href="#i-chev"/></svg></button>'+
-        '<div class="ios-sep" aria-hidden="true"></div>'+
-        '<button type="button" class="ios-row" data-act="watermark" data-id="'+item.id+'"><span class="icon-tile sm" style="margin-right:11px">'+ic("i-tag","ic-sm")+'</span><span class="row-label">Hapus Watermark</span><svg class="chev ic ic-sm" aria-hidden="true"><use href="#i-chev"/></svg></button>')+
+      /* Lipatan Metadata + Konversi/Video tetap di sini; baris alat
+         panjang (Hapus Objek / Hapus Watermark) sudah diganti rel alat
+         ringkas di atas tombol Simpan (Langkah 3). */
       (item.kind==="video"
         ? '<div class="hidden" id="fold-more-'+item.id+'"><div class="fold-pad"><div class="flex flex-wrap gap-2 mt-2.5"><button type="button" class="min-h-[44px] px-4 font-bold text-[13px] btn-ic" style="background:var(--fill);color:var(--label);border-radius:980px" data-act="frame" data-id="'+item.id+'">'+ic("i-camera","ic-sm")+'Frame</button><button type="button" class="min-h-[44px] px-4 font-bold text-[13px] btn-ic" style="background:var(--fill);color:var(--label);border-radius:980px" data-act="compress" data-id="'+item.id+'">'+ic("i-compress","ic-sm")+'Kompres</button></div><div id="vid-out-'+item.id+'" class="mt-3"></div></div></div>'
         : '<div class="hidden" id="fold-more-'+item.id+'"><div class="fold-pad"><div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2.5"><label class="block"><span class="wf-lbl">'+ic("i-image","ic-sm")+' Format</span><select id="cv-fmt-'+item.id+'" class="wf-select"><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select></label><label class="block"><span class="wf-lbl">'+ic("i-expand","ic-sm")+' Ukuran</span><select id="cv-size-'+item.id+'" class="wf-select"><option value="0">Asli</option><option value="2048">\u22642048</option><option value="1080">\u22641080</option><option value="720">\u2264720</option></select></label><label class="block"><span class="wf-lbl">'+ic("i-gauge","ic-sm")+' Kualitas</span><select id="cv-q-'+item.id+'" class="wf-select"><option value="92">92%</option><option value="85" selected>85%</option><option value="70">70%</option></select></label></div><div class="flex flex-wrap items-center gap-2 mt-3"><button type="button" class="min-h-[44px] px-5 grad-bg text-white font-bold text-[13px] btn-ic" data-act="convert" data-id="'+item.id+'">'+ic("i-repeat","ic-sm")+'Konversi</button><span id="cv-out-'+item.id+'" class="flex flex-wrap items-center gap-2"></span></div></div></div>')+
@@ -293,6 +551,8 @@ function renderItem(item){
   $("#list").appendChild(card);
   card.querySelector(item.kind==="video" ? "video" : "img").addEventListener("click",function(){ openPreview(item); });
   refreshBadges(item);
+  renderRail(item);
+  renderVersions(item);
   if(item.kind==="video"){
     var vt=document.getElementById("vthumb-"+item.id) as HTMLVideoElement;
     if(vt) vt.addEventListener("loadedmetadata",function(){
@@ -346,13 +606,17 @@ function refreshBadges(item, scan?){
     html='<span class="badge-meta">Metadata minim</span>';
   }
   wrap.innerHTML=html;
-  /* Kotak merah ringkas kalo ada yang terdeteksi: satu baris nama labelnya aja —
-     detail lengkapnya udah ada di chip di bawahnya. Kalo file aslinya polos,
-     nggak usah kotak sama sekali (pill status udah bilang "Tidak ada label AI"). */
+  /* Kotak merah A1 cuma buat scan AWAL (sebelum dibersihkan): head
+     "Label AI ketemu" + body yang nyebut sumbernya. Begitu file sudah
+     dibersihkan, kotak ini kosong — kotak HASIL yang bicara (A4/A5),
+     biar user nggak baca label lama sebagai "label tetap ada". */
   var box=document.getElementById("detect-"+item.id);
   if(box){
-    if(s.hasAI){
-      box.innerHTML='<div class="detect-box" role="note"><p class="detect-head">'+ic("i-alert","ic-sm")+' Label AI ditemukan</p></div>';
+    if(s.hasAI && !item.cleanedBlob){
+      var src=s.found.length? s.found[0] : "AI";
+      var who=item.kind==="video"?"Video ini":"Foto ini";
+      var obj=item.kind==="video"?"videonya":"fotonya";
+      box.innerHTML='<div class="detect-box" role="note"><p class="detect-head">'+ic("i-alert","ic-sm")+' Label AI ketemu</p><p class="clean-body">'+who+' ditandai "dibuat AI" oleh '+escapeHtml(src)+'. Sirna akan menghapus tandanya — '+obj+' tetap sama.</p></div>';
     } else {
       box.innerHTML='';
     }
@@ -364,14 +628,34 @@ async function cleanVideoItem(item){
   var res=document.getElementById("result-"+item.id); var status=document.getElementById("status-"+item.id);
   var cardV=document.getElementById("card-"+item.id); if(cardV){ cardV.classList.add("is-processing"); cardV.classList.remove("is-done"); }
   item.status="cleaning";
-  setPill(status,"pill-working","i-eraser","Proses…");
+  setPill(status,"pill-working","i-eraser","Lagi dibersihin…");
   setProc(item,"Membersihkan…",false);
   if(res) res.classList.add("hidden");
   try{
-    if(/\.webm$/i.test(item.file.name)) throw new Error("WebM hanya bisa dicek. Pakai MP4 untuk dibersihkan.");
+    if(/\.webm$/i.test(item.file.name)){
+      /* A7: WebM cuma bisa dicek, bukan dibersihkan. */
+      failClean(item,res,status,"attention","WebM hanya bisa dicek. Pakai MP4 kalau mau dibersihkan.",false);
+      return;
+    }
     var boxes=item.scan.mp4Boxes || await listTopBoxes(item.file);
     var targets=boxes.filter(function(b){ return b.type==="meta"||b.type==="udta"||(b.type==="uuid"&&b.xmp); });
-    if(!targets.length) throw new Error(item.scan.hasAI ? "Label ditemukan, tapi tidak bisa dibuang dari sini." : "Video ini sudah polos.");
+    if(!targets.length){
+      if(item.scan.hasAI){
+        /* A8: label ketemu tapi box-nya nggak bisa dibuang dari file ini. */
+        failClean(item,res,status,"attention","Label ketemu, tapi tidak bisa dibuang dari file ini.",false);
+        return;
+      }
+      /* Video bersih & nggak ada box metadata yang perlu dibuang: sukses
+         tanpa ubah satu byte — cleanedBlob = file asli, re-scan = scan awal.
+         (Dulu ini malah dilempar jadi error "Video ini sudah bersih."
+         dengan pill Perhatian — file bersih tampil kayak gagal.) */
+      item.cleanedBlob=item.file; item.cleanedType=item.file.type; item.cleanedName=outName(item); item.status="cleaned";
+      item.cleanedScan=item.scan; item.tools.clean="selesai";
+      if(item.cleanedUrl) URL.revokeObjectURL(item.cleanedUrl);
+      item.cleanedUrl=URL.createObjectURL(item.file);
+      finishClean(item,res,status,{head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran tetap '+formatBytes(item.file.size)+'. File ini aman diunggah.'});
+      return;
+    }
     var buf=await item.file.arrayBuffer();
     var u8=new Uint8Array(buf);
     var free=[0x66,0x72,0x65,0x65];
@@ -393,20 +677,20 @@ async function cleanVideoItem(item){
     var vscan=null;
     try{ vscan=await scanVideoFile(new File([blob], item.file.name, {type:item.file.type||"video/mp4"})); }catch(e){}
     item.cleanedScan=vscan;
-    var vmsg= vscan
-      ? (vscan.hasAI
-          ? 'Sisa: <b style="color:var(--red-text)">'+escapeHtml(vscan.found.join(", "))+'</b> · ukuran tetap '+formatBytes(blob.size)
-          : 'Dicek ulang: 0 label · ukuran tetap '+formatBytes(blob.size))
-      : 'Ukuran tetap '+formatBytes(blob.size);
-    finishClean(item,res,status,vmsg);
+    item.tools.clean= vscan ? (vscan.hasAI ? "perlu perhatian" : "selesai") : "perlu perhatian";
+    var box= !vscan
+      ? {head:"Hasil belum terverifikasi", body:'Ukuran tetap '+formatBytes(blob.size)+'.'}
+      : vscan.hasAI
+        ? {head:"Label masih ketemu", body:'Sisa: <b style="color:var(--red-text)">'+escapeHtml(vscan.found.join(", "))+'</b> · ukuran tetap '+formatBytes(blob.size)}
+        : {head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran tetap '+formatBytes(blob.size)+'. File ini aman diunggah.'};
+    finishClean(item,res,status,box);
   }catch(e){
-    item.status="error";
-    hideProc(item);
-    if(cardV) cardV.classList.remove("is-processing");
-    setPill(status,"pill-working","i-alert","Perhatian");
-    if(res){ res.classList.remove("hidden"); res.innerHTML='<div class="error-box">'+escapeHtml(e.message)+'</div>'; }
+    var reason=String((e&&e.message)||"Gagal").replace(/\.+$/,"");
+    failClean(item,res,status,"failed",reason+". File aslimu aman — coba lagi atau pakai Deep Clean.",true);
   } finally { updateStats(); }
 }
+
+
 
 /* ── Cleaning: foto ── */
 /* ── Strip metadata TANPA re-encode piksel (jalur lossless) ──
@@ -498,7 +782,7 @@ async function cleanItem(item){
   var res=document.getElementById("result-"+item.id); var status=document.getElementById("status-"+item.id);
   var cardI=document.getElementById("card-"+item.id); if(cardI){ cardI.classList.add("is-processing"); cardI.classList.remove("is-done"); }
   item.status="cleaning";
-  setPill(status,"pill-working","i-eraser","Proses…");
+  setPill(status,"pill-working","i-eraser","Lagi dibersihin…");
   setProc(item,"Membersihkan…",false);
   if(res) res.classList.add("hidden");
   try{
@@ -541,75 +825,318 @@ async function cleanItem(item){
     setProc(item,"Cek ulang…",false);
     var vscan=scanBuffer(await blob.arrayBuffer(),"image");
     item.cleanedBlob=blob; item.cleanedScan=vscan; item.cleanedType=outType; item.cleanedName=outName(item); item.status="cleaned";
+    item.tools.clean= vscan.hasAI ? "perlu perhatian" : "selesai";
     if(item.cleanedUrl) URL.revokeObjectURL(item.cleanedUrl);
     item.cleanedUrl=URL.createObjectURL(blob);
-    finishClean(item,res,status, vscan.hasAI
-      ? 'Sisa: <b style="color:var(--red-text)">'+escapeHtml(vscan.found.join(", "))+'</b> · coba Deep Clean · '+formatBytes(blob.size)
-      : 'Dicek ulang: 0 label · '+formatBytes(blob.size));
+    /* Kotak hasil A4/A5 — bukti, bukan klaim: re-scan 0 label + ukuran
+       sebelum → sesudah; kalau sisa label, ada tombol Coba Deep Clean. */
+    var box= vscan.hasAI
+      ? {head:"Label masih ketemu", body:'Sisa: <b style="color:var(--red-text)">'+escapeHtml(vscan.found.join(", "))+'</b>. Coba Deep Clean — biasanya sisa label hilang di situ.', action:{label:"Coba Deep Clean", act:"deepclean"}}
+      : {head:"Beres — sudah bersih", body:'Dicek ulang: <b>0 label AI tersisa</b>. Ukuran '+formatBytes(item.file.size)+' → '+formatBytes(blob.size)+'. File ini aman diunggah.'};
+    finishClean(item,res,status,box);
   }catch(e){
-    item.status="error";
-    hideProc(item);
-    if(cardI) cardI.classList.remove("is-processing");
-    setPill(status,"pill-error","i-alert","Gagal");
-    if(res){ res.classList.remove("hidden"); res.innerHTML='<div class="error-box">'+escapeHtml(e.message)+'</div>'; }
+    /* A6: alasan + "file aslimu aman" + tombol [Coba lagi]. */
+    var reason=String((e&&e.message)||"Gagal").replace(/\.+$/,"");
+    failClean(item,res,status,"failed",reason+". File aslimu aman — coba lagi atau pakai Deep Clean.",true);
   } finally { updateStats(); }
 }
 
-function finishClean(item,res,status,msg){
-  var verifyState= !item.cleanedScan ? "unverified" : (item.cleanedScan.hasAI ? "residual" : "clean");
+/* ── Hapus Jejak: strip jejak privasi (dipakai modal jejak via hook) ──
+   Strip lossless yang sama dengan Bersihkan (PNG/JPEG); kalau jejak
+   masih kebaca (pemindai jejak, dynamic import biar tetap lazy), jatuh
+   ke jalur canvas — decode + encode ulang, metadata hilang semua.
+   WebP/AVIF tidak punya strip lossless di sini → langsung canvas. */
+async function scrubTracesBlob(blob){
+  var ab=await blob.arrayBuffer();
+  var kind=sniffImageKind(ab);
+  var out=null;
+  if(kind==="image/png"||kind==="image/jpeg"){
+    try{ out=new Blob([kind==="image/png"?stripPngMeta(ab):stripJpegMeta(ab)],{type:kind}); }catch(e){ out=null; }
+  }
+  var jejak=await import("./jejak");
+  if(out && (await jejak.scanTraces(out)).length===0) return out;
+  // Jalur canvas: piksel di-decode ulang, metadata hilang semua.
+  var bmp=await createImageBitmap(blob);
+  var c=document.createElement("canvas"); c.width=bmp.width; c.height=bmp.height;
+  var ctx=c.getContext("2d");
+  var type= kind==="image/jpeg" ? "image/jpeg" : (kind==="image/webp" ? "image/webp" : "image/png");
+  if(type==="image/jpeg"){ ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,c.width,c.height); }
+  ctx.drawImage(bmp,0,0);
+  if(bmp.close) bmp.close();
+  var res=await new Promise(function(resolve){ c.toBlob(resolve,type,0.92); });
+  if(!res) throw new Error("Browser gagal encode gambar ini.");
+  return res;
+}
+
+/* ── Hapus Duplikat (src/dedup.ts) ──
+   Pindai antrean (foto saja) dengan pHash, kelompokkan yang mirip,
+   tampilkan di #dedupView. User memilih mana yang disimpan per grup;
+   tombol hapus per grup HANYA menghapus yang tidak disimpan — tidak ada
+   auto-delete. */
+async function scanDuplicates(){
+  var groupsEl=$("#dedupGroups"); if(!groupsEl) return;
+  var btn=$("#dedupScanBtn") as HTMLButtonElement; if(btn) btn.disabled=true;
+  groupsEl.innerHTML='<p class="dedup-empty">Lagi memindai…</p>';
+  try{
+    var dedup=await import("./dedup");
+    var entries=[];
+    for(var i=0;i<items.length;i++){
+      var it=items[i];
+      if(it.kind!=="image") continue;
+      var src= it.cleanedBlob || it.file;
+      try{ entries.push({id:it.id, name:it.file.name, url: it.cleanedUrl||it.url, hash: await dedup.phashImage(src)}); }catch(e){}
+    }
+    var groups=dedup.groupDuplicates(entries);
+    dedup.renderDedupGroups(groupsEl, groups, function(removeIds, keepIds){
+      removeDedupItems(removeIds, keepIds);
+    });
+    toast(groups.length===0 ? "Tidak ada duplikat — semua foto beda." : "Ketemu "+groups.length+" grup duplikat. Pilih yang disimpan, lalu hapus sisanya.");
+  }catch(e){
+    groupsEl.innerHTML='<p class="dedup-empty">Gagal memindai duplikat. Coba lagi.</p>';
+  }
+  if(btn) btn.disabled=false;
+}
+function removeDedupItems(removeIds, keepIds){
+  removeIds.forEach(function(id){
+    var it=items.find(function(i){return i.id===id}); if(!it) return;
+    URL.revokeObjectURL(it.url); if(it.cleanedUrl) URL.revokeObjectURL(it.cleanedUrl);
+    var c=document.getElementById("card-"+id); if(c) c.remove();
+  });
+  items=items.filter(function(i){return removeIds.indexOf(i.id)===-1});
+  keepIds.forEach(function(id){
+    var it=items.find(function(i){return i.id===id});
+    if(it){ if(it.tools) it.tools.dedup="selesai"; renderRail(it); }
+  });
+  updateStats();
+  updateToolStepper();
+  toast("Dihapus "+removeIds.length+" duplikat ✓ Yang disimpan tetap ada.");
+  // Pindai ulang biar grup yang sudah dibersihkan hilang dari tampilan.
+  scanDuplicates();
+}
+
+/* ── Tumpukan versi (Langkah 3, §2.6) ──
+   versions = [Asli, Bersih?, Objek?, Watermark?, Latar?, Perbesar?, Jejak?]
+   — satu per alat yang menghasilkan file baru, urutan tetap. Alat yang
+   dijalankan ulang MENGGANTI versinya sendiri (hasil baru menimpa hasil
+   lama alat itu) — jadi maks 6 hasil + asli, hemat RAM HP. cleanedBlob
+   selalu = blob versi saat ini (currentLabel). Kembali ke versi lama
+   TIDAK menghapus versi yang lebih baru (C6). Hapus Duplikat tidak
+   membuat versi (ia menghapus file, bukan mengedit). */
+var VERSION_ORDER=["Asli","Bersih","Objek","Watermark","Latar","Perbesar","Jejak"];
+function pushVersion(item,label,blob,type,scan,box){
+  if(!item.versions) item.versions=[{label:"Asli", blob:item.file, type:item.file.type, scan:item.scan, box:null}];
+  var v={label:label, blob:blob, type:type, scan:scan||null, box:box||null};
+  var i=item.versions.findIndex(function(x){return x.label===label});
+  if(i>=0) item.versions[i]=v; else item.versions.push(v);
+  item.versions.sort(function(a,b){return VERSION_ORDER.indexOf(a.label)-VERSION_ORDER.indexOf(b.label)});
+  item.currentLabel=label;
+  renderVersions(item);
+}
+function renderVersions(item){
+  var row=document.getElementById("versions-"+item.id); if(!row) return;
+  var vs=item.versions||[];
+  if(vs.length<2){ row.classList.add("hidden"); row.innerHTML=""; return; }
+  row.classList.remove("hidden");
+  row.innerHTML='<span class="version-label">Versi:</span> '+vs.map(function(v){
+    var cur=v.label===item.currentLabel;
+    return '<button type="button" class="version-chip'+(cur?" active":"")+'" data-act="version" data-id="'+item.id+'" data-v="'+v.label+'" aria-pressed="'+(cur?"true":"false")+'">'+v.label+'</button>';
+  }).join('<span class="version-sep" aria-hidden="true">·</span>')+'<span class="version-hint">— ketuk untuk kembali</span>';
+}
+function setCurrentVersion(item,label){
+  var v=(item.versions||[]).find(function(x){return x.label===label});
+  if(!v || item.currentLabel===label) return;
+  item.currentLabel=label;
+  if(label==="Asli"){
+    item.cleanedBlob=null; item.cleanedScan=null; item.cleanedType=""; item.cleanedName=""; item.status="ready";
+    if(item.cleanedUrl){ URL.revokeObjectURL(item.cleanedUrl); item.cleanedUrl=null; }
+  } else {
+    item.cleanedBlob=v.blob; item.cleanedType=v.type; item.cleanedName=outName(item);
+    item.cleanedScan=v.scan; item.status="cleaned";
+    if(item.cleanedUrl) URL.revokeObjectURL(item.cleanedUrl);
+    item.cleanedUrl=URL.createObjectURL(v.blob);
+  }
+  applyPill(item);
+  if(item.cleanedScan) refreshBadges(item, item.cleanedScan); else refreshBadges(item);
+  var res=document.getElementById("result-"+item.id);
+  if(res){
+    if(v.box){ res.classList.remove("hidden"); renderResultBox(item,res,v.box); }
+    else res.classList.add("hidden");
+  }
+  var cardEl=document.getElementById("card-"+item.id);
+  if(cardEl){ cardEl.classList.remove("is-processing"); cardEl.classList.toggle("is-done", !!item.cleanedBlob); }
+  ["save","reclean"].forEach(function(act){ var b2=document.querySelector('button[data-act="'+act+'"][data-id="'+item.id+'"]'); if(b2) b2.classList.toggle("hidden", !item.cleanedBlob); });
+  renderVersions(item);
+  renderRail(item);
+  updateStats();
+  toast("Kembali ke versi "+label+". Versi yang lebih baru tetap tersimpan.");
+}
+/* Kotak hasil (dipakai finishClean + setCurrentVersion): hijau kalau
+   getFileState bilang bersih, merah kalau tidak — box yang disimpan di
+   versi ikut tampil lagi pas versi itu dibuka. */
+function renderResultBox(item,res,box){
+  if(!res) return;
+  var st=getFileState(item);
+  var b=box||{head:"",body:""};
+  if(st.key==="cleaned"){
+    res.innerHTML='<div class="clean-box" role="status"><p class="clean-head"><span class="clean-check" aria-hidden="true">'+ic("i-check","ic-sm")+'</span> '+escapeHtml(b.head)+'</p><p class="clean-body">'+b.body+'</p></div>';
+  } else {
+    res.innerHTML='<div class="detect-box" role="status"><p class="detect-head">'+ic("i-alert","ic-sm")+' '+escapeHtml(b.head)+'</p><p class="clean-body">'+b.body+'</p>'+(b.action?'<div class="mt-2"><button type="button" class="min-h-[44px] px-5 grad-bg text-white font-bold text-[13px] btn-ic" data-act="'+b.action.act+'" data-id="'+item.id+'">'+escapeHtml(b.action.label)+'</button></div>':"")+'</div>';
+  }
+}
+/* Rel alat (satu baris status semua alat): Bersihkan ✓ · Objek – ·
+   Watermark –. ✓ = pernah dipakai & selesai, ⚠ = perlu perhatian,
+   – = belum dipakai. Ketuk segmen = buka alat itu untuk file ini. */
+function renderRail(item){
+  var rail=document.getElementById("rail-"+item.id); if(!rail) return;
+  if(item.kind==="video"){ rail.classList.add("hidden"); rail.innerHTML=""; return; }
+  rail.classList.remove("hidden");
+  var t=item.tools||{clean:"belum",erase:"belum",watermark:"belum",background:"belum",upscale:"belum",jejak:"belum",dedup:"belum"};
+  function seg(key,label,act){
+    var stt=t[key];
+    var mark= stt==="selesai" ? "✓" : (stt==="perlu perhatian" ? "⚠" : "–");
+    var cls= stt==="selesai" ? " done" : (stt==="perlu perhatian" ? " warn" : "");
+    return '<button type="button" class="tool-rail-seg'+cls+'" data-act="'+act+'" data-id="'+item.id+'">'+label+' <b>'+mark+'</b></button>';
+  }
+  rail.innerHTML= seg("clean","Bersihkan","railclean")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("erase","Objek","erase")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("watermark","Watermark","watermark")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("background","Latar","background")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("upscale","Perbesar","upscale")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("jejak","Jejak","jejak")+'<span class="tool-rail-sep" aria-hidden="true">·</span>'+seg("dedup","Duplikat","dedup");
+}
+
+/* Kotak hasil (box) dibangun pemanggil dari state item; finishClean cuma
+   merender + menempel pill dari getFileState + mendorong hasil ke
+   tumpukan versi. box = {head, body, action?} dengan action = {label,
+   act} → tombol di dalam kotak (mis. Coba Deep Clean, A5).
+   versionLabel = label versi hasil ini ("Bersih" default; editor
+   mengisi "Objek" / "Watermark"). Referensi mati wf-clean / wf-save
+   sudah dihapus — elemen itu tidak pernah dibuat (hanya ada CSS-nya). */
+function finishClean(item,res,status,box,versionLabel?: string){
   hideProc(item);
   var cardEl=document.getElementById("card-"+item.id);
   if(cardEl){ cardEl.classList.remove("is-processing"); cardEl.classList.add("is-done"); }
-  var wc=document.getElementById("wf-clean-"+item.id); if(wc){ wc.classList.add("done"); var wd=wc.querySelector(".wf-dot"); if(wd) wd.textContent="\u2713"; }
-  var ws=document.getElementById("wf-save-"+item.id); if(ws) ws.classList.add("active");
-  setPill(status,verifyState==="clean"?"pill-clean":"pill-error",verifyState==="clean"?"i-check":"i-alert",verifyState==="clean"?"Bersih":verifyState==="residual"?"Label tersisa":"Belum terverifikasi");
+  var st=getFileState(item);
+  setPill(status, st.cls, st.icon, st.text);
   /* Badge & kotak deteksi ikut hasil BERSIH, bukan scan awal: kalau re-scan
-     0 label, kotak merah "Label AI ditemukan" + chip merah harus hilang —
+     0 label, kotak merah "Label AI ketemu" + chip merah harus hilang —
      kalau nggak, user baca kartu itu sebagai "label tetap ada". */
   if(item.cleanedScan) refreshBadges(item, item.cleanedScan);
-  if(res){
-    res.classList.remove("hidden");
-    /* Jangan klaim bersih jika scan ulang mendeteksi sisa label atau gagal. */
-    res.innerHTML=verifyState==="clean"
-      ? '<div class="clean-box" role="status"><p class="clean-head"><span class="clean-check" aria-hidden="true">'+ic("i-check","ic-sm")+'</span> Sudah bersih</p><p class="clean-body">'+msg+'</p></div>'
-      : '<div class="detect-box" role="status"><p class="detect-head">'+ic("i-alert","ic-sm")+(verifyState==="residual"?" Label masih terdeteksi":" Hasil belum terverifikasi")+'</p><p class="clean-body">'+msg+'</p></div>';
-  }
-  ["save","reclean"].forEach(function(act){ var b=document.querySelector('button[data-act="'+act+'"][data-id="'+item.id+'"]'); if(b) b.classList.remove("hidden"); });
+  if(res){ res.classList.remove("hidden"); renderResultBox(item,res,box); }
+  ["save","reclean"].forEach(function(act){ var b2=document.querySelector('button[data-act="'+act+'"][data-id="'+item.id+'"]'); if(b2) b2.classList.remove("hidden"); });
+  /* Hasil baru masuk tumpukan versi. */
+  if(item.cleanedBlob) pushVersion(item, versionLabel||"Bersih", item.cleanedBlob, item.cleanedType, item.cleanedScan, box);
+  renderRail(item);
 }
 
 /* ── Simpan: SATU tombol, jalurnya dipilih otomatis ──
    Di dalam frame aplikasi / HP: menu Bagikan (Simpan ke File).
    Di browser biasa: unduhan langsung. Nama-sama + Chrome desktop: dialog simpan. */
 /* ── Hapus Objek (src/erase.ts) ──
-   Editor dimuat malas (dynamic import) — nggak ada di JS awal, dan
-   model AI-nya baru diunduh pas mode AI dibuka. Hasil yang disimpan
+   Editor dimuat malas (dynamic import) — nggak ada di JS awal.
+   Mesinnya Mi-GAN (28,1 MB, MIT) — diunduh sekali saat alat dibuka,
+   tersimpan di HP, inferensi di Web Worker. Kalau model tidak bisa
+   diunduh (offline), Telea dipakai diam-diam sebagai fallback dengan
+   teks status yang jujur. Hasil yang disimpan
    jadi file bersih baru: di-scan ulang & statusnya dihitung jujur
    kayak habis dibersihin (finishClean). */
-async function openEraserFor(item){
+/* B1: label sumber gambar di subhead editor — dari versi aktif file ini. */
+var SOURCE_LABEL={Asli:"Asli", Bersih:"hasil Bersihkan", Objek:"hasil Hapus Objek", Watermark:"hasil Hapus Watermark", Latar:"hasil Hapus Latar", Perbesar:"hasil Perbesar", Jejak:"hasil Hapus Jejak"};
+async function openEraserFor(item, fromOriginal = false){
   if(item.kind==="video"){ toast("Hapus Objek cuma buat foto dulu."); return; }
-  var src=item.cleanedBlob||item.file;
-  var type=item.cleanedType||item.file.type;
+  /* Chaining (§2.6): editor memuat hasil kerja saat ini; kalau belum ada
+     hasil, ya file asli. "Mulai dari file asli" di editor memanggil ulang
+     dengan fromOriginal=true — tombolnya cuma tampil kalau sumbernya
+     bukan file asli (showUseOriginal). */
+  var useOriginal= !!fromOriginal || !item.cleanedBlob;
+  var src= useOriginal ? item.file : item.cleanedBlob;
+  var type= useOriginal ? item.file.type : (item.cleanedType||item.file.type);
   var erase;
   try{ erase=await import("./erase"); }
   catch(e){ toast("Editor gagal dimuat. Coba refresh."); return; }
   await erase.openEraser(
-    { name:item.file.name, blob:src, type:type, suggestName:outName(item) },
-    { onReplace:function(blob){ replaceCleaned(item,blob); }, onToast:toast }
+    { name:item.file.name, blob:src, type:type, suggestName:outName(item), sourceLabel: useOriginal ? "Asli" : (SOURCE_LABEL[item.currentLabel]||"hasil Bersihkan") },
+    { onReplace:function(blob){ replaceCleaned(item,blob); }, onToast:toast,
+      onUseOriginal: useOriginal ? undefined : function(){ openEraserFor(item, true); } },
+    { showUseOriginal: !useOriginal }
   );
 }
-async function openWatermarkFor(item){
+async function openWatermarkFor(item, fromOriginal = false){
   if(item.kind==="video"){ toast("Hapus Watermark cuma buat foto dulu."); return; }
-  var src=item.cleanedBlob||item.file;
-  var type=item.cleanedType||item.file.type;
+  var useOriginal= !!fromOriginal || !item.cleanedBlob;
+  var src= useOriginal ? item.file : item.cleanedBlob;
+  var type= useOriginal ? item.file.type : (item.cleanedType||item.file.type);
   var wm;
   try{ wm=await import("./watermark"); }
   catch(e){ toast("Editor gagal dimuat. Coba refresh."); return; }
   await wm.openWatermark(
-    { name:item.file.name, blob:src, type:type, suggestName:outName(item) },
-    { onReplace:function(blob){ replaceCleaned(item,blob,"Watermark dihapus","Hasil hapus watermark disimpan ✓"); }, onToast:toast }
+    { name:item.file.name, blob:src, type:type, suggestName:outName(item), sourceLabel: useOriginal ? "Asli" : (SOURCE_LABEL[item.currentLabel]||"hasil Bersihkan") },
+    { onReplace:function(blob){ replaceCleaned(item,blob,"Watermark dihapus","Hasil hapus watermark disimpan ✓","watermark"); }, onToast:toast,
+      onUseOriginal: useOriginal ? undefined : function(){ openWatermarkFor(item, true); } },
+    { showUseOriginal: !useOriginal }
   );
 }
-async function replaceCleaned(item,blob,doneText="Objek dihapus",toastText="Hasil hapus objek disimpan ✓"){
+/* ── Hapus Latar (src/background.ts) ──
+   Editor dimuat malas (dynamic import) — nggak ada di JS awal.
+   Mesinnya ORMBG int8 (44 MB, Apache-2.0) — diunduh sekali saat alat
+   dibuka, tersimpan di HP, inferensi di Web Worker. Hasil yang disimpan
+   jadi file bersih baru: di-scan ulang & statusnya dihitung jujur kayak
+   habis dibersihin (replaceCleaned → finishClean). */
+async function openBackgroundFor(item, fromOriginal = false){
+  if(item.kind==="video"){ toast("Hapus Latar cuma buat foto dulu."); return; }
+  var useOriginal= !!fromOriginal || !item.cleanedBlob;
+  var src= useOriginal ? item.file : item.cleanedBlob;
+  var type= useOriginal ? item.file.type : (item.cleanedType||item.file.type);
+  var bg;
+  try{ bg=await import("./background"); }
+  catch(e){ toast("Editor gagal dimuat. Coba refresh."); return; }
+  await bg.openBackground(
+    { name:item.file.name, blob:src, type:type, suggestName:outName(item), sourceLabel: useOriginal ? "Asli" : (SOURCE_LABEL[item.currentLabel]||"hasil Bersihkan") },
+    { onReplace:function(blob){ replaceCleaned(item,blob,"Latar dihapus","Hasil hapus latar disimpan ✓","background"); }, onToast:toast,
+      onUseOriginal: useOriginal ? undefined : function(){ openBackgroundFor(item, true); } },
+    { showUseOriginal: !useOriginal }
+  );
+}
+/* ── Perbesar (src/upscale.ts) ──
+   Editor dimuat malas (dynamic import) — nggak ada di JS awal.
+   Mesinnya Real-ESRGAN General x4v3 (4,6 MB, BSD-3-Clause) — diunduh
+   sekali saat alat dibuka, tersimpan di HP, inferensi di Web Worker.
+   Lanczos murni cuma fallback offline diam-diam. Hasil yang disimpan
+   jadi file bersih baru: di-scan ulang & statusnya dihitung jujur kayak
+   habis dibersihin (replaceCleaned → finishClean). */
+async function openUpscaleFor(item, fromOriginal = false){
+  if(item.kind==="video"){ toast("Perbesar cuma buat foto dulu."); return; }
+  var useOriginal= !!fromOriginal || !item.cleanedBlob;
+  var src= useOriginal ? item.file : item.cleanedBlob;
+  var type= useOriginal ? item.file.type : (item.cleanedType||item.file.type);
+  var up;
+  try{ up=await import("./upscale"); }
+  catch(e){ toast("Editor gagal dimuat. Coba refresh."); return; }
+  await up.openUpscale(
+    { name:item.file.name, blob:src, type:type, suggestName:outName(item), sourceLabel: useOriginal ? "Asli" : (SOURCE_LABEL[item.currentLabel]||"hasil Bersihkan") },
+    { onReplace:function(blob){ replaceCleaned(item,blob,"Foto diperbesar","Hasil perbesar disimpan ✓","upscale"); }, onToast:toast,
+      onUseOriginal: useOriginal ? undefined : function(){ openUpscaleFor(item, true); } },
+    { showUseOriginal: !useOriginal }
+  );
+}
+/* ── Hapus Jejak (src/jejak.ts) ──
+   Editor dimuat malas (dynamic import) — nggak ada di JS awal.
+   Pindai jejak privasi (EXIF/GPS/IPTC/XMP/teks PNG/ICC) lalu hapus lewat
+   scrubTracesBlob (strip lossless yang sama dengan Bersihkan + jalur
+   canvas). Hasil yang disimpan jadi file bersih baru: di-scan ulang &
+   statusnya dihitung jujur kayak habis dibersihin (replaceCleaned). */
+async function openJejakFor(item, fromOriginal = false){
+  if(item.kind==="video"){ toast("Hapus Jejak cuma buat foto dulu."); return; }
+  var useOriginal= !!fromOriginal || !item.cleanedBlob;
+  var src= useOriginal ? item.file : item.cleanedBlob;
+  var type= useOriginal ? item.file.type : (item.cleanedType||item.file.type);
+  var jk;
+  try{ jk=await import("./jejak"); }
+  catch(e){ toast("Editor gagal dimuat. Coba refresh."); return; }
+  await jk.openJejak(
+    { name:item.file.name, blob:src, type:type, suggestName:outName(item), sourceLabel: useOriginal ? "Asli" : (SOURCE_LABEL[item.currentLabel]||"hasil Bersihkan") },
+    { onReplace:function(blob){ replaceCleaned(item,blob,"Jejak dihapus","Hasil hapus jejak disimpan ✓","jejak"); }, onToast:toast,
+      onScrub: scrubTracesBlob,
+      onUseOriginal: useOriginal ? undefined : function(){ openJejakFor(item, true); } },
+    { showUseOriginal: !useOriginal }
+  );
+}
+async function replaceCleaned(item,blob,doneText="Objek dihapus",toastText="Hasil hapus objek disimpan ✓",tool="erase"){
   item.cleanedBlob=blob;
   item.cleanedType=blob.type||item.cleanedType||item.file.type;
   item.cleanedName=outName(item);
@@ -618,11 +1145,21 @@ async function replaceCleaned(item,blob,doneText="Objek dihapus",toastText="Hasi
   item.cleanedScan=null;
   try{ item.cleanedScan=await scanBuffer(await blob.arrayBuffer(),"image"); }catch(e){}
   item.status="cleaned";
+  if(item.tools) item.tools[tool]="selesai";
+  item.lastEdit=tool;
   var cn=document.getElementById("cname-"+item.id); if(cn) cn.textContent=item.cleanedName;
   var res=document.getElementById("result-"+item.id);
   var statusEl=document.getElementById("status-"+item.id);
-  finishClean(item,res,statusEl,
-    doneText+", lalu dicek ulang: "+(item.cleanedScan && item.cleanedScan.hasAI ? "masih ada label tersisa." : "0 label AI tersisa.")+" Ukuran "+formatBytes(blob.size)+".");
+  /* B15: head = apa yang dihapus; body = bukti re-scan + ukuran. Kalau
+     re-scan masih nemu label, kotaknya merah + tombol Coba Deep Clean —
+     edit tidak boleh diam-diam mengklaim bersih. */
+  var box= (item.cleanedScan && item.cleanedScan.hasAI)
+    ? {head:doneText, body:doneText+", lalu dicek ulang: masih ada label tersisa.", action:{label:"Coba Deep Clean", act:"deepclean"}}
+    : {head:doneText, body:"lalu dicek ulang: 0 label AI tersisa. Ukuran "+formatBytes(blob.size)+"."};
+  /* Hasil editor masuk tumpukan versi dengan label alatnya ("Objek" /
+     "Watermark" / "Latar") — bukan menimpa buta. */
+  var VERSION_LABEL={erase:"Objek",watermark:"Watermark",background:"Latar",upscale:"Perbesar",jejak:"Jejak"};
+  finishClean(item,res,statusEl,box, VERSION_LABEL[tool]||"Objek");
   updateStats();
   toast(toastText);
 }
@@ -663,26 +1200,40 @@ function openPreview(item){
   $("#previewModal").classList.remove("hidden");
 }
 
-/* ── Stats / batch bar ── */
+/* ── Stats / batch bar ──
+   Semua angka baca getFileState (satu sumber kebenaran): "sudah bersih"
+   cuma dihitung dari re-scan bersih, "masih ada label" dari residual. */
 function updateStats(){
+  var verified=items.filter(function(i){return getFileState(i).key==="cleaned"}).length;
+  var residual=items.filter(function(i){return getFileState(i).key==="residual"}).length;
   var cleaned=items.filter(function(i){return i.cleanedBlob}).length;
-  /* "Bersih" dihitung dari re-scan, bukan dari ada-tidaknya blob bersih —
-     file yang pill-nya "Label tersisa" nggak boleh kehitung bersih. */
-  var verified=items.filter(function(i){return i.cleanedBlob && i.cleanedScan && !i.cleanedScan.hasAI}).length;
   $("#queueSection").classList.toggle("hidden", items.length===0);
-  /* Layout bersih ala TinyPNG: begitu ada file di workspace, canvas upload,
-     pengaturan, kartu alur & marquee disembunyiin — halaman fokus ke daftar
-     file aja, dan "Mulai ulang" di header daftar jadi jalan reset-nya.
-     Semua balik tampil otomatis pas daftar kosong lagi. */
-  var busy=items.length>0;
-  document.body.classList.toggle("has-files",busy); /* hero menyusut: kartu langsung di atas */
-  ["dropZone","settingsCard","brandWrap"].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.toggle("hidden",busy); });
+  /* Pengaturan adalah pengaturan BERSIHKAN: tampil cuma di workspace
+     Bersihkan, dan TETAP tampil walau file sudah masuk — dulu kartu ini
+     disembunyiin bareng dropzone pas ada file, jadi user nggak bisa ganti
+     Mode ke Deep setelah lihat "Label tersisa" tanpa Mulai ulang.
+     Dropzone juga tetap tampil di workspace. Marquee brand tetap
+     disembunyiin pas antrean berisi, biar halaman fokus ke daftar file. */
+  var sc=document.getElementById("settingsCard"); if(sc) sc.classList.toggle("hidden", activeTool!=="clean");
+  var bw=document.getElementById("brandWrap"); if(bw) bw.classList.toggle("hidden", items.length>0);
+  document.body.classList.toggle("has-files", items.length>0);
+  updateToolStepper();
   syncDockBottom();
-  $("#statsText").textContent= items.length? "· "+items.length+" file · "+verified+" bersih" : "";
+  $("#statsText").textContent= items.length? "· "+items.length+" file · "+verified+" sudah bersih"+(residual? " · "+residual+" masih ada label":"") : "";
   $("#batchBar").classList.toggle("hidden", cleaned<2);
-  $("#batchStats").textContent= verified+" file bersih";
+  $("#batchStats").textContent= verified+" file siap disimpan";
   $("#zipBtn").disabled= cleaned<2 || batchRunning;
   $("#zipBtn").innerHTML= ic("i-archive","ic-sm")+"<span>ZIP ("+cleaned+")</span>";
+  /* Banner "file siap": cuma di home (belum ada alat aktif) & ada antrean —
+     ini penanda file yang diantre tanpa alat (foto contoh / paste / drop). */
+  var sb=$("#sampleBanner");
+  if(sb){
+    var showB= items.length>0 && !activeTool;
+    sb.classList.toggle("hidden", !showB);
+    if(showB) sb.textContent= items.length+" file siap — pilih alat di atas untuk mulai.";
+  }
+  syncShell();
+  syncPrimary();
 }
 
 /* ── Mulai ulang: buang semua file, balik ke canvas upload ── */
@@ -799,14 +1350,103 @@ $("#folderBtn").addEventListener("click",function(e){ e.stopPropagation(); pickF
 $("#videoPickBtn").addEventListener("click",function(e){ e.stopPropagation(); vi.click(); });
 $("#addMoreBtn").addEventListener("click",function(){ fi.click(); });
 $("#restartBtn").addEventListener("click",function(){
-  clearAllItems();
-  window.scrollTo({top:0,behavior:"smooth"});
-  toast("Mulai ulang.");
+  openSheet({title:"Mulai ulang?", body:"Semua file & hasil di antrean dibuang, lalu kembali ke pemilih alat.", confirm:"Mulai ulang", danger:true, onConfirm:function(){
+    clearAllItems();
+    setActiveTool(null); /* balik ke pemilih alat */
+    window.scrollTo({top:0,behavior:"smooth"});
+  }});
 });
-/* Tombol "+ Taruh File" di topbar: pas canvas upload lagi tampil, anchor-nya
-   scroll ke sana (default). Pas udah ada file (canvas disembunyiin), kliknya
-   langsung buka picker file — sama kayak "+ Tambah". */
+/* ── Pemilih alat + baris ganti alat ──
+   Kartu pemilih: masuk workspace alat itu (scroll ke atas workspace).
+   Chip "‹ Semua alat": balik ke pemilih (file & hasil tetap di antrean). */
+$$("[data-tool]").forEach(function(b){
+  b.addEventListener("click",function(){
+    setActiveTool(b.dataset.tool);
+    var panel=$("#panel-cleaner");
+    if(panel) panel.scrollIntoView({behavior:"smooth",block:"start"});
+  });
+});
+$$("[data-tool-switch]").forEach(function(b){
+  b.addEventListener("click",function(){
+    if(!b.dataset.toolSwitch){ setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"}); }
+    else setActiveTool(b.dataset.toolSwitch);
+  });
+});
+/* Tombol "Cari duplikat" di tampilan Hapus Duplikat. */
+$("#dedupScanBtn").addEventListener("click",function(){ scanDuplicates(); });
+
+/* ── Bottom sheet generik (P1): konfirmasi & alur sekunder, maks 1 level.
+   Dipakai buat aksi destruktif (Mulai ulang / Hapus semua / Hapus file)
+   supaya tidak ada hapus yang sekali ketuk tanpa konfirmasi. ── */
+var sheetConfirmFn: (() => void) | null = null;
+function openSheet(opts: {title: string; body: string; confirm: string; danger?: boolean; onConfirm: () => void}){
+  var t=$("#sheetTitle"); if(t) t.textContent=opts.title;
+  var b=$("#sheetBody"); if(b) b.textContent=opts.body;
+  var c=$("#sheetConfirm"); if(c){ c.textContent=opts.confirm; c.classList.toggle("danger", !!opts.danger); }
+  sheetConfirmFn=opts.onConfirm;
+  var s=$("#sheetScrim"); if(s) s.classList.remove("hidden");
+  var sh=$("#sheet"); if(sh) sh.classList.remove("hidden");
+}
+function closeSheet(){
+  var s=$("#sheetScrim"); if(s) s.classList.add("hidden");
+  var sh=$("#sheet"); if(sh) sh.classList.add("hidden");
+  sheetConfirmFn=null;
+}
+$("#sheetCancel").addEventListener("click",function(){ closeSheet(); });
+$("#sheetScrim").addEventListener("click",function(){ closeSheet(); });
+$("#sheetConfirm").addEventListener("click",function(){ var f=sheetConfirmFn; closeSheet(); if(f) f(); });
+document.addEventListener("keydown",function(e){ if(e.key==="Escape" && !$("#sheet").classList.contains("hidden")) closeSheet(); });
+function removeItem(it){
+  URL.revokeObjectURL(it.url); if(it.cleanedUrl) URL.revokeObjectURL(it.cleanedUrl);
+  items=items.filter(function(i){return i.id!==it.id});
+  if(selectedId===it.id) selectedId=null;
+  var c=document.getElementById("card-"+it.id); if(c) c.remove();
+  updateStats();
+}
+
+/* ── Tombol utama sticky + tombol topbar + kepala editor ── */
+$("#primaryBtn").addEventListener("click",function(){ runPrimary(); });
+$("#topExportBtn").addEventListener("click",function(){ var it=selectedItem(); if(it && it.cleanedBlob) saveItem(it); });
+$("#topBackBtn").addEventListener("click",function(){ setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"}); });
+$("#shellFilm").addEventListener("click",function(e){
+  var b=(e.target as Element).closest("button[data-shell-id]") as HTMLButtonElement; if(!b) return;
+  selectItem(parseInt(b.dataset.shellId,10));
+});
+$("#shellVersions").addEventListener("click",function(e){
+  var b=(e.target as Element).closest("button[data-v]") as HTMLButtonElement; if(!b) return;
+  var it=selectedItem(); if(it) setCurrentVersion(it, b.dataset.v);
+});
+$("#shellUndo").addEventListener("click",function(){
+  var it=selectedItem(); if(!it || !it.versions || it.versions.length<2) return;
+  var idx=it.versions.findIndex(function(v){return v.label===it.currentLabel});
+  var prev= idx>0 ? it.versions[idx-1] : it.versions[0];
+  setCurrentVersion(it, prev.label);
+});
+(function(){
+  var cmp=$("#shellCompare"); if(!cmp) return;
+  function holdOn(e){ e.preventDefault(); var it=selectedItem(); if(!it) return; shellComparing=true; var img=$("#shellImg") as HTMLImageElement; if(img){ img.src=it.url; img.setAttribute("data-cur",it.url); } }
+  function holdOff(){ if(!shellComparing) return; shellComparing=false; var it=selectedItem(); var img=$("#shellImg") as HTMLImageElement; if(it && img){ var want=it.cleanedUrl||it.url; img.src=want; img.setAttribute("data-cur",want); } }
+  cmp.addEventListener("pointerdown",holdOn);
+  ["pointerup","pointerleave","pointercancel"].forEach(function(ev){ cmp.addEventListener(ev,holdOff); });
+})();
+
+/* ── Coba foto contoh (home): file digenerate runtime, diantre, lalu user
+   tetap pilih alat dulu — tidak ada alat yang jalan otomatis. ── */
+$("#sampleBtn").addEventListener("click",async function(){
+  var btn=this as HTMLButtonElement; btn.disabled=true;
+  try{
+    var sm=await import("./sample");
+    var file=await sm.makeSampleFile();
+    await handleFiles([file], {sample:true});
+  }catch(e){ toast("Foto contoh gagal dibuat. Coba lagi."); }
+  btn.disabled=false;
+});
+/* Tombol "+ File" di topbar: belum pilih alat → scroll ke pemilih alat;
+   udah ada file → langsung buka picker file (sama kayak "+ Tambah").
+   Belum pilih alat & belum ada file → anchor default scroll ke dropzone
+   workspace (yang muncul begitu alat dipilih). */
 $("#topAddBtn").addEventListener("click",function(e){
+  if(!activeTool){ e.preventDefault(); var p=$("#toolPicker"); if(p) p.scrollIntoView({behavior:"smooth",block:"start"}); return; }
   if(items.length>0){ e.preventDefault(); fi.click(); }
 });
 fi.addEventListener("change",function(){ handleFiles(fi.files); fi.value=""; });
@@ -861,7 +1501,7 @@ document.addEventListener("drop",function(e){
   e.preventDefault();
   if(e.target && (e.target as Element).closest && (e.target as Element).closest("#dropZone")) return;
   var fs=e.dataTransfer && e.dataTransfer.files;
-  if(fs && fs.length) handleFiles(fs);
+  if(fs && fs.length) routeFiles(fs);
 });
 
 /* ── Settings events ── */
@@ -875,22 +1515,41 @@ $$("[data-dl]").forEach(function(b){ b.addEventListener("click",function(){
 
 /* ── Per-item events ── */
 $("#list").addEventListener("click",async function(e){
+  /* Ketuk badan kartu (bukan tombol/thumb) = pilih file itu ke kepala editor. */
+  if(!(e.target as Element).closest("button,select,input,a,video,img")){
+    var cardEl=(e.target as Element).closest("article");
+    if(cardEl){
+      var cid=parseInt(cardEl.id.replace("card-",""),10);
+      if(cid){ selectItem(cid); var eh=$("#editorHead"); if(eh) eh.scrollIntoView({behavior:"smooth",block:"start"}); }
+    }
+    return;
+  }
   var btn=(e.target as Element).closest("button[data-act]") as HTMLButtonElement; if(!btn) return;
   var it=items.find(function(i){return i.id===parseInt(btn.dataset.id,10)}); if(!it) return;
-  if(btn.dataset.act==="save"){ var ws2=document.getElementById("wf-save-"+it.id); if(ws2){ ws2.classList.add("done"); ws2.classList.remove("active"); var wd2=ws2.querySelector(".wf-dot"); if(wd2) wd2.textContent="\u2713"; } saveItem(it); }
+  if(btn.dataset.act==="save"){ saveItem(it); }
   else if(btn.dataset.act==="meta"){ var fm=document.getElementById("fold-meta-"+it.id); if(fm){ var openM=fm.classList.toggle("hidden")===false; btn.setAttribute("aria-expanded",openM?"true":"false"); if(openM){ loadMeta(it); setTimeout(function(){ fm.scrollIntoView({block:"nearest",behavior:"smooth"}); },60); } } }
   else if(btn.dataset.act==="more"){ var fo=document.getElementById("fold-more-"+it.id); if(fo){ var openF=fo.classList.toggle("hidden")===false; btn.setAttribute("aria-expanded",openF?"true":"false"); if(openF) setTimeout(function(){ fo.scrollIntoView({block:"nearest",behavior:"smooth"}); },60); } }
   else if(btn.dataset.act==="convert"){ await convertItem(it,btn); }
   else if(btn.dataset.act==="frame"){ await frameItem(it,btn); }
   else if(btn.dataset.act==="compress"){ await compressItem(it,btn); }
   else if(btn.dataset.act==="reclean"){ btn.disabled=true; await cleanItem(it); btn.disabled=false; toast("Dibersihin ulang ✓"); }
+  else if(btn.dataset.act==="deepclean"){ setDeepClean(true); btn.disabled=true; await cleanItem(it); btn.disabled=false; }
   else if(btn.dataset.act==="erase"){ await openEraserFor(it); }
   else if(btn.dataset.act==="watermark"){ await openWatermarkFor(it); }
+  else if(btn.dataset.act==="background"){ await openBackgroundFor(it); }
+  else if(btn.dataset.act==="upscale"){ await openUpscaleFor(it); }
+  else if(btn.dataset.act==="jejak"){ await openJejakFor(it); }
+  else if(btn.dataset.act==="dedup"){ setActiveTool("dedup"); var dv=document.getElementById("dedupView"); if(dv) dv.scrollIntoView({behavior:"smooth",block:"center"}); }
+  else if(btn.dataset.act==="version"){ setCurrentVersion(it, btn.dataset.v); }
+  else if(btn.dataset.act==="railclean"){
+    /* Segmen Bersihkan di rel = buka workspace Bersihkan untuk file ini
+       (aksi bersih-ulangnya tetap tombol putar di sebelah Simpan). */
+    setActiveTool("clean");
+    var rc=document.getElementById("card-"+it.id);
+    if(rc) rc.scrollIntoView({behavior:"smooth",block:"center"});
+  }
   else if(btn.dataset.act==="remove"){
-    URL.revokeObjectURL(it.url); if(it.cleanedUrl) URL.revokeObjectURL(it.cleanedUrl);
-    items=items.filter(function(i){return i.id!==it.id});
-    var c=document.getElementById("card-"+it.id); if(c) c.remove();
-    updateStats();
+    openSheet({title:"Hapus file ini?", body:it.file.name+" dibuang dari antrean beserta hasilnya.", confirm:"Hapus", danger:true, onConfirm:function(){ removeItem(it); }});
   }
 });
 
@@ -900,13 +1559,13 @@ $("#procDockBtn").addEventListener("click",function(){
   var el= procCurId ? document.getElementById("card-"+procCurId) : document.querySelector("#list .is-processing");
   if(el) el.scrollIntoView({behavior:"smooth",block:"center"});
 });
-$("#clearBtn").addEventListener("click",function(){ clearAllItems(); });
+$("#clearBtn").addEventListener("click",function(){
+  openSheet({title:"Hapus semua?", body:"Semua file di antrean dibuang beserta hasilnya.", confirm:"Hapus semua", danger:true, onConfirm:function(){ clearAllItems(); }});
+});
 /* JSZip dimuat SEKALI pas pertama kali dibutuhin (tombol ZIP) — janjinya
    disimpan biar klik berikutnya langsung jalan tanpa muat ulang. */
 /* JSZip dibundel Vite (npm jszip, di-pin) dan dimuat malas lewat dynamic
-   import — chunk terpisah, baru diunduh pas user neken tombol ZIP. Pola yang
-   sama dipakai nanti buat model AI (onnxruntime-web dsb.): jangan pernah
-   dibundel ke JS awal. */
+   import — chunk terpisah, baru diunduh pas user neken tombol ZIP. */
 let JSZipCtor: typeof JSZipType | null = null;
 let jszipPromise: Promise<typeof JSZipType> | null = null;
 function loadJSZip(): Promise<typeof JSZipType> {
@@ -944,15 +1603,16 @@ $("#zipBtn").addEventListener("click",async function(){
       setTimeout(function(){ a.remove(); URL.revokeObjectURL(url); },4000);
       toast("ZIP isi "+clean.length+" file diunduh ✓");
     }
-  }catch(e){ toast("Gagal bikin ZIP: "+e.message); }
+  }catch(e){ toast("ZIP gagal. Simpan satu-satu."); }
   btn.disabled=false; updateStats();
 });
 $("#previewClose").addEventListener("click",function(){ $("#previewModal").classList.add("hidden"); $("#previewBody").innerHTML=""; });
 $("#previewModal").addEventListener("click",function(e){ if(e.target===this){ this.classList.add("hidden"); $("#previewBody").innerHTML=""; } });
 document.addEventListener("keydown",function(e){ if(e.key==="Escape" && !$("#previewModal").classList.contains("hidden")){ $("#previewModal").classList.add("hidden"); $("#previewBody").innerHTML=""; } });
-/* ═══════════ Satu alur utuh: semua file masuk ke workspace yang sama.
-   Nggak ada lagi tool terpisah — deteksi, metadata, konversi & video
-   hidup di dalam kartu file yang sama (lihat renderItem + fold-nya). ═══════════ */
+/* ═══════════ Router file: semua jalur masuk (paste, drop di mana aja)
+   lewat sini — handleFiles merutekan ke alat aktif (Langkah 2).
+   Metadata, konversi & video tetap hidup di dalam kartu file yang sama
+   (lihat renderItem + fold-nya). ═══════════ */
 function routeFiles(fileList){ handleFiles(fileList); }
 function dlLink(blob,name,label){
   var url=URL.createObjectURL(blob);
