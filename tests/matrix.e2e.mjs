@@ -43,7 +43,7 @@ try {
   await page.waitForTimeout(1000);
   // Pilih alat dulu (arah 19 Nov 2026: tanpa alat, file cuma diantre —
   // tidak ada lagi auto-pilih Bersihkan).
-  await page.click('[data-sidebar-tool="clean"]');
+  await page.click('[data-tool="clean"]');
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", FILES);
   // Tunggu semua 23 kartu selesai: tombol Simpan muncul per kartu.

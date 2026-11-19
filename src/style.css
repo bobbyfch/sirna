@@ -494,6 +494,9 @@
      workspace meniru strip langkah editor (aktif = biru, selesai = hijau). */
   .tool-picker{display:grid;grid-template-columns:1fr;gap:10px;margin:22px 0 0;max-width:560px}
   @media (min-width:640px){.tool-picker{grid-template-columns:1fr 1fr}}
+  /* Tile "Coba foto contoh" cuma tampil di desktop (≥1024px, jadi kartu
+     ke-8 grid 4×2). Di HP yang tampil tetap tombol pill #sampleBtn. */
+  #sampleTile{display:none}
   .tool-card{display:flex;align-items:center;gap:12px;text-align:left;min-height:76px;padding:14px 16px;border-radius:18px;background:var(--surface);border:1px solid var(--line);color:var(--label);cursor:pointer}
   .tool-card:active{opacity:.7}
   .tool-card .icon-tile{width:46px;height:46px;border-radius:15px}
@@ -991,106 +994,55 @@ html.dark #sheet{background:#1C1C1E}
 /* Geometri jempol (P0-4): target ketuk sekunder di kartu minimal 44px. */
 .version-chip{min-height:44px}
 
-/* ═══ DESKTOP (≥1024px) — komposisi app shell per MASTER STANDARD §02 +
-   matriks adaptif DESKTOP LARGE (1280–1920+) & TABLET LANDSCAPE /
-   SMALL DESKTOP (1024–1279), anchor R06 Creative Workspace + R18 Calm
-   Defaults. SEMUA aturan di blok ini hidup di dalam media query ≥1024px
-   — tampilan HP (<768px) tidak tersentuh sama sekali. ═══ */
-#deskSidebar{display:none}
-
+/* ═══ DESKTOP TENGAH (≥1024px) — tren hari ini: centered grid, tanpa
+   sidebar (arah Bobby 19 Nov 2026 11:52 WIB: "jangan jadi sidebar, tetap
+   grid di tengah"). Instruksi eksplisit pemilik mengalahkan bagian
+   "sidebar untuk hierarki" di MASTER STANDARD bab 00 (hierarki konflik).
+   SEMUA aturan di blok ini hidup di dalam media query ≥1024px —
+   tampilan HP (<768px) tidak tersentuh sama sekali. ═══ */
 @media (min-width:1024px){
-  /* — App shell (§02): header + main membentang selebar shell, bukan
-     kolom HP mengambang di tengah layar lebar. — */
-  header>div{max-width:1180px;padding-left:24px;padding-right:24px}
-  main{max-width:1180px;display:grid;grid-template-columns:232px minmax(0,1fr);column-gap:24px;padding-left:24px;padding-right:24px;align-items:start}
-  #heroSection,#panel-cleaner,#brandWrap,#faqSection,main>footer{grid-column:2;min-width:0}
-  /* — Sidebar (§03: hierarki + selection, sticky, bisa di-scroll sendiri)
-     menggantikan pemilih alat di hero — transformasi nav yang disahkan
-     matriks adaptif: destinasi mobile → sidebar di layar luas. — */
-  #deskSidebar{display:block;grid-column:1;grid-row:1 / span 6;align-self:start;position:sticky;top:72px;max-height:calc(100dvh - 88px);overflow-y:auto;padding-bottom:16px;scrollbar-width:thin}
-  .tool-picker{display:none}
-  .ds-sec{margin-bottom:24px}
-  .ds-sec:last-child{margin-bottom:0}
-  .ds-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 4px 8px}
-  .ds-tools{display:flex;flex-direction:column;gap:2px}
-  .ds-tool{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:7px 10px;border:0;border-radius:12px;background:transparent;color:var(--label);text-align:left;cursor:pointer}
-  .ds-tool-text{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
-  .ds-tool-text b{font-size:14px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ds-tool-text span{font-size:12px;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ds-tool.active{background:var(--fill)}
-  .ds-tool.active .icon-tile{background:var(--accent);color:#fff}
-  .ds-tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  /* — Daftar file di sidebar: baris ringkas (thumb + nama + status),
-     klik = pilih file itu ke kepala editor / kartunya. — */
-  .ds-files{display:flex;flex-direction:column;gap:2px}
-  .ds-file{display:flex;align-items:center;gap:10px;width:100%;padding:7px 10px;border:0;border-radius:12px;background:transparent;color:var(--label);text-align:left;cursor:pointer}
-  .ds-file img{width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--fill)}
-  .ds-file-meta{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
-  .ds-file-meta b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ds-file-meta i{font-size:12px;font-style:normal;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ds-file.active{background:var(--fill)}
-  .ds-file:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .ds-empty{font-size:13px;line-height:1.55;color:var(--muted);padding:2px 10px}
-  /* — Workspace jadi focal point begitu ada file (tanpa alat pun):
-     panel tampil di desktop walau kelas hidden masih nempel — kelas itu
-     dipakai JS buat state HP. Aturan ini khusus desktop. — */
-  /* Panel workspace tampil di desktop begitu ada file — dua aturan ini
-     HARUS di @layer base: .hidden hidup di @layer components dengan
-     !important, dan untuk deklarasi !important urutan lapis TERBALIK
-     (lapis lebih awal menang) sehingga !important tanpa lapis KALAH
-     dari !important berlapis. base < components -> aturan ini menang. */
+  /* — Kolom tengah 1024px, sejajar header (max-w-5xl) — bukan kolom HP
+     560px mengambang, bukan selebar layar. — */
+  main{max-width:1024px;padding-left:24px;padding-right:24px}
+  /* — Grid pemilih alat: 4 kolom × 2 baris = 8 tile (7 alat + Coba foto
+     contoh sebagai tile ke-8). Tidak ada kartu yatim; tinggi rata karena
+     grid stretch + min-height yang sama. — */
+  .tool-picker{max-width:none;grid-template-columns:repeat(4,1fr);gap:12px}
+  .tool-card{min-height:96px}
+  #sampleTile{display:flex}
+  #sampleRow{display:none}
+  /* — Workspace tampil di desktop begitu ada file (tanpa alat aktif pun):
+     panel tampil walau kelas hidden masih nempel — kelas itu dipakai JS
+     buat state HP. Aturan ini khusus desktop; HARUS di @layer base:
+     .hidden hidup di @layer components dengan !important, dan untuk
+     deklarasi !important urutan lapis TERBALIK (lapis lebih awal menang).
+     base < components -> aturan ini menang. — */
   @layer base{
     body.has-files #panel-cleaner{display:block !important}
   }
-  /* — Toast (§04 anti-slop: feedback tidak menutupi konten): pojok kanan
-     bawah workspace, di atas pil utama — bukan tengah bawah menutupi
-     judul section. — */
-  #toast{left:auto;right:24px;bottom:96px !important;transform:none;max-width:420px}
+  /* — Toast: menempel tepi kanan KOLOM TENGAH (bukan tepi viewport), di
+     atas bar utama — tidak menutupi judul/konten di tengah. — */
+  #toast{left:auto;right:calc(50% - 512px + 24px);bottom:96px !important;transform:none;max-width:420px}
   #toast:not(.hidden){animation:toastPopDesk .42s cubic-bezier(.34,1.56,.64,1) both}
-  /* — Tombol utama (§04.5 media creative tool: satu titik export yang
-     tegas): pil melayang di pojok kanan bawah workspace — bukan bar
-     bawah gaya HP selebar layar. Semantik aksi tetap sama. — */
-  #primaryBar{left:auto;right:24px;bottom:24px;width:auto;background:transparent;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;padding-bottom:0 !important}
-  #primaryBar>div{max-width:none;margin:0;padding:0}
-  #primaryBtn{width:auto;min-width:240px;box-shadow:0 12px 28px -8px rgba(0,113,227,.55)}
-  #primaryBar.above-batch{bottom:100px}
-  /* — Batch bar: pil melayang yang sama di pojok kanan bawah. — */
-  #batchBar{left:auto;right:24px;bottom:24px;width:auto;border-radius:16px;border:1px solid var(--line)}
-  #batchBar>div{max-width:none}
-  /* — Dock progres: tengah workspace, bukan tengah viewport. — */
-  #procDock{left:calc(50% + 128px)}
-  /* — Maskot: kolom kanan bawah, di ATAS pil utama + toast — BUKAN di
-     kiri bawah workspace: di sana dia nutupin caption & bukti re-scan
-     ("Dicek ulang: 0 label AI tersisa") pas celebrate, dan nutupin
-     teks FAQ pas scan. Balon dibalik ke kiri supaya nggak keluar
-     viewport. Dia tetap di zona aksi (dekat Simpan/Export), bukan di
-     ruang kosong. — */
-  #mascotStage{left:auto;right:24px;bottom:150px}
+  /* — Tombol utama: bar bawah DIBATASI lebar kolom tengah (bukan selebar
+     layar, bukan pil melayang). Margin auto = rata tengah tanpa transform
+     (aman dari animasi yang menimpa transform). Padding bawah inline
+     (min 28px) tetap berlaku — tombol tidak ketutup gesture bar. — */
+  #primaryBar{left:0;right:0;margin:0 auto;width:min(1024px,calc(100vw - 32px));border-radius:20px 20px 0 0;border:1px solid var(--line);border-bottom:0}
+  #primaryBar>div{max-width:none;margin:0;padding:0 24px}
+  /* — Batch bar: bar bawah yang sama, dibatasi lebar kolom tengah. — */
+  #batchBar{left:0;right:0;margin:0 auto;width:min(1024px,calc(100vw - 32px));border-radius:20px 20px 0 0;border:1px solid var(--line);border-bottom:0}
+  #batchBar>div{max-width:none;padding-left:24px;padding-right:24px}
+  /* — Maskot: menempel tepi kanan KOLOM TENGAH, di atas toast + bar
+     utama — bukan di tepi viewport, bukan di ruang kosong. Balon dibalik
+     ke kiri supaya tetap di atas workspace. — */
+  #mascotStage{left:auto;right:calc(50% - 512px + 16px);bottom:170px}
   #mascotStage .mascot-bubble{left:auto;right:calc(100% - 8px);border-radius:14px 14px 4px 14px;transform-origin:bottom right}
-  /* — Hover (pointer halus, §02): sidebar + chip + kartu alat. — */
+  /* — Hover (pointer halus): chip + kartu alat. — */
   @media (hover:hover){
-    .ds-tool:hover{background:var(--fill)}
-    .ds-file:hover{background:var(--fill)}
     .tool-chip:hover{border-color:var(--accent)}
     .tool-card:hover{border-color:var(--accent)}
   }
 }
-@media (min-width:1280px){
-  header>div{max-width:1320px}
-  main{max-width:1320px;grid-template-columns:256px minmax(0,1fr)}
-  #procDock{left:calc(50% + 136px)}
-  /* (maskot ikut aturan ≥1024: kolom kanan bawah, di atas pil utama) */
-  /* — Inspector (§02: kolom ketiga hanya bila tugas editing butuh):
-     pengaturan jadi panel kanan yang sticky, cuma pas alat Bersihkan
-     (kelas has-inspector dipasang updateStats). — */
-  @layer base{
-    body.has-files #panel-cleaner.has-inspector{display:grid !important;grid-template-columns:minmax(0,1fr) 300px;column-gap:24px;align-items:start}
-  }
-  #panel-cleaner.has-inspector #toolBar{grid-column:1 / -1}
-  #panel-cleaner.has-inspector #toolStepper{grid-column:1 / -1}
-  #panel-cleaner.has-inspector #editorHead{grid-column:1}
-  #panel-cleaner.has-inspector #dropZone{grid-column:1}
-  #panel-cleaner.has-inspector #queueSection{grid-column:1}
-  #panel-cleaner.has-inspector #settingsCard{grid-column:2;grid-row:3 / span 3;position:sticky;top:72px}
-}
 @keyframes toastPopDesk{from{opacity:0;transform:translateY(12px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+

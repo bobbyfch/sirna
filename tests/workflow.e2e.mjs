@@ -46,10 +46,10 @@ try {
   await page.waitForTimeout(1000);
   // (1) Layar A: pemilih alat kelihatan, workspace sembunyi.
   note("pickerVisible", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
-  note("pickerCards", await page.evaluate(() => Array.from(document.querySelectorAll("#toolPicker .tool-card")).map((c) => c.dataset.tool).join(",")));
+  note("pickerCards", await page.evaluate(() => Array.from(document.querySelectorAll("#toolPicker .tool-card")).map((c) => c.dataset.tool).filter(Boolean).join(",")));
   note("panelHidden", await page.evaluate(() => document.getElementById("panel-cleaner").classList.contains("hidden")));
   // (2) Pilih Bersihkan -> workspace muncul, stepper Bersihkan, pengaturan tampil.
-  await page.click('[data-sidebar-tool="clean"]');
+  await page.click('[data-tool="clean"]');
   await page.waitForTimeout(600);
   note("panelVisible", await page.evaluate(() => !document.getElementById("panel-cleaner").classList.contains("hidden")));
   note("heroHidden", await page.evaluate(() => document.getElementById("heroSection").classList.contains("hidden")));
@@ -74,7 +74,7 @@ try {
   await page.click('[data-tool-switch=""]');
   await page.waitForTimeout(600);
   note("pickerAgain", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
-  await page.click('[data-sidebar-tool="clean"]');
+  await page.click('[data-tool="clean"]');
   await page.waitForTimeout(600);
   note("cardKept", await page.evaluate(() => document.querySelectorAll("#list article").length));
   note("pillKept", await cardPill(0));
@@ -85,7 +85,7 @@ try {
   await page.click("#sheetConfirm"); // konfirmasi sheet (Phase 2)
   await page.waitForTimeout(600);
   note("pickerAfterRestart", await page.evaluate(() => !document.getElementById("heroSection").classList.contains("hidden")));
-  await page.click('[data-sidebar-tool="erase"]');
+  await page.click('[data-tool="erase"]');
   await page.waitForTimeout(600);
   note("stepperEraseEmpty", await stepperText());
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png")]);

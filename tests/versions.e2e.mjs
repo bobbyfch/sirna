@@ -81,7 +81,7 @@ async function paintCircle() {
 try {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
-  await page.click('[data-sidebar-tool="clean"]');
+  await page.click('[data-tool="clean"]');
   await page.waitForTimeout(600);
   await page.setInputFiles("#fileInput", [F("matrix/png-text.png"), F("wm-test.png")]);
   await page.waitForFunction(() => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 2, { timeout: 60000 });

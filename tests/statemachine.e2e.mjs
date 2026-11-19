@@ -59,7 +59,7 @@ try {
 
   // (Langkah 2) Pengaturan kini tinggal di workspace Bersihkan: pilih
   // alatnya dulu, baru atur Deep Clean.
-  await page.click('[data-sidebar-tool="clean"]');
+  await page.click('[data-tool="clean"]');
   await page.waitForTimeout(600);
 
   // (A1) Deep Clean ON (jalur canvas, file besar lambat) -> upload 2 file:
@@ -91,7 +91,7 @@ try {
   await page.waitForTimeout(400);
   await page.click("#sheetConfirm"); // konfirmasi sheet (Phase 2)
   await page.waitForTimeout(600);
-  await page.click('[data-sidebar-tool="clean"]'); // restart balik ke pemilih — pilih lagi
+  await page.click('[data-tool="clean"]'); // restart balik ke pemilih — pilih lagi
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", [F("smoke/test.webm")]);
   await page.waitForFunction(() => {
@@ -107,7 +107,7 @@ try {
   await page.waitForTimeout(400);
   await page.click("#sheetConfirm"); // konfirmasi sheet (Phase 2)
   await page.waitForTimeout(600);
-  await page.click('[data-sidebar-tool="clean"]'); // restart balik ke pemilih — pilih lagi
+  await page.click('[data-tool="clean"]'); // restart balik ke pemilih — pilih lagi
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", [F("smoke/mp4-label-mdat.mp4")]);
   await page.waitForFunction(() => {
@@ -123,7 +123,7 @@ try {
   await page.waitForTimeout(400);
   await page.click("#sheetConfirm"); // konfirmasi sheet (Phase 2)
   await page.waitForTimeout(600);
-  await page.click('[data-sidebar-tool="clean"]'); // restart balik ke pemilih — pilih lagi
+  await page.click('[data-tool="clean"]'); // restart balik ke pemilih — pilih lagi
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", [F("smoke/mp4-clean.mp4")]);
   await waitSave(1, 30000);
@@ -136,7 +136,7 @@ try {
   await page.waitForTimeout(400);
   await page.click("#sheetConfirm"); // konfirmasi sheet (Phase 2)
   await page.waitForTimeout(600);
-  await page.click('[data-sidebar-tool="clean"]'); // restart balik ke pemilih — pilih lagi
+  await page.click('[data-tool="clean"]'); // restart balik ke pemilih — pilih lagi
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", [F("smoke/corrupt.png")]);
   await page.waitForFunction(() => {

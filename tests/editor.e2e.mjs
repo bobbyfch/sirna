@@ -74,7 +74,7 @@ try {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
   note("initialModelReqs", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
-  await page.click('[data-sidebar-tool="clean"]');
+  await page.click('[data-tool="clean"]');
   await page.waitForTimeout(500);
   await page.setInputFiles("#fileInput", [F("wm-test.png")]);
   await waitFor(page, () => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, 30000);
@@ -175,7 +175,7 @@ try {
   page2.on("pageerror", (e) => pageErrors.push("ctx2: " + String(e)));
   await page2.goto(BASE, { waitUntil: "networkidle" });
   await page2.waitForTimeout(1000);
-  await page2.click('[data-sidebar-tool="clean"]');
+  await page2.click('[data-tool="clean"]');
   await page2.waitForTimeout(500);
   await page2.setInputFiles("#fileInput", [F("wm-test.png")]);
   await waitFor(page2, () => document.querySelectorAll('button[data-act="save"]:not(.hidden)').length >= 1, 30000);
@@ -201,7 +201,7 @@ try {
   await page3.goto(BASE, { waitUntil: "networkidle" });
   await page3.waitForTimeout(1000);
   // B1 Asli: workspace Hapus Objek (tanpa Bersihkan) -> editor dari file asli.
-  await page3.click('[data-sidebar-tool="erase"]');
+  await page3.click('[data-tool="erase"]');
   await page3.waitForTimeout(500);
   await page3.setInputFiles("#fileInput", [F("wm-clean.png")]);
   await page3.waitForTimeout(1500);

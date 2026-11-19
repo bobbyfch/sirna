@@ -80,7 +80,7 @@ try {
   await page.waitForTimeout(1500);
   note("modelReqsOnLoad", modelReqs().length === 0 ? "NONE (good)" : modelReqs());
 
-  await page.click('button[data-sidebar-tool="upscale"]');
+  await page.click('button[data-tool="upscale"]');
   await page.waitForSelector("#panel-cleaner:not(.hidden)", { timeout: 10000 });
   await page.setInputFiles("#fileInput", TEST_IMG);
   await page.waitForSelector("#list .card", { timeout: 30000 });
