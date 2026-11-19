@@ -233,7 +233,7 @@ test('Bersihkan Label AI: logika scan/strip dipertahankan + copy §4.3', async (
   assert.match(out, /Masih ada label/);
   assert.match(out, /Label AI ketemu/);
   assert.match(out, /0 label AI tersisa/);
-  assert.match(out, /File ini aman diunggah/);
+  assert.match(out, /Berkas berhasil diproses/);
   assert.match(out, /Bersihkan dengan Deep/);
   assert.doesNotMatch(out, /Coba Deep Clean/);
   assert.match(out, /File aslimu aman/);
@@ -284,7 +284,7 @@ test('Vite build output: bundled JS/CSS, no CDN, preserved fixes', async () => {
   assert.match(out, /serviceWorker/);
   assert.match(out, /register\(["'`]sw\.js["'`]\)/);
   assert.match(html, /© 2026 Bobby Fajar Christian · Bagian dari semesta limaraya\.com/);
-  assert.match(html, /sosmed nggak lagi nganggep fotomu konten AI/);
+  assert.match(html, /Platform masih bisa mengenali konten AI/);
   assert.doesNotMatch(out, /lavf|ffmpeg/);
   // Cloudflare Workers: file statis maks 25 MiB.
   const LIMIT = 25 * 1024 * 1024;
