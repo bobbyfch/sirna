@@ -23,3 +23,18 @@ test('Security headers and non-indexed template', async () => {
     assert.match(await read('public/index.html'),/name="robots" content="noindex, nofollow"/);
   }
 });
+
+test('Critical UI controls remain wired and the file picker has native fallback', async () => {
+  const app=await read('src/app.ts');
+  const html=await read('index.html');
+  // A single-element querySelector cannot be iterated: previously it crashed
+  // initialization and disabled BOTH the theme and upload handlers.
+  assert.doesNotMatch(app, /(?<!\$)\$\([^\n)]+\)\.forEach\s*\(/);
+  assert.match(app, /\$\$\("\[data-clean-profile\]"\)\.forEach/);
+  assert.match(app, /themeBtn[\s\S]*?addEventListener\("click"/);
+  assert.match(app, /fi\.addEventListener\("change"/);
+  assert.match(html, /<label[^>]*id="pickLabel"[^>]*for="fileInput"/);
+  for(const id of ['themeBtn','dropZone','fileInput','folderInput','videoInput']){
+    assert.match(html,new RegExp('id="'+id+'"'));
+  }
+});
