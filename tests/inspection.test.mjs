@@ -54,7 +54,7 @@ test('Integrity distinguishes size, MIME and unverified resolution',async()=>{
   assert.ok(summary.remaining>0);
 });
 test('Unsupported HEIC-like container is inspected honestly',async()=>{
-  const bytes=Buffer.from('00000018ftypheic0000000000000000','hex');
+  const bytes=Buffer.concat([Buffer.from([0,0,0,24]),Buffer.from('ftypheic'),Buffer.alloc(12)]);
   const info=await inspectFile(new Blob([bytes],{type:'image/heic'}),'sample.heic');
   assert.equal(info.mime,'image/heic');
   assert.equal(info.dimensions,null);
