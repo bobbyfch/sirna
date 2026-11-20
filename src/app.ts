@@ -1635,7 +1635,8 @@ document.addEventListener("keydown",function(e){
   var sh=$("#sheet"); if(sh?.classList.contains("hidden")) return;
   if(e.key==="Escape"){ e.preventDefault(); closeSheet(); return; }
   if(e.key==="Tab"){
-    var controls=Array.from(sh.querySelectorAll<HTMLElement>("button:not(.hidden):not(:disabled),[href],input:not(:disabled),[tabindex]:not([tabindex='-1'])")).filter(function(el){return el.getClientRects().length>0;});
+    var controls=Array.from((sh as HTMLElement).querySelectorAll("button:not(.hidden):not(:disabled),[href],input:not(:disabled),[tabindex]:not([tabindex='-1'])")) as HTMLElement[];
+    controls=controls.filter(function(el){return el.getClientRects().length>0;});
     if(!controls.length) return;
     var first=controls[0], last=controls[controls.length-1];
     if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}
