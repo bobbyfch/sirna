@@ -34,19 +34,13 @@ body>header .font-semibold{font-weight:750!important;letter-spacing:-.055em}
 }
 html.dark #topAddBtn,html.dark .grad-bg{background:#e8f3f7!important;color:#10242f!important}
 #topAddBtn:hover,.grad-bg:hover{opacity:.89;box-shadow:none!important}
-#heroSection{padding-block:clamp(66px,9vw,120px) 28px!important;max-width:960px;margin-inline:auto}
+#heroSection{padding-block:clamp(30px,5vw,70px) 24px!important;max-width:960px;margin-inline:auto}
 #heroSection .hero-glow{display:none}
-.studio-kicker{
-  display:inline-flex;align-items:center;gap:9px;min-height:30px;padding:5px 11px;
-  font-size:11px;font-weight:750;letter-spacing:.15em;text-transform:uppercase;
-  color:var(--studio-accent);background:var(--studio-subtle);border-radius:99px;
-}
-.studio-kicker::before{content:"";width:7px;height:7px;border-radius:99px;background:#3baf86}
-#heroSection h1{max-width:900px;font-size:clamp(46px,7.3vw,89px)!important;letter-spacing:-.082em;line-height:1.035!important;font-weight:730!important;margin-top:23px}
+#heroSection h1{max-width:900px;font-size:clamp(40px,6.1vw,72px)!important;letter-spacing:-.038em;line-height:1.09!important;font-weight:740!important;margin-top:0}
 #heroSection .grad-text{background:none!important;color:var(--studio-accent)!important;-webkit-text-fill-color:currentColor}
 #heroSection>p{max-width:610px;font-size:clamp(16px,1.6vw,19px)!important;line-height:1.72!important;color:var(--studio-muted)!important}
 #dropZone{
-  max-width:840px;margin-top:44px!important;padding:clamp(30px,5vw,55px)!important;
+  max-width:840px;margin-top:28px!important;padding:clamp(24px,4vw,44px)!important;
   background:var(--studio-surface)!important;border:1.5px dashed #a9bbc7!important;
   border-radius:28px!important;box-shadow:var(--studio-shadow)!important;
 }
@@ -59,16 +53,8 @@ html.dark #topAddBtn,html.dark .grad-bg{background:#e8f3f7!important;color:#1024
 #dropZone .dz-icons{display:none}
 #pickLabel{background:var(--studio-ink)!important;color:var(--studio-surface)!important}
 html.dark #pickLabel{background:#e8f3f7!important;color:#10242f!important}
-#sampleRow{margin-top:24px!important}
+#sampleRow{margin-top:20px!important}
 #sampleRow .sample-label{color:var(--studio-muted)!important}
-.studio-how{margin:65px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.studio-how article{
-  border:1px solid var(--studio-line);background:color-mix(in srgb,var(--studio-surface) 72%,transparent);
-  border-radius:18px;padding:19px 21px;
-}
-.studio-step{color:var(--studio-accent);font-size:12px;font-weight:800;letter-spacing:.1em}
-.studio-how strong{display:block;font-size:15px;font-weight:750;margin:13px 0 6px;letter-spacing:-.03em}
-.studio-how p{font-size:13px;line-height:1.6;color:var(--studio-muted)}
 #historySection,#faqSection{max-width:960px;margin-inline:auto}
 #brandWrap{opacity:.78}
 #panel-cleaner{padding-top:28px!important;max-width:1120px;margin-inline:auto}
@@ -170,12 +156,9 @@ html.dark .shell-canvas-wrap{background:#13212b!important}
 }
 @media (max-width:600px){
  main{padding-inline:16px!important}
- #heroSection{padding-top:60px!important}
- #heroSection h1{font-size:clamp(43px,10vw,61px)!important}
- #dropZone{border-radius:22px!important;padding:29px 16px!important;margin-top:34px!important}
- .studio-how{grid-template-columns:1fr;gap:9px;margin-top:40px}
- .studio-how article{padding:14px 16px}
- .studio-how strong{margin:7px 0 3px}
+ #heroSection{padding-top:26px!important}
+ #heroSection h1{font-size:clamp(36px,10vw,51px)!important;line-height:1.08!important}
+ #dropZone{border-radius:20px!important;padding:24px 16px!important;margin-top:24px!important}
  #panel-cleaner{padding-top:12px!important}
  #editorTopBar{border-radius:15px!important;top:6px!important;padding:7px!important}
  #editorBackBtn{font-size:13px!important}
@@ -297,3 +280,40 @@ html.dark .shell-canvas-wrap{background:#13212b!important}
 
 /* Prevent the entry animation's transform from making mobile fixed download relative to the editor rather than viewport. */
 #panel-cleaner.is-editor{animation:none!important;transform:none!important}
+
+
+/* Impeccable finishing: fewer visual containers, clearer file context. */
+.studio-guidance{display:flex;gap:11px;align-items:center;flex-wrap:wrap;margin:18px 0 0;color:var(--studio-muted);font-size:13px;font-weight:550;line-height:1.55}
+.studio-guidance span{color:var(--studio-accent);font-weight:800}
+.studio-file-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;margin:0 0 12px}
+.studio-current-filename{font-size:14px;letter-spacing:-.015em;font-weight:720;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.studio-file-position{flex-shrink:0;font-size:11px;font-weight:650;color:var(--studio-muted);font-variant-numeric:tabular-nums}
+.studio-file-position:empty{display:none}
+.studio-tool-description{color:var(--studio-muted);font-size:12px;line-height:1.55;margin:10px 2px 0;min-height:18px}
+.studio-compare-note{font-size:12px;line-height:1.45;color:var(--studio-accent);margin:8px 2px 0}
+.studio-compare-note.hidden{display:none!important}
+#shellFilm.hidden{display:none!important}
+#shellFilm .shell-thumb.active{border-color:var(--studio-accent)!important;outline:2px solid var(--studio-surface);outline-offset:-4px}
+.editor-theme-btn .icon-sun{display:none}
+html.dark .editor-theme-btn .icon-sun{display:block}
+html.dark .editor-theme-btn .icon-moon{display:none}
+.studio-editor-video-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;width:100%;min-height:44px;font-weight:650;font-size:12px;border-radius:11px;border:1px solid var(--studio-line);color:var(--studio-ink);background:var(--studio-subtle)}
+.studio-editor-video-action.hidden{display:none!important}
+.studio-editor-video-action:active{opacity:.75}
+.shell-status{padding:12px 14px!important;border-radius:14px!important}
+.tool-status{background:transparent!important;border:0!important;border-radius:0!important;padding:2px 4px!important;color:var(--studio-muted)!important;font-size:12px;line-height:1.55}
+#shellResult:not(.hidden){border-radius:14px!important}
+#settingsCard,.studio-inspector-disclosure,.studio-tool-picker,.studio-save-dock{border-radius:16px!important}
+:where(.studio-tool-picker,.studio-save-dock,.studio-inspector-disclosure) a,
+:where(.studio-tool-picker,.studio-save-dock,.studio-inspector-disclosure) button{transition:background-color .16s ease,border-color .16s ease,opacity .16s ease}
+@media (max-width:600px){
+ .studio-guidance{font-size:12px;gap:8px}
+ .studio-file-heading{margin-bottom:9px;padding-inline:2px}
+ .studio-current-filename{font-size:13px}
+ .studio-tool-description{font-size:12px}
+ .studio-editor-video-action{min-height:46px}
+}
+@media (prefers-reduced-motion:reduce){
+ :where(.studio-tool-picker,.studio-save-dock,.studio-inspector-disclosure) a,
+ :where(.studio-tool-picker,.studio-save-dock,.studio-inspector-disclosure) button{transition:none}
+}

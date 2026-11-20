@@ -307,7 +307,7 @@ test('Phase 2 layout: file-first + editor kanonis + Simpan di top bar', async ()
   const html = await readFile(new URL('index.html', dir), 'utf8');
   assert.match(html, /Lebih sedikit jejak/);
   assert.doesNotMatch(html, /Hapus label AI/);
-  assert.match(html, /Periksa apa yang tersembunyi/);
+  assert.match(html, /Periksa label AI dan metadata/);
   assert.doesNotMatch(html, /Pilih alat, taruh file, simpan/);
   assert.doesNotMatch(html, /tanpa AI/);
   assert.match(html, /id="sampleBtn"/);
@@ -324,7 +324,7 @@ test('Phase 2 layout: file-first + editor kanonis + Simpan di top bar', async ()
   assert.match(html, /id="shellVersions"/);
   assert.doesNotMatch(html, /id="shellUndo"/);
   assert.match(html, /id="shellCompare"/);
-  assert.match(html, /Lihat asli/);
+  assert.match(html, /Bandingkan/);
   // Baris aksi file di bawah kanvas (baru pivot): Buang file + Mulai ulang.
   assert.match(html, /id="removeFileBtn"/);
   assert.match(html, /Buang file ini/);

@@ -273,12 +273,18 @@ function syncShell(){
   var film=$("#shellFilm");
   if(film){
     var selId= it ? it.id : -1;
+    film.classList.toggle("hidden",items.length<=1);
     film.innerHTML=items.map(function(x){
       return '<button type="button" class="shell-thumb'+(x.id===selId?" active":"")+'" data-shell-id="'+x.id+'" aria-label="Pilih '+escapeHtml(x.file.name)+'" aria-pressed="'+(x.id===selId?"true":"false")+'"><img src="'+(x.cleanedUrl||x.url)+'" alt=""></button>';
     }).join("");
   }
   if(!show) return;
+  var fileName=$("#shellFileName"), filePosition=$("#shellFilePosition");
+  if(fileName){ fileName.textContent=it.file.name; fileName.setAttribute("title",it.file.name); }
+  if(filePosition) filePosition.textContent=items.length>1
+    ? "File "+(items.findIndex(function(x){return x.id===it.id})+1)+" dari "+items.length : "";
   var img=$("#shellImg") as HTMLImageElement, vid=$("#shellVideo") as HTMLVideoElement;
+  if(img) img.alt="Pratinjau "+it.file.name;
   if(it.kind==="video"){
     if(img) img.classList.add("hidden");
     if(vid){ vid.classList.remove("hidden"); if(vid.src!==it.url) vid.src=it.url; }
@@ -302,16 +308,18 @@ function syncShell(){
       row.innerHTML='<span class="version-label">Versi:</span> '+vs.map(function(v){
         var cur=v.label===it.currentLabel;
         return '<button type="button" class="version-chip'+(cur?" active":"")+'" data-v="'+v.label+'" aria-pressed="'+(cur?"true":"false")+'">'+v.label+'</button>';
-      }).join('<span class="version-sep" aria-hidden="true">·</span>')+'<span class="version-hint">— ketuk untuk kembali</span>';
+      }).join('<span class="version-sep" aria-hidden="true">·</span>');
     }
   }
   var un=$("#shellCompare");
   if(un){
     un.setAttribute("aria-pressed", shellComparing?"true":"false");
-    un.textContent=shellComparing?"Lihat hasil":"Lihat asli";
-    un.setAttribute("aria-label",shellComparing?"Lihat hasil yang diproses":"Lihat foto asli");
+    un.textContent=shellComparing?"Selesai bandingkan":"Bandingkan";
+    un.setAttribute("aria-label",shellComparing?"Kembali ke pratinjau hasil":"Bandingkan dengan pratinjau asli");
     un.classList.toggle("hidden", !it.cleanedBlob || it.kind==="video");
   }
+  var compareNote=$("#shellCompareStatus");
+  if(compareNote) compareNote.classList.toggle("hidden",!shellComparing);
 }
 /* Tombol Simpan di top bar editor cuma punya DUA keadaan (prinsip C):
    (a) belum ada hasil — alat otomatis tidak punya tombol jalan (progres
@@ -392,6 +400,16 @@ async function saveAllZip(){
 function updateToolStatus(){
   var bar=document.getElementById("toolStatus");
   if(!bar) return;
+  var description=$("#toolDescription");
+  if(description){
+    var selected=selectedItem();
+    var copy={
+      clean:selected?.kind==="video" ? "Video diperiksa tanpa mengubah format. Pengaturan foto tidak berlaku." : "Hapus penanda yang tertanam. File asli tetap utuh.",
+      meta:"Periksa dan ubah metadata foto. Terapkan sebelum pindah alat.",
+      watermark:"Mendukung watermark sparkle Gemini pada foto."
+    };
+    description.textContent=activeTool ? (copy[activeTool]||"") : "";
+  }
   if(!activeTool){ bar.textContent=""; bar.classList.add("hidden"); return; }
   bar.classList.remove("hidden");
   var it=selectedItem();
@@ -657,6 +675,10 @@ async function scanImageFile(file){
 async function handleFiles(fileList: FileList | File[]){
   var files=Array.from(fileList).filter(isMediaFile);
   if(!files.length){ toast("Format tidak didukung."); return; }
+  if(activeTool==="meta" && metaedit.isMetaDirty()){
+    toast("Terapkan atau batalkan perubahan metadata sebelum menambah file.");
+    return;
+  }
   var created=[];
   for(var idx=0; idx<files.length; idx++){
     var file=files[idx];
@@ -1389,7 +1411,7 @@ function updateStats(){
      Bersihkan. Panel Edit Metadata tampil cuma di workspace meta.
      Dropzone juga tetap tampil di workspace. Marquee brand tetap
      disembunyiin pas antrean berisi, biar halaman fokus ke file. */
-  var sc=document.getElementById("settingsCard"); if(sc) sc.classList.toggle("hidden", activeTool!=="clean");
+  var sc=document.getElementById("settingsCard"); if(sc) sc.classList.toggle("hidden", activeTool!=="clean" || selectedItem()?.kind==="video");
   var mp=document.getElementById("metaPanel"); if(mp) mp.classList.toggle("hidden", activeTool!=="meta");
   var mt=document.getElementById("metaTemplateBar"); if(mt) mt.classList.toggle("hidden",activeTool!=="meta");
   var bw=document.getElementById("brandWrap"); if(bw) bw.classList.toggle("hidden", items.length>0);
@@ -1477,6 +1499,7 @@ var caps=(function(){
     fi.setAttribute("accept","image/*");
     fi.accept="image/*";
     var vpb=$("#videoPickBtn"); if(vpb) vpb.style.removeProperty("display");
+    var evb=$("#editorAddVideoBtn"); if(evb) evb.classList.remove("hidden");
     var pl=document.getElementById("pickLabelText"); if(pl) pl.textContent="Buka Galeri";
     if(title) title.textContent="Pilih dari galeri";
     if(hint) hint.textContent="1 atau banyak foto";
@@ -1533,6 +1556,13 @@ async function pickFolder(){
 }
 $("#folderBtn").addEventListener("click",function(e){ e.stopPropagation(); pickFolder(); });
 $("#videoPickBtn").addEventListener("click",function(e){ e.stopPropagation(); vi.click(); });
+$("#editorAddVideoBtn").addEventListener("click",function(){
+  if(activeTool==="meta" && metaedit.isMetaDirty()){
+    toast("Terapkan atau batalkan perubahan metadata sebelum menambah video.");
+    return;
+  }
+  vi.click();
+});
 $("#restartBtn").addEventListener("click",function(){
   openSheet({title:"Mulai ulang?", body:"Semua file & hasil di antrean dibuang, lalu kembali ke home.", confirm:"Mulai ulang", danger:true, onConfirm:function(){
     clearAllItems();
@@ -1561,7 +1591,9 @@ $$("[data-tool-switch]").forEach(function(b){
    supaya tidak ada hapus yang sekali ketuk tanpa konfirmasi. ── */
 var sheetConfirmFn: (() => void) | null = null;
 var sheetExtraFn: (() => void) | null = null;
+var sheetReturnFocus: HTMLElement | null = null;
 function openSheet(opts: {title: string; body: string; confirm: string; danger?: boolean; extra?: {label: string; onClick: () => void}; onConfirm: () => void}){
+  sheetReturnFocus=document.activeElement instanceof HTMLElement ? document.activeElement : null;
   var t=$("#sheetTitle"); if(t) t.textContent=opts.title;
   var b=$("#sheetBody"); if(b) b.textContent=opts.body;
   var c=$("#sheetConfirm"); if(c){ c.textContent=opts.confirm; c.classList.toggle("danger", !!opts.danger); }
@@ -1574,18 +1606,42 @@ function openSheet(opts: {title: string; body: string; confirm: string; danger?:
   sheetConfirmFn=opts.onConfirm;
   var s=$("#sheetScrim"); if(s) s.classList.remove("hidden");
   var sh=$("#sheet"); if(sh) sh.classList.remove("hidden");
+  var focusTarget=$("#sheetCancel") as HTMLButtonElement|null;
+  if(focusTarget) focusTarget.focus({preventScroll:true});
 }
 function closeSheet(){
   var s=$("#sheetScrim"); if(s) s.classList.add("hidden");
   var sh=$("#sheet"); if(sh) sh.classList.add("hidden");
   sheetConfirmFn=null;
   sheetExtraFn=null;
+  var previous=sheetReturnFocus; sheetReturnFocus=null;
+  if(previous && previous.isConnected) previous.focus({preventScroll:true});
+}
+function confirmLeaveMetaDraft(next: () => void){
+  if(activeTool!=="meta" || !metaedit.isMetaDirty()){ next(); return; }
+  openSheet({
+    title:"Perubahan metadata belum diterapkan",
+    body:"Terapkan perubahan sebelum berpindah, atau buang drafnya. File asli tetap aman.",
+    confirm:"Terapkan perubahan",
+    extra:{label:"Buang draf",onClick:function(){ metaedit.discardMetaDraft(); next(); }},
+    onConfirm:function(){ void (async function(){if(await metaedit.applyMetaDraft())next();})(); }
+  });
 }
 $("#sheetCancel").addEventListener("click",function(){ closeSheet(); });
 $("#sheetScrim").addEventListener("click",function(){ closeSheet(); });
 $("#sheetConfirm").addEventListener("click",function(){ var f=sheetConfirmFn; closeSheet(); if(f) f(); });
 $("#sheetExtra").addEventListener("click",function(){ var f=sheetExtraFn; closeSheet(); if(f) f(); });
-document.addEventListener("keydown",function(e){ if(e.key==="Escape" && !$("#sheet").classList.contains("hidden")) closeSheet(); });
+document.addEventListener("keydown",function(e){
+  var sh=$("#sheet"); if(sh?.classList.contains("hidden")) return;
+  if(e.key==="Escape"){ e.preventDefault(); closeSheet(); return; }
+  if(e.key==="Tab"){
+    var controls=Array.from(sh.querySelectorAll<HTMLElement>("button:not(.hidden):not(:disabled),[href],input:not(:disabled),[tabindex]:not([tabindex='-1'])")).filter(function(el){return el.getClientRects().length>0;});
+    if(!controls.length) return;
+    var first=controls[0], last=controls[controls.length-1];
+    if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}
+  }
+});
 function removeItem(it){
   URL.revokeObjectURL(it.url); if(it.cleanedUrl) URL.revokeObjectURL(it.cleanedUrl);
   items=items.filter(function(i){return i.id!==it.id});
@@ -1596,15 +1652,13 @@ function removeItem(it){
 /* ── Tombol Simpan di top bar editor + tombol kembali ── */
 $("#primaryBtn").addEventListener("click",function(){ runPrimary(); });
 $("#editorBackBtn").addEventListener("click",function(){
-  if(activeTool==="meta" && metaedit.isMetaDirty()){
-    openSheet({title:"Perubahan metadata belum diterapkan.", body:"Terapkan dulu, atau buang perubahan?", confirm:"Terapkan", extra:{label:"Buang perubahan", onClick:function(){ metaedit.discardMetaDraft(); setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"}); }}, onConfirm:function(){ void (async function(){ if(await metaedit.applyMetaDraft()){ setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"}); } })(); }});
-    return;
-  }
-  setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"});
+  confirmLeaveMetaDraft(function(){setActiveTool(null); window.scrollTo({top:0,behavior:"smooth"});});
 });
 $("#shellFilm").addEventListener("click",function(e){
   var b=(e.target as Element).closest("button[data-shell-id]") as HTMLButtonElement; if(!b) return;
-  selectItem(parseInt(b.dataset.shellId,10));
+  var id=parseInt(b.dataset.shellId,10);
+  if(id===selectedId) return;
+  confirmLeaveMetaDraft(function(){selectItem(id);});
 });
 $("#shellVersions").addEventListener("click",function(e){
   var b=(e.target as Element).closest("button[data-v]") as HTMLButtonElement; if(!b) return;
@@ -1618,8 +1672,9 @@ $("#shellVersions").addEventListener("click",function(e){
     var it=selectedItem(); if(!it) return;
     shellComparing=!shellComparing;
     cmp.setAttribute("aria-pressed", shellComparing?"true":"false");
-    cmp.textContent=shellComparing?"Lihat hasil":"Lihat asli";
-    cmp.setAttribute("aria-label",shellComparing?"Lihat hasil yang diproses":"Lihat foto asli");
+    cmp.textContent=shellComparing?"Selesai bandingkan":"Bandingkan";
+    cmp.setAttribute("aria-label",shellComparing?"Kembali ke pratinjau hasil":"Bandingkan dengan pratinjau asli");
+    var note=$("#shellCompareStatus"); if(note) note.classList.toggle("hidden",!shellComparing);
     var img=$("#shellImg") as HTMLImageElement; if(!img) return;
     var want= shellComparing ? it.url : (it.cleanedUrl||it.url);
     img.src=want; img.setAttribute("data-cur",want);
@@ -1672,6 +1727,9 @@ $("#topAddBtn").addEventListener("click",function(e){
     var dz=$("#dropZone");
     if(dz){ dz.scrollIntoView({behavior:"smooth",block:"center"}); dz.focus({preventScroll:true}); }
     return;
+  }
+  if(activeTool==="meta" && metaedit.isMetaDirty()){
+    toast("Terapkan atau batalkan perubahan metadata sebelum menambah file."); return;
   }
   fi.click();
 });
@@ -1731,10 +1789,19 @@ document.addEventListener("drop",function(e){
 });
 
 /* Editor navigation: theme, history and add stay available on every screen. */
-$("#editorAddBtn").addEventListener("click",function(){ fi.click(); });
+$("#editorAddBtn").addEventListener("click",function(){
+  if(activeTool==="meta" && metaedit.isMetaDirty()){
+    toast("Terapkan atau batalkan perubahan metadata sebelum menambah file."); return;
+  }
+  fi.click();
+});
 $("#editorHistoryBtn").addEventListener("click",function(){
-  setActiveTool(null);
-  requestAnimationFrame(function(){ $("#historySection").scrollIntoView({behavior:"smooth",block:"start"}); });
+  confirmLeaveMetaDraft(function(){
+    setActiveTool(null);
+    requestAnimationFrame(function(){
+      var h=$("#historySection"); if(h) h.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  });
 });
 
 /* ── Settings events ── */

@@ -44,3 +44,46 @@ test('original mode is explicit and queued files do not silently disappear',asyn
   assert.match(app,/var next=queuedToolRun/);
   assert.match(app,/un\.setAttribute\("aria-label",shellComparing\?/);
 });
+
+test('Impeccable file-first interface keeps names, tools and preview roles clear',async()=>{
+  const html=await text('index.html');
+  const css=await text('src/studio.css');
+  const app=await text('src/app.ts');
+  assert.match(html,/id="shellFileName"/);
+  assert.match(html,/id="shellFilePosition"/);
+  assert.match(html,/id="toolDescription"/);
+  assert.match(html,/id="shellCompareStatus"/);
+  assert.match(html,/aria-label="Pilih versi untuk diunduh"/);
+  assert.match(html,/id="editorAddVideoBtn"/);
+  assert.match(html,/studio-guidance/);
+  assert.doesNotMatch(html,/class="studio-how"/);
+  assert.doesNotMatch(html,/class="studio-kicker"/);
+  assert.match(app,/film\.classList\.toggle\("hidden",items\.length<=1\)/);
+  assert.match(app,/fileName\.textContent=it\.file\.name/);
+  assert.match(app,/filePosition\.textContent=items\.length>1/);
+  assert.match(app,/Selesai bandingkan/);
+  assert.match(css,/\.studio-current-filename\{/);
+  assert.match(css,/\.editor-theme-btn \.icon-sun\{display:none\}/);
+  assert.match(css,/html\.dark \.editor-theme-btn \.icon-moon\{display:none\}/);
+});
+test('Metadata drafts cannot silently disappear via back, history, file switching or new files',async()=>{
+  const app=await text('src/app.ts');
+  assert.match(app,/function confirmLeaveMetaDraft\(next: \(\) => void\)/);
+  assert.match(app,/metaedit\.isMetaDirty\(\)/);
+  assert.match(app,/if\(await metaedit\.applyMetaDraft\(\)\)next\(\)/);
+  assert.match(app,/metaedit\.discardMetaDraft\(\); next\(\)/);
+  assert.match(app,/confirmLeaveMetaDraft\(function\(\)\{selectItem\(id\);\}\)/);
+  assert.match(app,/Terapkan atau batalkan perubahan metadata sebelum menambah file/);
+  assert.match(app,/sheetReturnFocus/);
+  assert.match(app,/e\.key==="Tab"/);
+});
+test('Editor exposes phone-specific video picker without affecting desktop file input',async()=>{
+  const app=await text('src/app.ts');
+  const html=await text('index.html');
+  assert.match(html,/id="videoInput"/);
+  assert.match(html,/id="editorAddVideoBtn"/);
+  assert.match(app,/evb\.classList\.remove\("hidden"\)/);
+  assert.match(app,/\$\("#editorAddVideoBtn"\)\.addEventListener\("click"/);
+  assert.match(app,/vi\.click\(\)/);
+  assert.match(app,/selectedItem\(\)\?\.kind==="video"/);
+});

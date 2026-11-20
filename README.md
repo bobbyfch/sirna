@@ -38,7 +38,9 @@ lainnya. File tidak pernah diunggah — semua proses berjalan di perangkatmu.
 - Desktop menempatkan preview dan versi di kiri serta pilihan alat, hasil, tombol **Unduh hasil**, dan pengaturan di kanan. Tablet dan telepon mengikuti satu kolom; di telepon tombol unduh menempel di bawah dengan safe area.
 - Pilihan versi **Asli / Bersih / Metadata / Watermark** mengubah versi aktif. Saat **Asli** aktif, tombol unduh hasil disembunyikan sampai versi hasil dipilih kembali.
 - Mengubah format atau kualitas memunculkan **Terapkan perubahan**; hasil diolah ulang sebelum bisa diunduh. Mengubah nama file hanya memengaruhi nama unduhan.
-- Header editor menampilkan Kembali, Terakhir, mode terang/gelap, dan Tambah File. Pemeriksaan teknis dan Content Credentials ada di rincian yang bisa dibuka.
+- Header editor menampilkan Kembali, Terakhir, mode terang/gelap, dan Tambah File. Pada HP, editor juga menyediakan pilihan khusus menambahkan video dari galeri. Pemeriksaan teknis dan Content Credentials ada di rincian yang bisa dibuka.
+- Pratinjau selalu mencantumkan nama file dan posisi antrean. **Bandingkan** menampilkan foto asli sementara tanpa mengubah versi file yang akan diunduh; pemilihan versi tetap lewat chip Asli / Bersih / Metadata / Watermark.
+- Edit Metadata melindungi perubahan yang belum diterapkan ketika berpindah file, kembali, atau membuka riwayat; pengguna bisa menerapkan, membuang draf, atau membatalkan.
 - **Unduh hasil** berarti download file lokal, bukan share-sheet. Untuk batch, beberapa hasil diunduh sebagai satu ZIP. Riwayat tersimpan otomatis secara lokal dan terpisah dari aksi download.
 - Jalankan `npm run verify` untuk pengujian build. `npm run build && npm run test:responsive` menyediakan pemeriksaan viewport tambahan jika Chromium Playwright tersedia secara lokal.
 

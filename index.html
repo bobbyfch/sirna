@@ -99,9 +99,8 @@
        bawah, sesudah #procDock). -->
   <section class="relative pt-8 sm:pt-12 pb-6" id="heroSection">
     <div class="hero-glow" aria-hidden="true"></div>
-    <span class="studio-kicker">Privasi, langsung di perangkatmu</span>
     <h1 class="rise rise-1 relative">Lebih sedikit jejak.<br><span class="grad-text">Lebih banyak kendali.</span></h1>
-    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Periksa apa yang tersembunyi di dalam foto atau video, tentukan cara membersihkannya, lalu unduh hasilnya. File tidak dikirim ke server.</p>
+    <p class="rise rise-2 relative mt-4 text-[17px] sm:text-[19px] leading-relaxed max-w-xl" style="color:var(--muted)">Periksa label AI dan metadata pada foto atau video, lalu unduh hasil yang kamu pilih. Semuanya diproses di perangkatmu.</p>
     <!-- ═══ LAYAR A — HOME FILE-FIRST ═══
          File-first: taruh file dulu, alat default Bersihkan jalan
          otomatis; ganti alat lewat chip di editor. Dropzone adalah
@@ -134,11 +133,7 @@
       <button type="button" id="folderBtn" class="btn-ic min-h-[44px] px-5 rounded-full font-semibold text-sm border" style="border-color:var(--line);display:none"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-folder"/></svg>Folder</button>
     </div>
   </div>
-  <div class="studio-how" aria-label="Tiga langkah sederhana">
-    <article><span class="studio-step">01 / MASUKKAN</span><strong>Pilih file</strong><p>Bisa satu berkas, beberapa sekaligus, atau foto contoh.</p></article>
-    <article><span class="studio-step">02 / PERIKSA</span><strong>Lihat jejaknya</strong><p>Baca metadata, indikasi C2PA, dan perubahan sebelum menyimpan.</p></article>
-    <article><span class="studio-step">03 / SIMPAN</span><strong>Unduh hasil</strong><p>Proses berlangsung di browser. Berkas asli tetap kamu miliki.</p></article>
-  </div>
+  <p class="studio-guidance">Pilih file <span aria-hidden="true">·</span> Periksa hasil <span aria-hidden="true">·</span> Unduh saat siap</p>
   <!-- Coba foto contoh — thumbnail DI BAWAH dropzone (pola 6/6 tools
        referensi: contoh selalu deret thumbnail di bawah dropzone).
        Foto contoh digenerate runtime (src/sample.ts); thumbnail-nya
@@ -179,7 +174,10 @@
     <div class="editor-brand" aria-label="Sirna editor">Sirna <span>Editor</span></div>
     <nav class="editor-nav-actions" aria-label="Aksi editor">
       <button type="button" id="editorHistoryBtn" class="editor-nav-btn" title="Lihat hasil terakhir" aria-label="Lihat hasil terakhir"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-archive"/></svg><span>Terakhir</span></button>
-      <button type="button" id="editorThemeBtn" class="editor-nav-btn editor-theme-btn" title="Mode terang / gelap" aria-label="Ganti ke mode gelap" aria-pressed="false"><svg viewBox="0 0 24 24" class="ic ic-sm" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/></svg></button>
+      <button type="button" id="editorThemeBtn" class="editor-nav-btn editor-theme-btn" title="Mode terang / gelap" aria-label="Ganti ke mode gelap" aria-pressed="false">
+        <svg viewBox="0 0 24 24" class="icon-moon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg viewBox="0 0 24 24" class="icon-sun" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/></svg>
+      </button>
       <button type="button" id="editorAddBtn" class="editor-nav-btn" title="Tambah file" aria-label="Tambah file"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>File</span></button>
     </nav>
   </div>
@@ -191,15 +189,20 @@
        foto & hasil ikut. ═══ -->
   <section id="editorHead" class="hidden" aria-label="File yang sedang diproses">
     <div class="studio-workbench"><div class="studio-canvas-column">
-    <div id="shellFilm" class="shell-film" role="group" aria-label="Foto di antrean"></div>
+    <div id="shellFilm" class="shell-film" role="group" aria-label="File di antrean"></div>
+    <div class="studio-file-heading">
+      <strong id="shellFileName" class="studio-current-filename">File dipilih</strong>
+      <span id="shellFilePosition" class="studio-file-position"></span>
+    </div>
     <div class="shell-canvas-wrap">
       <img id="shellImg" alt="Foto yang sedang diedit">
       <video id="shellVideo" class="hidden" muted playsinline controls preload="metadata"></video>
       <div class="shell-canvas-actions">
-        <button type="button" id="shellCompare" class="shell-chip-btn" aria-pressed="false" aria-label="Lihat foto asli">Lihat asli</button>
+        <button type="button" id="shellCompare" class="shell-chip-btn" aria-pressed="false" aria-label="Bandingkan dengan pratinjau asli" title="Hanya mengganti pratinjau, bukan versi yang diunduh">Bandingkan</button>
       </div>
     </div>
-    <div id="shellVersions" class="version-row hidden" aria-label="Pilih versi file"></div>
+    <div id="shellVersions" class="version-row hidden" role="group" aria-label="Pilih versi untuk diunduh"></div>
+    <p id="shellCompareStatus" class="studio-compare-note hidden" role="status" aria-live="polite">Pratinjau asli sementara. Versi unduhan tidak berubah.</p>
     </div><div class="studio-detail-column">
     <div class="studio-tool-picker"><span class="studio-section-label">Pilih tindakan</span>
 <div class="tool-bar" id="toolBar" role="group" aria-label="Ganti alat">
@@ -207,6 +210,8 @@
       <button type="button" class="tool-chip" data-tool-switch="meta" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-database"/></svg>Edit Metadata</button>
       <button type="button" class="tool-chip" data-tool-switch="watermark" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-tag"/></svg>Hapus Watermark</button>
     </div>
+    <p id="toolDescription" class="studio-tool-description">Bersihkan penanda yang tertanam tanpa mengubah file asli.</p>
+    <button type="button" id="editorAddVideoBtn" class="studio-editor-video-action hidden"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-film"/></svg> Tambah video dari galeri</button>
     </div>
     <div class="shell-status">
       <span id="shellPill" class="status-pill shrink-0 pill-plain"></span>
@@ -270,7 +275,7 @@
 
     <details id="inspectorDisclosure" class="studio-inspector-disclosure"><summary>Rincian pemeriksaan file <span>Metadata, privasi, dan integritas</span></summary>
     <section class="studio-inspector" aria-labelledby="inspectorHeading">
-      <span class="studio-section-label">Inspector / on device</span>
+      <span class="studio-section-label">Pemeriksaan lokal</span>
       <h3 id="inspectorHeading">Di dalam file ini</h3>
       <p>Lihat metadata dan provenance sebelum membagikan berkas. Ini pemeriksaan, bukan jaminan anonim.</p>
       <div id="inspectorContent" class="studio-inspector-state" role="status" aria-live="polite">Menunggu file…</div>
