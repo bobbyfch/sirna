@@ -249,11 +249,19 @@ html.dark .shell-canvas-wrap{background:#13212b!important}
 #metaTemplateBar{padding:11px}
 #settingsCard .seg{max-width:100%;overflow-x:auto}
 #settingsCard .seg button{white-space:normal;min-width:0;font-size:12px}
-@media (max-width:1050px){
+@media (max-width:850px){
  .studio-workbench{grid-template-columns:1fr;max-width:800px;margin:0 auto}
  .studio-canvas-column{position:static}
  .studio-detail-column{display:flex;grid-template-columns:none}
  #settingsCard .studio-preset-options{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (min-width:601px) and (max-width:850px){
+ .studio-save-dock{
+   position:fixed;left:18px;right:18px;bottom:calc(12px + env(safe-area-inset-bottom));
+   z-index:43;max-width:800px;margin-inline:auto;
+   background:var(--studio-surface);box-shadow:0 14px 42px rgba(0,0,0,.16)
+ }
+ body.editor-on main{padding-bottom:calc(150px + env(safe-area-inset-bottom))!important}
 }
 @media (max-width:600px){
  #panel-cleaner{padding-top:0!important}
