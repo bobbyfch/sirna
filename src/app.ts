@@ -226,6 +226,13 @@ async function cleanBatch(list){
   }
   setTimeout(function(){ if(dock) dock.classList.add("hidden"); procCurId=null; },1200);
   batchRunning=false; batchActive=false; updateStats();
+  // Preserve the most recent file picked while an earlier batch was busy.
+  var next=queuedToolRun;
+  if(!autoRunning && next && activeTool===next.tool && selectedItem()?.id===next.id){
+    queuedToolRun=null;
+    var pending=selectedItem();
+    if(pending && !toolHasResult(pending,next.tool)) void autoRunTool(next.tool,pending);
+  }
   if(batchStopRequested){ toast("Antrean dihentikan. Hasil yang sudah selesai tetap ada."); return; }
   var okCount=list.filter(function(x){return getFileState(x).key==="cleaned"}).length;
   var residual=list.filter(function(x){return getFileState(x).key==="residual"}).length;
@@ -302,6 +309,7 @@ function syncShell(){
   if(un){
     un.setAttribute("aria-pressed", shellComparing?"true":"false");
     un.textContent=shellComparing?"Lihat hasil":"Lihat asli";
+    un.setAttribute("aria-label",shellComparing?"Lihat hasil yang diproses":"Lihat foto asli");
     un.classList.toggle("hidden", !it.cleanedBlob || it.kind==="video");
   }
 }
@@ -339,7 +347,7 @@ function syncPrimary(){
     btn.textContent="Terapkan perubahan";
     if(summary) summary.textContent="Format atau kualitas baru belum diterapkan ke file hasil.";
   }else{
-    btn.textContent=n>=2?"Unduh semua ("+n+" ZIP)":"Unduh hasil";
+    btn.textContent=n>=2?"Unduh semua ("+n+" file)":"Unduh hasil";
     if(summary) summary.textContent="Versi yang akan diunduh: "+(it.currentLabel||"Hasil")+
       (n>=2?" · "+n+" file dalam satu ZIP":" · "+(it.cleanedName||it.file.name));
   }
@@ -397,6 +405,7 @@ function updateToolStatus(){
   var st=getFileState(it);
   if(st.key==="cleaning"){ bar.textContent="Lagi diproses…"; return; }
   if(st.key==="failed"||st.key==="attention"){ bar.textContent="Ada yang perlu perhatian — coba lagi dari tombol di bawah kanvas."; return; }
+  if(it.currentLabel==="Asli" && (it.versions||[]).some(function(v){return v.label!=="Asli";})){ bar.textContent="Sedang melihat versi asli. Pilih Bersih untuk kembali ke hasil siap unduh."; return; }
   if(cleanSettingsOutdated()){ bar.textContent="Pilihan ekspor berubah — terapkan perubahan sebelum mengunduh."; return; }
   if(it.cleanedBlob){
     if(toolHasResult(it,activeTool)) bar.textContent="Hasil siap — unduh dari tombol Unduh hasil.";
@@ -684,7 +693,11 @@ async function handleFiles(fileList: FileList | File[]){
   batchRunning=false; updateStats();
   /* Alat aktif + file lengkap = jalan sendiri (prinsip A). Bersihkan
      jalan batch dengan dock progres; alat lain jalan untuk file terpilih. */
-  if(activeTool==="clean"){ if(!autoRunning){ batchRunning=true; await cleanBatch(created); } return; }
+  if(activeTool==="clean"){
+    if(autoRunning || batchActive){ if(created.length) queuedToolRun={tool:"clean",id:created[0].id}; }
+    else { batchRunning=true; await cleanBatch(created); }
+    return;
+  }
   if(created.length) await autoRunTool(activeTool, created[0]);
 }
 
@@ -1606,6 +1619,7 @@ $("#shellVersions").addEventListener("click",function(e){
     shellComparing=!shellComparing;
     cmp.setAttribute("aria-pressed", shellComparing?"true":"false");
     cmp.textContent=shellComparing?"Lihat hasil":"Lihat asli";
+    cmp.setAttribute("aria-label",shellComparing?"Lihat hasil yang diproses":"Lihat foto asli");
     var img=$("#shellImg") as HTMLImageElement; if(!img) return;
     var want= shellComparing ? it.url : (it.cleanedUrl||it.url);
     img.src=want; img.setAttribute("data-cur",want);
