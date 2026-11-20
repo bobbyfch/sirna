@@ -2,7 +2,6 @@
 // Requires Playwright Chromium installed; not part of Cloudflare Workers build.
 import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
 const url = 'http://127.0.0.1:4179/';
 const server = spawn('npm',['run','preview','--','--host','127.0.0.1','--port','4179'],{stdio:'ignore'});
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -26,10 +25,11 @@ try {
     const theme=await page.locator('html').getAttribute('class');
     await page.click('#editorThemeBtn');
     if((await page.locator('html').getAttribute('class'))===theme)throw Error('Editor theme not switching @'+width);
-    await page.click('[data-format="image/webp"]');
-    await page.locator('#primaryBtn').getByText('Terapkan perubahan').waitFor();
-    await page.click('#primaryBtn');
-    await page.locator('#primaryBtn').getByText('Unduh hasil').waitFor({timeout:30000});
+    await page.locator('#advancedSettings summary').click();
+    await page.locator('[data-format="image/webp"]').click();
+    await page.waitForFunction(()=>document.querySelector('#primaryBtn')?.textContent?.trim()==='Terapkan perubahan');
+    await page.locator('#primaryBtn').click();
+    await page.waitForFunction(()=>document.querySelector('#primaryBtn')?.textContent?.trim()==='Unduh hasil' && !document.querySelector('#primaryBtn')?.disabled,null,{timeout:30000});
     const dlPromise=page.waitForEvent('download',{timeout:30000});
     await page.click('#primaryBtn');
     const dl=await dlPromise;
