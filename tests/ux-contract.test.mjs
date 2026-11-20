@@ -35,3 +35,11 @@ test('adaptive hierarchy and no legacy hidden-panel override',async()=>{
   assert.match(css,/env\(safe-area-inset-bottom\)/);
   assert.doesNotMatch(old,/body\.has-files #panel-cleaner\{display:block !important\}/);
 });
+
+test('original mode is explicit and queued files do not silently disappear',async()=>{
+  const app=await text('src/app.ts');
+  assert.match(app,/Sedang melihat versi asli\. Pilih Bersih untuk kembali ke hasil siap unduh/);
+  assert.match(app,/queuedToolRun=\{tool:"clean",id:created\[0\]\.id\}/);
+  assert.match(app,/var next=queuedToolRun/);
+  assert.match(app,/un\.setAttribute\("aria-label",shellComparing\?/);
+});
