@@ -15,10 +15,11 @@
     "preview:cloudflare": "npm run build && npx --yes wrangler@4.153.0 dev",
     "security:dist": "node scripts/guard-public-assets.mjs",
     "setup": "node scripts/setup.mjs",
-    "test": "node --test tests/config.test.mjs tests/setup.test.mjs tests/public-assets-guard.test.mjs tests/revalpha.test.mjs tests/metaedit.test.mjs tests/inspection.test.mjs",
+    "test": "node --test tests/config.test.mjs tests/setup.test.mjs tests/public-assets-guard.test.mjs tests/revalpha.test.mjs tests/metaedit.test.mjs tests/inspection.test.mjs tests/ux-contract.test.mjs",
     "test:dist": "node --test tests/dist.test.mjs",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run check && npm run build && npm run security:dist && npm run test:dist"
+    "verify": "npm run check && npm run build && npm run security:dist && npm run test:dist",
+    "test:responsive": "node tests/responsive.e2e.mjs"
   },
   "type": "module",
   "version": "0.1.0",

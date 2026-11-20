@@ -905,15 +905,6 @@ html.dark #sheet{background:#1C1C1E}
   /* — Kolom tengah 1024px, sejajar header (max-w-5xl) — bukan kolom HP
      560px mengambang, bukan selebar layar. — */
   main{max-width:1024px;padding-left:24px;padding-right:24px}
-  /* — Workspace tampil di desktop begitu ada file (tanpa alat aktif pun):
-     panel tampil walau kelas hidden masih nempel — kelas itu dipakai JS
-     buat state HP. Aturan ini khusus desktop; HARUS di @layer base:
-     .hidden hidup di @layer components dengan !important, dan untuk
-     deklarasi !important urutan lapis TERBALIK (lapis lebih awal menang).
-     base < components -> aturan ini menang. — */
-  @layer base{
-    body.has-files #panel-cleaner{display:block !important}
-  }
   /* — Toast: menempel tepi kanan KOLOM TENGAH (bukan tepi viewport),
      di atas konten — tidak menutupi judul/konten di tengah. — */
   #toast{left:auto;right:calc(50% - 512px + 24px);transform:none;max-width:420px}

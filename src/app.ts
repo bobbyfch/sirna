@@ -96,7 +96,20 @@ function selectedItem(){ return items.find(function(i){return i.id===selectedId}
    Sembunyikan + kosongkan isinya, bukan cuma hidden: waitForFunction
    berbasis textContent di e2e ikut membaca teks basi kalau cuma hidden. */
 function clearShellResult(){ var r=document.getElementById("shellResult"); if(r){ r.classList.add("hidden"); r.innerHTML=""; } }
-function selectItem(id){ selectedId=id; clearShellResult(); syncShell(); syncPrimary(); updateStats(); if(activeTool==="meta"){ var si=selectedItem(); if(si) void openMetaFor(si); } }
+function selectItem(id){
+  selectedId=id; shellComparing=false; clearShellResult(); syncShell(); syncPrimary(); updateStats();
+  var si=selectedItem();
+  if(!si || !activeTool) return;
+  if(activeTool==="meta"){ void openMetaFor(si); return; }
+  // Restore the selected file's own result; do not show a previous file's verdict.
+  var v=(si.versions||[]).find(function(x){return x.label===si.currentLabel;});
+  if(v && v.box && si.cleanedBlob){
+    var res=$("#shellResult"); res.classList.remove("hidden"); renderResultBox(si,res,v.box);
+  }
+  // Switching files should run the active tool, but an explicitly chosen
+  // original version must not be silently converted back to the clean version.
+  if(si.currentLabel!=="Asli") void autoRunTool(activeTool,si);
+}
 var TOOL_RESULT_LABEL={clean:"Bersih",meta:"Metadata",watermark:"Watermark"};
 var PHOTO_ONLY=["watermark","meta"];
 /* Hasil alat dianggap ADA hanya kalau versi itu yang sedang ditampilkan.
@@ -115,8 +128,10 @@ function setActiveTool(tool){
     openSheet({title:"Perubahan metadata belum diterapkan.", body:"Terapkan dulu, atau buang perubahan?", confirm:"Terapkan", extra:{label:"Buang perubahan", onClick:function(){ metaedit.discardMetaDraft(); setActiveTool(tool); }}, onConfirm:function(){ void (async function(){ if(await metaedit.applyMetaDraft()) setActiveTool(tool); })(); }});
     return;
   }
+  if(activeTool!==tool) clearShellResult();
   activeTool=tool||null;
   if(tool) lastTool=tool;
+  shellComparing=false;
   $$("[data-tool-switch]").forEach(function(x){
     var on=x.dataset.toolSwitch===(activeTool||"");
     x.setAttribute("aria-pressed", on?"true":"false");
@@ -165,8 +180,10 @@ function scrollActiveChipIntoView(){
    dijalankan ulang: hasilnya tinggal disimpan. Alat foto-only tidak
    jalan untuk video — statusnya ditulis di tempat, bukan toast. */
 var autoRunning=false;
+var queuedToolRun: {tool: string; id: number} | null = null;
 async function autoRunTool(tool, item){
-  if(!tool || !item || autoRunning) return;
+  if(!tool || !item) return;
+  if(autoRunning){ queuedToolRun={tool:tool,id:item.id}; return; }
   if(PHOTO_ONLY.indexOf(tool)!==-1 && item.kind==="video"){ updateToolStatus(); return; }
   if(toolHasResult(item,tool)) return;
   autoRunning=true;
@@ -174,7 +191,15 @@ async function autoRunTool(tool, item){
     if(tool==="clean"){ await cleanBatch([item].concat(items.filter(function(i){return i.id!==item.id && !i.cleanedBlob}))); }
     else if(tool==="meta"){ await openMetaFor(item); }
     else if(tool==="watermark"){ await openWatermarkFor(item); }
-  } finally { autoRunning=false; updateStats(); }
+  } finally {
+    autoRunning=false;
+    updateStats();
+    var next=queuedToolRun; queuedToolRun=null;
+    if(next && activeTool===next.tool && selectedItem()?.id===next.id){
+      var nextItem=selectedItem();
+      if(nextItem && !toolHasResult(nextItem,next.tool)) void autoRunTool(next.tool,nextItem);
+    }
+  }
 }
 
 async function cleanBatch(list){
@@ -183,6 +208,7 @@ async function cleanBatch(list){
   updateBatchControls();
   var dock=$("#procDock"), dockBar=$("#procDockBar"), dockText=$("#procDockText");
   var done=0;
+  updateStats();
   function paint(){
     procCurId= done<list.length ? list[done].id : null;
     if(dockBar) dockBar.style.width=(list.length? Math.round(done/list.length*100):0)+"%";
@@ -273,7 +299,11 @@ function syncShell(){
     }
   }
   var un=$("#shellCompare");
-  if(un){ un.setAttribute("aria-pressed", shellComparing?"true":"false"); }
+  if(un){
+    un.setAttribute("aria-pressed", shellComparing?"true":"false");
+    un.textContent=shellComparing?"Lihat hasil":"Lihat asli";
+    un.classList.toggle("hidden", !it.cleanedBlob || it.kind==="video");
+  }
 }
 /* Tombol Simpan di top bar editor cuma punya DUA keadaan (prinsip C):
    (a) belum ada hasil — alat otomatis tidak punya tombol jalan (progres
@@ -282,36 +312,48 @@ function syncShell(){
    Kata kerja alat tidak pernah lagi dipakai sebagai tombol utama.
    Tombolnya sendiri (bukan bar) yang disembunyikan kalau tidak ada yang
    bisa dilakukan — top bar tetap tampil selama editor aktif. */
-function cleanedItems(){ return items.filter(function(i){return i.cleanedBlob}); }
+function cleanedItems(){ return items.filter(function(i){return i.cleanedBlob && i.currentLabel!=="Asli";}); }
+function cleanOptionSignature(){ return [cleanProfile,outFormat,($("#qualityRange") as HTMLInputElement).value].join("|"); }
+function cleanSettingsOutdated(){
+  return activeTool==="clean" && items.some(function(i){
+    return i.kind==="image" && i.cleanedBlob && i.currentLabel==="Bersih" &&
+      i.cleanSignature && i.cleanSignature!==cleanOptionSignature();
+  });
+}
 function syncPrimary(){
   var btn=$("#primaryBtn") as HTMLButtonElement; if(!btn) return;
+  var dock=$("#saveDock");
+  var summary=$("#saveSummary");
+  var pending=$("#settingsPending");
   var it=selectedItem();
-  var show= !!activeTool && !!it;
-  if(show && it.cleanedBlob){
-    var n=cleanedItems().length;
-    btn.textContent= n>=2 ? "Simpan semua ("+n+")" : "Simpan foto";
-  } else if(show && it.kind==="video" && PHOTO_ONLY.indexOf(activeTool)!==-1){
-    /* Video + alat foto-only: tidak ada yang bisa dijalankan — tombol
-       utama disembunyikan, baris status yang menjelaskan (prinsip G). */
-    show=false;
-  } else {
-    show=false;
-  }
+  var updating=cleanSettingsOutdated();
+  var hasOutput=!!(activeTool && it && it.cleanedBlob && it.currentLabel!=="Asli");
+  var n=cleanedItems().length;
+  var show=updating || hasOutput;
   btn.classList.toggle("hidden", !show);
+  if(dock) dock.classList.toggle("hidden",!show);
+  if(pending) pending.classList.toggle("hidden", !updating);
+  if(!show) return;
+  btn.disabled=batchActive || autoRunning || (it && it.status==="cleaning");
+  if(updating){
+    btn.textContent="Terapkan perubahan";
+    if(summary) summary.textContent="Format atau kualitas baru belum diterapkan ke file hasil.";
+  }else{
+    btn.textContent=n>=2?"Unduh semua ("+n+" ZIP)":"Unduh hasil";
+    if(summary) summary.textContent="Versi yang akan diunduh: "+(it.currentLabel||"Hasil")+
+      (n>=2?" · "+n+" file dalam satu ZIP":" · "+(it.cleanedName||it.file.name));
+  }
 }
-
 async function runPrimary(){
   var it=selectedItem();
-  if(!activeTool) return;
-  if(!it){ var fi2=$("#fileInput") as HTMLInputElement; if(fi2) fi2.click(); return; }
-  if(it.cleanedBlob){
-    var n=cleanedItems().length;
-    if(n>=2) await saveAllZip();
-    else saveItem(it);
+  if(!activeTool || !it || batchActive || autoRunning) return;
+  if(cleanSettingsOutdated()){
+    await cleanBatch(items.filter(function(i){return i.kind==="image";}));
     return;
   }
-  /* Alat otomatis tanpa hasil (mis. gagal lalu dibuka lagi): jalankan lagi. */
-  await autoRunTool(activeTool, it);
+  if(!it.cleanedBlob || it.currentLabel==="Asli") return;
+  if(cleanedItems().length>=2) await saveAllZip();
+  else await saveItem(it);
 }
 
 /* Simpan batch: SATU jalur simpan untuk ≥2 file bersih (dipakai tombol
@@ -328,18 +370,10 @@ async function saveAllZip(){
     clean.forEach(function(it){ var name=it.cleanedName; var n=2; while(used[name]){ name=it.cleanedName.replace(/(\.[^.]+)$/,"-"+(n++)+"$1"); } used[name]=1; zip.file(name,it.cleanedBlob); });
     var blob=await zip.generateAsync({type:"blob"});
     var url=URL.createObjectURL(blob);
-    var inFrame=false; try{ inFrame = window.self!==window.top; }catch(e){ inFrame=true; }
-    var f=null; try{ f=new File([blob],"foto-bersih.zip",{type:"application/zip"}); }catch(e){}
-    var shared=false;
-    if(f && navigator.canShare && navigator.canShare({files:[f]}) && (inFrame || /Android|iPhone|iPad/i.test(navigator.userAgent))){
-      try{ await navigator.share({files:[f]}); shared=true; }catch(e){ if(e && e.name==="AbortError"){ if(btn){ btn.disabled=false; btn.textContent=prevLabel; } return; } }
-    }
-    if(!shared){
-      var a=document.createElement("a"); a.href=url; a.download="foto-bersih.zip"; a.style.display="none";
-      document.body.appendChild(a); a.click();
-      setTimeout(function(){ a.remove(); URL.revokeObjectURL(url); },4000);
-      toast("ZIP isi "+clean.length+" file diunduh ✓");
-    }
+    var link=document.createElement("a"); link.href=url; link.download="foto-bersih.zip"; link.style.display="none";
+    document.body.appendChild(link); link.click();
+    setTimeout(function(){ link.remove(); URL.revokeObjectURL(url); },4000);
+    toast("Unduhan ZIP "+clean.length+" file dimulai.");
   }catch(e){ toast("ZIP gagal. Simpan satu-satu."); }
   if(btn){ btn.disabled=false; btn.textContent=prevLabel; }
   updateStats();
@@ -363,9 +397,10 @@ function updateToolStatus(){
   var st=getFileState(it);
   if(st.key==="cleaning"){ bar.textContent="Lagi diproses…"; return; }
   if(st.key==="failed"||st.key==="attention"){ bar.textContent="Ada yang perlu perhatian — coba lagi dari tombol di bawah kanvas."; return; }
+  if(cleanSettingsOutdated()){ bar.textContent="Pilihan ekspor berubah — terapkan perubahan sebelum mengunduh."; return; }
   if(it.cleanedBlob){
-    if(toolHasResult(it,activeTool)) bar.textContent="Sudah beres ✓ — simpan dari tombol Simpan di atas.";
-    else bar.textContent="Sudah bersih ✓ — simpan dari tombol Simpan di atas.";
+    if(toolHasResult(it,activeTool)) bar.textContent="Hasil siap — unduh dari tombol Unduh hasil.";
+    else bar.textContent="Versi "+(it.currentLabel||"hasil")+" masih tersedia untuk diunduh.";
     return;
   }
   if(activeTool==="clean"){
@@ -874,6 +909,7 @@ function sniffImageKind(ab){
 async function cleanItem(item){
   if(item.kind==="video"){ await cleanVideoItem(item); return; }
   item.status="cleaning";
+  var appliedSignature=cleanOptionSignature();
   syncShell();
   setProc(item,"Membersihkan…",false);
   var sr0=document.getElementById("shellResult"); if(sr0) sr0.classList.add("hidden");
@@ -926,7 +962,7 @@ async function cleanItem(item){
     }
     setProc(item,"Cek ulang…",false);
     var vscan=scanBuffer(await blob.arrayBuffer(),"image");
-    item.cleanedBlob=blob; item.cleanedScan=vscan; item.cleanedType=blob.type || outType; item.cleanedName=outName(item); item.status="cleaned"; item.pixelDataPreserved=pixelDataPreserved;
+    item.cleanedBlob=blob; item.cleanedScan=vscan; item.cleanedType=blob.type || outType; item.cleanedName=outName(item); item.status="cleaned"; item.pixelDataPreserved=pixelDataPreserved; item.cleanSignature=appliedSignature;
     item.tools.clean= vscan.hasAI ? "perlu perhatian" : "selesai";
     if(item.cleanedUrl) URL.revokeObjectURL(item.cleanedUrl);
     item.cleanedUrl=URL.createObjectURL(blob);
@@ -996,6 +1032,7 @@ function setCurrentVersion(item,label){
   var v=(item.versions||[]).find(function(x){return x.label===label});
   if(!v || item.currentLabel===label) return;
   item.currentLabel=label;
+  shellComparing=false;
   if(label==="Asli"){
     item.cleanedBlob=null; item.cleanedScan=null; item.cleanedType=""; item.cleanedName=""; item.status="ready";
     if(item.cleanedUrl){ URL.revokeObjectURL(item.cleanedUrl); item.cleanedUrl=null; }
@@ -1155,18 +1192,11 @@ async function saveItem(item){
       return;
     }catch(e){ if(e && e.name==="AbortError") return; }
   }
-  var inFrame=false; try{ inFrame = window.self!==window.top; }catch(e){ inFrame=true; }
-  var f=null;
-  try{ f=new File([item.cleanedBlob], item.cleanedName, {type:item.cleanedType||item.cleanedBlob.type||"application/octet-stream"}); }catch(e){}
-  if(f && navigator.canShare && navigator.canShare({files:[f]}) && (inFrame || /Android|iPhone|iPad/i.test(navigator.userAgent))){
-    try{ await navigator.share({files:[f]}); return; }
-    catch(e){ if(e && e.name==="AbortError") return; }
-  }
   var a=document.createElement("a");
   a.href=item.cleanedUrl; a.download=item.cleanedName; a.rel="noopener"; a.style.display="none";
   document.body.appendChild(a); a.click();
   setTimeout(function(){ a.remove(); },2000);
-  toast("Mengunduh " + item.cleanedName);
+  toast("Unduhan dimulai: " + item.cleanedName);
 }
 
 function openPreview(item){
@@ -1303,6 +1333,7 @@ function useCleanProfile(profile:"label"|"privacy"|"deep"){
   $$("[data-clean-profile]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.cleanProfile===profile?"true":"false"));
   try{localStorage.setItem("sirna-clean-profile",profile);}catch{}
   if(items.length&&activeTool==="clean") void cleanBatch([...items]);
+  updateStats();
 }
 try{
   const p=localStorage.getItem("sirna-clean-profile");
@@ -1574,6 +1605,7 @@ $("#shellVersions").addEventListener("click",function(e){
     var it=selectedItem(); if(!it) return;
     shellComparing=!shellComparing;
     cmp.setAttribute("aria-pressed", shellComparing?"true":"false");
+    cmp.textContent=shellComparing?"Lihat hasil":"Lihat asli";
     var img=$("#shellImg") as HTMLImageElement; if(!img) return;
     var want= shellComparing ? it.url : (it.cleanedUrl||it.url);
     img.src=want; img.setAttribute("data-cur",want);
@@ -1684,13 +1716,20 @@ document.addEventListener("drop",function(e){
   if(fs && fs.length) routeFiles(fs);
 });
 
+/* Editor navigation: theme, history and add stay available on every screen. */
+$("#editorAddBtn").addEventListener("click",function(){ fi.click(); });
+$("#editorHistoryBtn").addEventListener("click",function(){
+  setActiveTool(null);
+  requestAnimationFrame(function(){ $("#historySection").scrollIntoView({behavior:"smooth",block:"start"}); });
+});
+
 /* ── Settings events ── */
-$("#qualityRange").addEventListener("input",function(e){ $("#qVal").textContent=e.target.value; });
-$$("[data-format]").forEach(function(b){ b.addEventListener("click",function(){ $$("[data-format]").forEach(function(x){ x.setAttribute("aria-pressed","false"); }); b.setAttribute("aria-pressed","true"); outFormat=b.dataset.format; }); });
+$("#qualityRange").addEventListener("input",function(e){ $("#qVal").textContent=e.target.value; updateStats(); });
+$$("[data-format]").forEach(function(b){ b.addEventListener("click",function(){ $$("[data-format]").forEach(function(x){ x.setAttribute("aria-pressed","false"); }); b.setAttribute("aria-pressed","true"); outFormat=b.dataset.format; updateStats(); }); });
 $$("[data-mode]").forEach(function(b){ b.addEventListener("click",function(){ $$("[data-mode]").forEach(function(x){ x.setAttribute("aria-pressed","false"); }); b.setAttribute("aria-pressed","true"); deepClean=b.dataset.mode==="deep"; }); });
 $$("[data-dl]").forEach(function(b){ b.addEventListener("click",function(){
   $$("[data-dl]").forEach(function(x){ x.setAttribute("aria-pressed","false"); }); b.setAttribute("aria-pressed","true"); dlMode=b.dataset.dl;
-  refreshNames();
+  refreshNames(); updateStats();
 }); });
 
 /* ── Aksi di bawah kanvas + kotak hasil shell ── */
@@ -1750,19 +1789,22 @@ function routeFiles(fileList){ handleFiles(fileList); }
    Pilihan manual disimpan (cuma preferensi tampilan) & menang dari setelan sistem;
    kalo belum pernah milih, halaman ikut terang/gelap sistem secara live. */
 (function(){
-  var btn=document.getElementById("themeBtn"); if(!btn) return;
+  var buttons=[document.getElementById("themeBtn"),document.getElementById("editorThemeBtn")].filter(Boolean);
+  if(!buttons.length) return;
   function sync(){
     var dark=document.documentElement.classList.contains("dark");
-    btn.setAttribute("aria-label", dark ? "Ganti ke mode terang" : "Ganti ke mode gelap");
-    btn.setAttribute("aria-pressed", dark ? "true" : "false");
+    buttons.forEach(function(btn){
+      btn.setAttribute("aria-label", dark ? "Ganti ke mode terang" : "Ganti ke mode gelap");
+      btn.setAttribute("aria-pressed", dark ? "true" : "false");
+    });
   }
   sync();
-  btn.addEventListener("click",function(){
+  buttons.forEach(function(btn){btn.addEventListener("click",function(){
     var dark=document.documentElement.classList.toggle("dark");
     try{ localStorage.setItem("sirna-theme", dark ? "dark" : "light"); }catch(e){}
     sync();
     toast(dark ? "Mode gelap aktif" : "Mode terang aktif");
-  });
+  });});
   try{
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",function(e){
       var pref=null; try{ pref=localStorage.getItem("sirna-theme")||localStorage.getItem("bebas-theme")||localStorage.getItem("labeloff-theme"); }catch(_){}

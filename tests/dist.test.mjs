@@ -330,7 +330,7 @@ test('Phase 2 layout: file-first + editor kanonis + Simpan di top bar', async ()
   assert.match(html, /Buang file ini/);
   assert.match(html, /id="restartBtn"/);
   assert.match(html, /Mulai ulang/);
-  // SATU tombol Simpan di top bar editor; sticky bottom bar dihapus.
+  // SATU tombol Unduh di dekat hasil (mobile sticky), topbar fokus navigasi.
   assert.match(html, /id="editorTopBar"/);
   assert.match(html, /id="primaryBtn"/);
   assert.match(html, /id="editorBackBtn"/);
@@ -394,20 +394,20 @@ test('Phase 2 layout: file-first + editor kanonis + Simpan di top bar', async ()
   assert.match(appSrc, /function openSheet\(/);
   assert.match(appSrc, /function closeSheet\(\)/);
   assert.match(appSrc, /function removeItem\(/);
-  assert.match(appSrc, /function selectItem\(id\)\{ selectedId=id; clearShellResult\(\); syncShell\(\); syncPrimary\(\); updateStats\(\);/);
+  assert.match(appSrc, /function selectItem\(id\)\{\n  selectedId=id; shellComparing=false; clearShellResult\(\); syncShell\(\); syncPrimary\(\); updateStats\(\);/);
   // Kotak hasil basi: selectItem / openMetaFor / clearAllItems (Mulai ulang)
   // harus membersihkan #shellResult (hidden + kosong), bukan menampilkannya lagi.
   assert.match(appSrc, /function clearShellResult\(\)\{ var r=document\.getElementById\("shellResult"\); if\(r\)\{ r\.classList\.add\("hidden"\); r\.innerHTML=""; \} \}/);
   assert.match(appSrc, /async function openMetaFor\(item\)\{\n  clearShellResult\(\);/);
   assert.match(appSrc, /function clearAllItems\(\)\{\n  clearShellResult\(\);/);
   assert.match(appSrc, /makeSampleFile/);
-  assert.match(appSrc, /Simpan foto/);
-  assert.match(appSrc, /Simpan semua/);
+  assert.match(appSrc, /Unduh hasil/);
+  assert.match(appSrc, /Unduh semua/);
   assert.match(appSrc, /function autoRunTool\(tool, item\)/);
   assert.match(appSrc, /function updateToolStatus\(\)/);
   // Foto-only: video terpilih dengan alat meta/watermark -> status jujur,
   // tombol utama tidak tampil (bukan crash).
-  assert.match(appSrc, /else if\(show && it\.kind==="video" && PHOTO_ONLY\.indexOf\(activeTool\)!==-1\)\{/);
+  assert.match(appSrc, /var hasOutput=!!\(activeTool && it && it\.cleanedBlob && it\.currentLabel!=="Asli"\)/);
   assert.match(appSrc, /Video dipilih — /);
   // Foto contoh digenerate runtime (tanpa biner di repo): canvas + injeksi
   // chunk tEXt PNG dengan CRC32, label OpenAI DALL·E.

@@ -176,12 +176,12 @@
        kedua di top bar akan jadi jalur undo ganda. ═══ -->
   <div id="editorTopBar" class="editor-topbar">
     <button type="button" id="editorBackBtn" class="ed-back" title="Kembali ke beranda" aria-label="Kembali ke beranda">‹ Kembali</button>
-    <div class="tool-bar" id="toolBar" role="group" aria-label="Ganti alat">
-      <button type="button" class="tool-chip" data-tool-switch="clean" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eraser"/></svg>Bersihkan</button>
-      <button type="button" class="tool-chip" data-tool-switch="meta" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-database"/></svg>Edit Metadata</button>
-      <button type="button" class="tool-chip" data-tool-switch="watermark" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-tag"/></svg>Hapus Watermark</button>
-    </div>
-    <button type="button" id="primaryBtn" class="btn-ic ed-save grad-bg text-white font-bold text-[15px] hidden"></button>
+    <div class="editor-brand" aria-label="Sirna editor">Sirna <span>Editor</span></div>
+    <nav class="editor-nav-actions" aria-label="Aksi editor">
+      <button type="button" id="editorHistoryBtn" class="editor-nav-btn" title="Lihat hasil terakhir" aria-label="Lihat hasil terakhir"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-archive"/></svg><span>Terakhir</span></button>
+      <button type="button" id="editorThemeBtn" class="editor-nav-btn editor-theme-btn" title="Mode terang / gelap" aria-label="Ganti ke mode gelap" aria-pressed="false"><svg viewBox="0 0 24 24" class="ic ic-sm" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/></svg></button>
+      <button type="button" id="editorAddBtn" class="editor-nav-btn" title="Tambah file" aria-label="Tambah file"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>File</span></button>
+    </nav>
   </div>
   <!-- ═══ KEPALA EDITOR (kanonis, P0-1): foto terpilih di atas (maks 55vh),
        status + versi di bawahnya. Status satu baris (#toolStatus) pindah
@@ -199,38 +199,25 @@
         <button type="button" id="shellCompare" class="shell-chip-btn" aria-pressed="false" aria-label="Lihat foto asli">Lihat asli</button>
       </div>
     </div>
+    <div id="shellVersions" class="version-row hidden" aria-label="Pilih versi file"></div>
     </div><div class="studio-detail-column">
+    <div class="studio-tool-picker"><span class="studio-section-label">Pilih tindakan</span>
+<div class="tool-bar" id="toolBar" role="group" aria-label="Ganti alat">
+      <button type="button" class="tool-chip" data-tool-switch="clean" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eraser"/></svg>Bersihkan</button>
+      <button type="button" class="tool-chip" data-tool-switch="meta" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-database"/></svg>Edit Metadata</button>
+      <button type="button" class="tool-chip" data-tool-switch="watermark" aria-pressed="false"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-tag"/></svg>Hapus Watermark</button>
+    </div>
+    </div>
     <div class="shell-status">
       <span id="shellPill" class="status-pill shrink-0 pill-plain"></span>
       <p id="shellStatus" class="shell-status-text"></p>
     </div>
     <div class="tool-status" id="toolStatus" role="status"></div>
-    <section class="studio-inspector" aria-labelledby="inspectorHeading">
-      <span class="studio-section-label">Inspector / on device</span>
-      <h3 id="inspectorHeading">Di dalam file ini</h3>
-      <p>Lihat metadata dan provenance sebelum membagikan berkas. Ini pemeriksaan, bukan jaminan anonim.</p>
-      <div id="inspectorContent" class="studio-inspector-state" role="status" aria-live="polite">Menunggu file…</div>
-      <details id="credentialsDetail"><summary>Content Credentials</summary><p id="credentialsContent">Belum diperiksa.</p></details>
-      <details id="tracesDetail"><summary>Detail metadata</summary><div id="traceList" class="studio-trace-list"></div></details>
-    </section>
-    <section id="integrityPanel" class="studio-integrity" aria-label="Pemeriksaan hasil" hidden>
-      <h4>Pemeriksaan hasil</h4><ul id="integrityList"></ul>
-    </section>
-    <div id="shellVersions" class="version-row hidden"></div>
-    <div id="shellBadges" class="flex flex-wrap gap-1.5 mt-2.5"></div>
-    <div id="shellDetect"></div>
-    <div id="shellResult" class="hidden mt-3"></div>
-    <div class="shell-file-actions">
-      <button type="button" id="removeFileBtn" class="btn-remove">Buang file ini</button>
-      <button type="button" id="restartBtn" class="btn-ic min-h-[40px] px-3.5 rounded-full border font-semibold text-[13px]" style="border-color:var(--line);color:var(--muted)" title="Buang semua file dan kembali ke home" aria-label="Mulai ulang — buang semua file"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-rotate"/></svg>Mulai ulang</button>
-    </div></div></div>
-  </section>
-
-  <div class="studio-batch" id="batchControls" aria-label="Proses beberapa file">
-    <p id="batchSummary">Hasil file dan antrean akan ditampilkan di sini.</p>
-    <div><button type="button" id="batchRetry">Coba lagi yang gagal</button> <button type="button" id="batchCancel">Batalkan sisa antrean</button></div>
-  </div>
-
+    <div id="shellResult" class="hidden mt-3" aria-live="polite"></div>
+    <div id="saveDock" class="studio-save-dock hidden">
+      <button type="button" id="primaryBtn" class="btn-ic ed-save grad-bg text-white font-bold text-[15px] hidden"></button>
+      <p id="saveSummary" class="studio-save-summary"></p>
+    </div>
   <!-- Pengaturan — satu kartu ringkas, selalu kelihatan -->
   <div class="card mt-4 p-4 sm:p-5" id="settingsCard">
     <div class="studio-preset-header"><div><span class="studio-section-label">Aturan pembersihan</span><h3>Pilih hasil yang kamu butuhkan</h3><p>Preset mengatur cara pemrosesan, bukan mengganti file asli. Kamu tetap bisa mengubahnya sebelum mengunduh.</p></div></div>
@@ -240,6 +227,7 @@
       <button type="button" data-clean-profile="deep" aria-pressed="false"><strong>Deep clean</strong><small>Gambar ulang agar lebih menyeluruh; piksel bisa berubah.</small></button>
     </div>
     <details id="advancedSettings"><summary>Pengaturan lanjutan: format, kualitas, nama</summary>
+    <p id="settingsPending" class="studio-settings-pending hidden" role="status">Format atau kualitas berubah. Terapkan perubahan sebelum mengunduh agar hasil sesuai pilihan.</p>
     <div class="flex flex-col gap-4 mt-4">
       <div class="grid grid-cols-2 gap-4">
         <div>
@@ -279,6 +267,33 @@
   <div id="metaTemplateBar" class="studio-template-bar hidden" aria-label="Template metadata"><span class="studio-title">Aturan metadata saya</span><button type="button" id="metaSaveTemplate">Simpan pilihan hapus</button><button type="button" id="metaLoadTemplate">Gunakan aturan</button><button type="button" id="metaDeleteTemplate">Hapus aturan</button></div>
    <div id="metaPanel" class="hidden mt-4"></div>
 
+
+    <details id="inspectorDisclosure" class="studio-inspector-disclosure"><summary>Rincian pemeriksaan file <span>Metadata, privasi, dan integritas</span></summary>
+    <section class="studio-inspector" aria-labelledby="inspectorHeading">
+      <span class="studio-section-label">Inspector / on device</span>
+      <h3 id="inspectorHeading">Di dalam file ini</h3>
+      <p>Lihat metadata dan provenance sebelum membagikan berkas. Ini pemeriksaan, bukan jaminan anonim.</p>
+      <div id="inspectorContent" class="studio-inspector-state" role="status" aria-live="polite">Menunggu file…</div>
+      <details id="credentialsDetail"><summary>Content Credentials</summary><p id="credentialsContent">Belum diperiksa.</p></details>
+      <details id="tracesDetail"><summary>Detail metadata</summary><div id="traceList" class="studio-trace-list"></div></details>
+    </section>
+    <section id="integrityPanel" class="studio-integrity" aria-label="Pemeriksaan hasil" hidden>
+      <h4>Pemeriksaan hasil</h4><ul id="integrityList"></ul>
+    </section>
+    
+    </details>
+    <div id="shellBadges" class="flex flex-wrap gap-1.5 mt-2.5"></div>
+    <div id="shellDetect"></div>
+    <div class="shell-file-actions">
+      <button type="button" id="removeFileBtn" class="btn-remove">Buang file ini</button>
+      <button type="button" id="restartBtn" class="btn-ic min-h-[40px] px-3.5 rounded-full border font-semibold text-[13px]" style="border-color:var(--line);color:var(--muted)" title="Buang semua file dan kembali ke home" aria-label="Mulai ulang — buang semua file"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-rotate"/></svg>Mulai ulang</button>
+    </div></div></div>
+  </section>
+
+  <div class="studio-batch" id="batchControls" aria-label="Proses beberapa file">
+    <p id="batchSummary">Hasil file dan antrean akan ditampilkan di sini.</p>
+    <div><button type="button" id="batchRetry">Coba lagi yang gagal</button> <button type="button" id="batchCancel">Batalkan sisa antrean</button></div>
+  </div>
 
   </div><!-- /panel-cleaner -->
 
