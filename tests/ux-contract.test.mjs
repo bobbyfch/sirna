@@ -30,7 +30,8 @@ test('changed export options require apply; download never silently invokes shar
 test('adaptive hierarchy and no legacy hidden-panel override',async()=>{
   const css=await text('src/studio.css');
   const old=await text('src/style.css');
-  assert.match(css,/@media \(max-width:1050px\)/);
+  assert.match(css,/@media \(max-width:850px\)/);
+  assert.match(css,/@media \(min-width:601px\) and \(max-width:850px\)/);
   assert.match(css,/@media \(max-width:600px\)/);
   assert.match(css,/env\(safe-area-inset-bottom\)/);
   assert.doesNotMatch(old,/body\.has-files #panel-cleaner\{display:block !important\}/);
