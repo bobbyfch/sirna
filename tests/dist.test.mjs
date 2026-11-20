@@ -266,7 +266,7 @@ test('Bersihkan Label AI: logika scan/strip dipertahankan + copy §4.3', async (
   assert.match(appSrc, /function renderVersions\(item\)/);
   assert.match(appSrc, /data-v="/); // chip versi (dulu data-act="version")
   assert.match(out, /Versi:/);
-  assert.match(out, /ketuk untuk kembali/);
+  assert.match(out, /Selesai bandingkan/);
   assert.match(out, /Kembali ke versi /);
   assert.match(out, /Versi yang lebih baru tetap tersimpan/);
 });
